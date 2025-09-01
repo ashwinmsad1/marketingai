@@ -1,9 +1,13 @@
 import asyncio
 import json
+import logging
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
 import os
 import uuid
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 # Import our AI agents
 from photo_agent import poster_editor, image_creator
@@ -121,9 +125,25 @@ class EnhancedMarketingAutomationEngine:
             
             return results
             
+        except ValueError as e:
+            logger.error(f"Validation error in image campaign: {e}")
+            print(f"❌ Validation error: {str(e)}")
+            results['error'] = f'Validation error: {e}'
+            return results
+        except FileNotFoundError as e:
+            logger.error(f"File not found in image campaign: {e}")
+            print(f"❌ File not found: {str(e)}")
+            results['error'] = f'File not found: {e}'
+            return results
+        except PermissionError as e:
+            logger.error(f"Permission error in image campaign: {e}")
+            print(f"❌ Permission error: {str(e)}")
+            results['error'] = f'Permission error: {e}'
+            return results
         except Exception as e:
+            logger.error(f"Unexpected error in image campaign: {e}")
             print(f"❌ Campaign error: {str(e)}")
-            results['error'] = str(e)
+            results['error'] = f'Unexpected error: {e}'
             return results
     
     async def create_and_post_video_campaign(self, prompt: str, caption: str = "", style: str = "cinematic", aspect_ratio: str = "16:9") -> Dict[str, Any]:
@@ -175,9 +195,20 @@ class EnhancedMarketingAutomationEngine:
             
             return results
             
+        except ValueError as e:
+            logger.error(f"Validation error in video campaign: {e}")
+            print(f"❌ Validation error: {str(e)}")
+            results['error'] = f'Validation error: {e}'
+            return results
+        except FileNotFoundError as e:
+            logger.error(f"File not found in video campaign: {e}")
+            print(f"❌ File not found: {str(e)}")
+            results['error'] = f'File not found: {e}'
+            return results
         except Exception as e:
+            logger.error(f"Unexpected error in video campaign: {e}")
             print(f"❌ Campaign error: {str(e)}")
-            results['error'] = str(e)
+            results['error'] = f'Unexpected error: {e}'
             return results
     
     async def create_and_post_image_to_video_campaign(self, image_path: str, animation_prompt: str, caption: str = "", style: str = "cinematic") -> Dict[str, Any]:
@@ -234,9 +265,20 @@ class EnhancedMarketingAutomationEngine:
             
             return results
             
+        except ValueError as e:
+            logger.error(f"Validation error in image-to-video campaign: {e}")
+            print(f"❌ Validation error: {str(e)}")
+            results['error'] = f'Validation error: {e}'
+            return results
+        except FileNotFoundError as e:
+            logger.error(f"File not found in image-to-video campaign: {e}")
+            print(f"❌ File not found: {str(e)}")
+            results['error'] = f'File not found: {e}'
+            return results
         except Exception as e:
+            logger.error(f"Unexpected error in image-to-video campaign: {e}")
             print(f"❌ Campaign error: {str(e)}")
-            results['error'] = str(e)
+            results['error'] = f'Unexpected error: {e}'
             return results
     
     async def run_batch_campaigns(self, campaigns: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -305,7 +347,16 @@ class EnhancedMarketingAutomationEngine:
             print("📊 Retrieving campaign analytics...")
             insights = await self.facebook_agent.get_page_insights()
             return insights
+        except PermissionError as e:
+            logger.error(f"Permission error getting analytics: {e}")
+            print(f"❌ Permission error: {str(e)}")
+            return None
+        except ConnectionError as e:
+            logger.error(f"Connection error getting analytics: {e}")
+            print(f"❌ Connection error: {str(e)}")
+            return None
         except Exception as e:
+            logger.error(f"Unexpected error getting analytics: {e}")
             print(f"❌ Error getting analytics: {str(e)}")
             return None
     
@@ -347,9 +398,18 @@ class EnhancedMarketingAutomationEngine:
             result['industry_optimization'] = True
             return result
             
+        except ValueError as e:
+            logger.error(f"Validation error creating industry campaign: {e}")
+            print(f"❌ Validation error: {e}")
+            return {'success': False, 'error': f'Validation error: {e}'}
+        except KeyError as e:
+            logger.error(f"Configuration error creating industry campaign: {e}")
+            print(f"❌ Configuration error: {e}")
+            return {'success': False, 'error': f'Configuration error: {e}'}
         except Exception as e:
+            logger.error(f"Unexpected error creating industry campaign: {e}")
             print(f"❌ Error creating industry campaign: {e}")
-            return {'success': False, 'error': str(e)}
+            return {'success': False, 'error': f'Unexpected error: {e}'}
     
     async def create_viral_trend_campaign(self, user_id: str, industry: str = "general") -> Dict[str, Any]:
         """Create campaign based on current viral trends"""
@@ -375,9 +435,18 @@ class EnhancedMarketingAutomationEngine:
             
             return result
             
+        except ValueError as e:
+            logger.error(f"Validation error creating viral campaign: {e}")
+            print(f"❌ Validation error: {e}")
+            return {'success': False, 'error': f'Validation error: {e}'}
+        except ConnectionError as e:
+            logger.error(f"Connection error creating viral campaign: {e}")
+            print(f"❌ Connection error: {e}")
+            return {'success': False, 'error': f'Connection error: {e}'}
         except Exception as e:
+            logger.error(f"Unexpected error creating viral campaign: {e}")
             print(f"❌ Error creating viral campaign: {e}")
-            return {'success': False, 'error': str(e)}
+            return {'success': False, 'error': f'Unexpected error: {e}'}
     
     async def create_competitor_beating_campaign(self, competitor_url: str, competitor_name: str, 
                                                user_id: str) -> Dict[str, Any]:
@@ -415,9 +484,18 @@ class EnhancedMarketingAutomationEngine:
                 'social_posting': result
             }
             
+        except ValueError as e:
+            logger.error(f"Validation error creating competitor-beating campaign: {e}")
+            print(f"❌ Validation error: {e}")
+            return {'success': False, 'error': f'Validation error: {e}'}
+        except ConnectionError as e:
+            logger.error(f"Connection error creating competitor-beating campaign: {e}")
+            print(f"❌ Connection error: {e}")
+            return {'success': False, 'error': f'Connection error: {e}'}
         except Exception as e:
+            logger.error(f"Unexpected error creating competitor-beating campaign: {e}")
             print(f"❌ Error creating competitor-beating campaign: {e}")
-            return {'success': False, 'error': str(e)}
+            return {'success': False, 'error': f'Unexpected error: {e}'}
     
     async def track_conversion(self, campaign_id: str, conversion_type: str, 
                               value: float, customer_id: str = None) -> bool:
@@ -427,7 +505,12 @@ class EnhancedMarketingAutomationEngine:
                 campaign_id, conversion_type, value, customer_id
             )
             return bool(conversion_id)
+        except ValueError as e:
+            logger.error(f"Validation error tracking conversion: {e}")
+            print(f"❌ Validation error: {e}")
+            return False
         except Exception as e:
+            logger.error(f"Unexpected error tracking conversion: {e}")
             print(f"❌ Error tracking conversion: {e}")
             return False
     
@@ -444,9 +527,14 @@ class EnhancedMarketingAutomationEngine:
                 'conversion_count': roi_metrics.conversion_count,
                 'lifetime_value': roi_metrics.lifetime_value
             }
+        except ValueError as e:
+            logger.error(f"Validation error getting ROI: {e}")
+            print(f"❌ Validation error: {e}")
+            return {'error': f'Validation error: {e}'}
         except Exception as e:
+            logger.error(f"Unexpected error getting ROI: {e}")
             print(f"❌ Error getting ROI: {e}")
-            return {'error': str(e)}
+            return {'error': f'Unexpected error: {e}'}
     
     async def get_success_dashboard(self, user_id: str) -> Dict[str, Any]:
         """Get comprehensive success dashboard for user"""
@@ -476,9 +564,18 @@ class EnhancedMarketingAutomationEngine:
                 }
             }
             
+        except ValueError as e:
+            logger.error(f"Validation error generating dashboard: {e}")
+            print(f"❌ Validation error: {e}")
+            return {'error': f'Validation error: {e}'}
+        except ConnectionError as e:
+            logger.error(f"Connection error generating dashboard: {e}")
+            print(f"❌ Connection error: {e}")
+            return {'error': f'Connection error: {e}'}
         except Exception as e:
+            logger.error(f"Unexpected error generating dashboard: {e}")
             print(f"❌ Error generating dashboard: {e}")
-            return {'error': str(e)}
+            return {'error': f'Unexpected error: {e}'}
 
 # Helper functions for easy campaign creation
 async def quick_image_campaign(prompt: str, caption: str = "", user_id: str = "default_user", industry: str = "general"):

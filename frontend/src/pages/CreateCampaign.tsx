@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Zap,
   TrendingUp,
@@ -13,9 +13,16 @@ import {
   Camera,
   Video,
   Factory,
-  Flame
+  Flame,
+  Facebook,
+  Instagram,
+  DollarSign,
+  Users
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { metaService } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
+import toast from 'react-hot-toast';
 
 interface CampaignType {
   id: string;
@@ -28,15 +35,44 @@ interface CampaignType {
   estimatedROI: string;
 }
 
+interface MetaAccount {
+  id: string;
+  ad_account_id: string;
+  account_name: string;
+  currency: string;
+  timezone: string;
+  facebook_page_id?: string;
+  instagram_business_id?: string;
+  is_active: boolean;
+}
+
 const CreateCampaign: React.FC = () => {
+  const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [selectedType, setSelectedType] = useState<string>('');
   const [isCreating, setIsCreating] = useState(false);
+  const [metaAccounts, setMetaAccounts] = useState<MetaAccount[]>([]);
+  const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [formData, setFormData] = useState({
     type: '',
     prompt: '',
     caption: '',
     industry: '',
+    selectedMetaAccount: '',
+    budget: {
+      daily: 50,
+      total: 500
+    },
+    targeting: {
+      age_min: 18,
+      age_max: 65,
+      interests: [] as string[],
+      locations: [] as string[]
+    },
+    platforms: {
+      facebook: true,
+      instagram: false
+    },
     businessDetails: {
       business_name: '',
       signature_product: '',
@@ -46,6 +82,39 @@ const CreateCampaign: React.FC = () => {
     competitorUrl: '',
     competitorName: ''
   });
+
+  // Load Meta accounts on component mount
+  useEffect(() => {
+    if (user) {
+      loadMetaAccounts();
+    }
+  }, [user]);
+
+  const loadMetaAccounts = async () => {
+    try {
+      setLoadingAccounts(true);
+      const response = await metaService.getConnectedAccounts();
+      setMetaAccounts(response.data.accounts);
+      
+      // Auto-select first active account
+      const activeAccount = response.data.accounts.find((acc: MetaAccount) => acc.is_active);
+      if (activeAccount) {
+        setFormData(prev => ({
+          ...prev,
+          selectedMetaAccount: activeAccount.id,
+          platforms: {
+            facebook: true,
+            instagram: !!activeAccount.instagram_business_id
+          }
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to load Meta accounts:', error);
+      toast.error('Failed to load Meta accounts');
+    } finally {
+      setLoadingAccounts(false);
+    }
+  };
 
   const campaignTypes: CampaignType[] = [
     {

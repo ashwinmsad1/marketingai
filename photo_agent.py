@@ -1,5 +1,3 @@
-from dotenv import load_dotenv
-import os
 import asyncio
 from google import genai
 from google.genai import types
@@ -7,13 +5,14 @@ from PIL import Image
 from io import BytesIO
 import base64
 
-load_dotenv()
+from secure_config_manager import get_config
 
 class HyperrealisticPosterAgent:
     def __init__(self):
-        self.client = genai.Client(api_key=os.getenv("API_KEY"))
-        if not os.getenv("API_KEY"):
-            raise ValueError("API_KEY not found in environment variables")
+        api_key = get_config("GOOGLE_API_KEY")
+        self.client = genai.Client(api_key=api_key)
+        if not api_key:
+            raise ValueError("GOOGLE_API_KEY not found in configuration")
     
     def encode_image(self, image_path):
         """Encode image to base64 for API"""
@@ -100,9 +99,10 @@ async def image_creator(prompt, style="hyperrealistic poster"):
         str: Path to generated image file, or None if failed
     """
     try:
-        client = genai.Client(api_key=os.getenv("API_KEY"))
-        if not os.getenv("API_KEY"):
-            raise ValueError("API_KEY not found in environment variables")
+        api_key = get_config("GOOGLE_API_KEY")
+        client = genai.Client(api_key=api_key)
+        if not api_key:
+            raise ValueError("GOOGLE_API_KEY not found in configuration")
         
         # Enhanced prompt for image creation
         enhanced_prompt = f"""

@@ -3,11 +3,12 @@ FastAPI server for AI Marketing Automation Platform
 Connects React frontend to all backend systems
 """
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, BackgroundTasks
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, BackgroundTasks, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 from typing import Optional, List, Dict, Any, Union
 import asyncio
 import uuid
@@ -25,9 +26,30 @@ from revenue_tracking import RevenueAttributionEngine
 from performance_guarantees import PerformanceGuaranteeEngine
 from industry_templates import IndustryTemplateEngine
 from competitor_analyzer import CompetitorAnalyzer
-from viral_engine import ViralEngine
-from photo_agent import PhotoAgent
-from video_agent import VideoAgent
+from viral_engine import ViralContentEngine
+from photo_agent import image_creator, poster_editor
+from video_agent import video_from_prompt, video_from_image
+
+# Import service layer
+from services import CampaignService, MediaService, AnalyticsService, UserService
+
+# Import database
+from database import get_db, init_db, check_db_connection, SessionLocal
+from database.models import (
+    User, Subscription, Campaign, AIContent, MetaAccount,
+    Analytics, Conversion, UsageTracking, SubscriptionTier,
+    CampaignStatus, ContentType, ConversionType
+)
+from database.crud import UserCRUD, SubscriptionCRUD, CampaignCRUD, AIContentCRUD, ConversionCRUD, AnalyticsCRUD
+
+# Import authentication
+from auth import JWTHandler, PasswordHandler, get_current_user, get_current_active_user
+from auth.models import (
+    UserRegister, UserLogin, Token, AuthResponse, MessageResponse,
+    PasswordReset, PasswordResetConfirm, PasswordChange, UserProfile,
+    UserUpdate, EmailVerification
+)
+from auth.email_handler import EmailHandler
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -36,9 +58,28 @@ logger = logging.getLogger(__name__)
 # Create FastAPI app
 app = FastAPI(
     title="AI Marketing Automation API",
-    description="Advanced AI-powered marketing automation platform",
+    description="Advanced AI-powered marketing automation platform with PostgreSQL backend",
     version="1.0.0"
 )
+
+# Initialize database on startup
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database connection and tables on startup"""
+    logger.info("Starting up AI Marketing Automation API...")
+    
+    # Check database connection
+    if not check_db_connection():
+        logger.error("Failed to connect to database")
+        raise HTTPException(status_code=500, detail="Database connection failed")
+    
+    # Initialize database tables
+    try:
+        init_db()
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.error(f"Database initialization failed: {e}")
+        raise HTTPException(status_code=500, detail="Database initialization failed")
 
 # CORS middleware for React frontend
 app.add_middleware(
@@ -62,9 +103,21 @@ revenue_engine = RevenueAttributionEngine()
 performance_engine = PerformanceGuaranteeEngine()
 template_engine = IndustryTemplateEngine()
 competitor_analyzer = CompetitorAnalyzer()
-viral_engine = ViralEngine()
-photo_agent = PhotoAgent()
-video_agent = VideoAgent()
+viral_engine = ViralContentEngine()
+
+# Initialize service layer
+campaign_service = CampaignService()
+media_service = MediaService()
+analytics_service = AnalyticsService()
+user_service = UserService()
+
+# Include authentication routes
+from auth.routes import router as auth_router
+app.include_router(auth_router)
+
+# Include Meta integration routes
+from auth.meta_routes import router as meta_router
+app.include_router(meta_router)
 
 # Pydantic models for API requests/responses
 class CampaignCreateRequest(BaseModel):
@@ -103,14 +156,9 @@ class ConversionTrackingRequest(BaseModel):
     customer_id: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
 
-class User(BaseModel):
-    id: str
-    email: str
-    name: str
-    subscription_tier: str
-    industry: Optional[str] = None
+# Remove duplicate model definitions - using auth models instead
 
-class Campaign(BaseModel):
+class CampaignResponse(BaseModel):
     campaign_id: str
     user_id: str
     name: str
@@ -125,20 +173,8 @@ class Campaign(BaseModel):
     created_file: Optional[str] = None
     prompt: Optional[str] = None
 
-# Mock user data (in production, this would come from a database)
-MOCK_USERS = {
-    "default_user": {
-        "id": "default_user",
-        "name": "John Doe",
-        "email": "john@example.com",
-        "subscription_tier": "professional",
-        "industry": "Restaurant"
-    }
-}
-
-# In-memory storage (in production, use proper database)
-campaigns_db = {}
-media_db = {}
+# Database storage - using PostgreSQL via CRUD operations
+# No more in-memory storage needed
 
 # Root endpoint
 @app.get("/")
@@ -176,55 +212,60 @@ async def health_check():
 
 # User Management
 @app.get("/api/users/{user_id}")
-async def get_user(user_id: str):
-    if user_id not in MOCK_USERS:
-        raise HTTPException(status_code=404, detail="User not found")
-    return MOCK_USERS[user_id]
+async def get_user(
+    user_id: str, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get user by ID using user service - requires authentication"""
+    # Users can only access their own profile
+    if current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    try:
+        return user_service.get_user_profile(db, user_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error getting user: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get user")
 
 @app.get("/api/users/{user_id}/dashboard")
-async def get_user_dashboard(user_id: str):
-    """Get dashboard data for user"""
+async def get_user_dashboard(
+    user_id: str, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get dashboard data for user using analytics service - requires authentication"""
+    # Users can only access their own dashboard
+    if current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
     try:
-        # Get campaigns for user
-        user_campaigns = [c for c in campaigns_db.values() if c.get("user_id") == user_id]
-        
-        # Calculate summary metrics
-        total_campaigns = len(user_campaigns)
-        total_revenue = sum(c.get("revenue", 0) for c in user_campaigns)
-        total_spend = sum(c.get("spend", 0) for c in user_campaigns)
-        overall_roi = (total_revenue / total_spend * 100) if total_spend > 0 else 0
-        
-        dashboard_data = {
-            "user_id": user_id,
-            "generated_at": datetime.now().isoformat(),
-            "success_summary": {
-                "total_campaigns": total_campaigns,
-                "total_revenue": total_revenue,
-                "overall_roi": overall_roi,
-                "guarantee_success_rate": 92.3
-            },
-            "recent_campaigns": user_campaigns[-5:] if user_campaigns else []
-        }
-        
-        return dashboard_data
-        
+        return analytics_service.get_user_dashboard_data(db, user_id)
     except Exception as e:
         logger.error(f"Error getting dashboard data: {e}")
         raise HTTPException(status_code=500, detail="Failed to get dashboard data")
 
 # Campaign Management
 @app.post("/api/campaigns")
-async def create_campaign(request: CampaignCreateRequest, background_tasks: BackgroundTasks):
-    """Create a new marketing campaign"""
+async def create_campaign(
+    request: CampaignCreateRequest, 
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Create a new marketing campaign - requires authentication"""
     try:
         campaign_id = str(uuid.uuid4())
         
-        logger.info(f"Creating campaign: {request.type} for user {request.user_id}")
+        # Use authenticated user ID instead of request user ID
+        user_id = current_user.id
+        logger.info(f"Creating campaign: {request.type} for user {user_id}")
         
         # Create campaign based on type
         if request.type == "viral":
             campaign_result = await viral_engine.generate_viral_campaign(
-                user_id=request.user_id,
+                user_id=user_id,
                 industry=request.industry or "general"
             )
             
@@ -235,7 +276,7 @@ async def create_campaign(request: CampaignCreateRequest, background_tasks: Back
             campaign_result = await marketing_engine.create_industry_optimized_campaign(
                 industry=request.industry or "general",
                 business_details=request.business_details,
-                user_id=request.user_id
+                user_id=user_id
             )
             
         elif request.type == "competitor_beating":
@@ -250,12 +291,12 @@ async def create_campaign(request: CampaignCreateRequest, background_tasks: Back
             
             campaign_result = await competitor_analyzer.generate_competitive_campaign(
                 competitor_content_id=competitor_id,
-                user_id=request.user_id
+                user_id=user_id
             )
             
         elif request.type == "image":
             # Generate image campaign
-            image_result = await photo_agent.generate_poster_async(
+            image_result = await image_creator(
                 prompt=request.prompt,
                 style=request.style or "professional marketing poster"
             )
@@ -275,9 +316,8 @@ async def create_campaign(request: CampaignCreateRequest, background_tasks: Back
             
         elif request.type == "video":
             # Generate video campaign
-            video_result = await video_agent.generate_video_async(
+            video_result = await video_from_prompt(
                 prompt=request.prompt,
-                duration=30,
                 style="marketing commercial"
             )
             
@@ -299,35 +339,44 @@ async def create_campaign(request: CampaignCreateRequest, background_tasks: Back
             campaign_result = await marketing_engine.create_campaign(
                 prompt=request.prompt,
                 campaign_type=request.type,
-                user_id=request.user_id
+                user_id=user_id
             )
         
-        # Store campaign in database
-        campaign_data = {
-            "campaign_id": campaign_id,
-            "user_id": request.user_id,
-            "name": campaign_result.get("name", f"{request.type.title()} Campaign"),
-            "type": request.type,
-            "status": "active",
-            "created_at": datetime.now().isoformat(),
-            "updated_at": datetime.now().isoformat(),
+        # Store campaign using campaign service with proper session handling
+        campaign_name = campaign_result.get("name", f"{request.type.title()} Campaign")
+        
+        # Use campaign service to create campaign with proper database handling
+        campaign_data_input = {
+            "name": campaign_name,
             "prompt": request.prompt,
             "created_file": campaign_result.get("created_file"),
-            "spend": 0.0,
-            "revenue": 0.0,
-            "roi": 0.0,
-            "ctr": campaign_result.get("performance_metrics", {}).get("estimated_ctr", 0.0),
-            "performance_status": "pending"
+            "estimated_ctr": campaign_result.get("performance_metrics", {}).get("estimated_ctr", 0.0),
+            "industry": request.industry
         }
         
-        campaigns_db[campaign_id] = campaign_data
+        # Create database session manually for this specific operation
+        db = SessionLocal()
+        try:
+            campaign_response_data = await campaign_service.create_campaign(
+                db,
+                user_id=user_id,
+                campaign_data=campaign_data_input,
+                campaign_type=request.type
+            )
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+        
+        campaign_data = campaign_response_data
         
         # Start performance monitoring in background
-        background_tasks.add_task(monitor_campaign_performance, campaign_id)
+        background_tasks.add_task(monitor_campaign_performance, campaign_data["campaign_id"])
         
         return {
             "success": True,
-            "campaign_id": campaign_id,
+            "campaign_id": campaign_data["campaign_id"],
             "data": campaign_data,
             "message": f"Successfully created {request.type} campaign"
         }
@@ -337,20 +386,19 @@ async def create_campaign(request: CampaignCreateRequest, background_tasks: Back
         raise HTTPException(status_code=500, detail=f"Failed to create campaign: {str(e)}")
 
 @app.get("/api/campaigns")
-async def get_campaigns(user_id: Optional[str] = "default_user", limit: int = 50):
-    """Get campaigns for a user"""
+async def get_campaigns(
+    limit: int = 50, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get campaigns for authenticated user from database"""
     try:
-        user_campaigns = [
-            c for c in campaigns_db.values() 
-            if c.get("user_id") == user_id
-        ]
-        
-        # Sort by creation date (newest first)
-        user_campaigns.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        # Use campaign service to get campaigns
+        user_campaigns = campaign_service.get_user_campaigns(db, current_user.id, limit=limit)
         
         return {
             "success": True,
-            "data": user_campaigns[:limit],
+            "data": user_campaigns,
             "total": len(user_campaigns)
         }
         
@@ -359,131 +407,170 @@ async def get_campaigns(user_id: Optional[str] = "default_user", limit: int = 50
         raise HTTPException(status_code=500, detail="Failed to get campaigns")
 
 @app.get("/api/campaigns/{campaign_id}")
-async def get_campaign(campaign_id: str):
-    """Get specific campaign details"""
-    if campaign_id not in campaigns_db:
-        raise HTTPException(status_code=404, detail="Campaign not found")
-    
-    campaign = campaigns_db[campaign_id]
-    
-    # Get performance metrics from performance engine
+async def get_campaign(
+    campaign_id: str, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get specific campaign details from database - requires authentication"""
     try:
-        performance_metrics = await performance_engine.get_campaign_performance(campaign_id)
-        campaign["performance_metrics"] = performance_metrics
-    except:
-        pass
+        # Use campaign service to get campaign with performance metrics and access control
+        campaign_data = await campaign_service.get_campaign_with_performance(db, campaign_id)
         
-    return {"success": True, "data": campaign}
+        # Verify user has access to this campaign
+        if campaign_data["user_id"] != current_user.id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        return {"success": True, "data": campaign_data}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 @app.delete("/api/campaigns/{campaign_id}")
-async def delete_campaign(campaign_id: str):
-    """Delete a campaign"""
-    if campaign_id not in campaigns_db:
-        raise HTTPException(status_code=404, detail="Campaign not found")
-    
-    del campaigns_db[campaign_id]
-    return {"success": True, "message": "Campaign deleted successfully"}
+async def delete_campaign(
+    campaign_id: str, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Delete a campaign from database - requires authentication"""
+    try:
+        # First check if campaign exists and user has access
+        campaign = CampaignCRUD.get_campaign(db, campaign_id)
+        if not campaign:
+            raise HTTPException(status_code=404, detail="Campaign not found")
+        
+        # Users can only delete their own campaigns
+        if campaign.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Use campaign service to delete campaign
+        success = campaign_service.delete_campaign(db, campaign_id)
+        if success:
+            return {"success": True, "message": "Campaign deleted successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to delete campaign")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting campaign: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete campaign")
 
 # Media Generation
 @app.post("/api/media/images/generate")
-async def generate_image(request: ImageGenerationRequest):
-    """Generate marketing images using AI"""
+async def generate_image(
+    request: ImageGenerationRequest,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Generate marketing images using AI - requires authentication"""
     try:
         logger.info(f"Generating image: {request.prompt}")
         
-        # Generate multiple images if requested
-        generated_images = []
-        
-        for i in range(request.iterations):
-            result = await photo_agent.generate_poster_async(
+        # Create database session manually for this operation
+        db = SessionLocal()
+        try:
+            # Use media service to generate images
+            generated_images = await media_service.generate_images(
+                db,
+                user_id=current_user.id,
                 prompt=request.prompt,
-                style=f"{request.style} marketing image, {request.aspect_ratio} aspect ratio"
+                style=request.style,
+                aspect_ratio=request.aspect_ratio,
+                iterations=request.iterations
             )
             
-            if result.get("success") and result.get("image_path"):
-                image_id = str(uuid.uuid4())
-                media_entry = {
-                    "id": image_id,
-                    "type": "image",
-                    "url": f"/uploads/{os.path.basename(result['image_path'])}",
-                    "prompt": request.prompt,
-                    "style": request.style,
-                    "aspect_ratio": request.aspect_ratio,
-                    "created_at": datetime.now().isoformat(),
-                    "file_path": result["image_path"]
-                }
-                
-                media_db[image_id] = media_entry
-                generated_images.append(media_entry)
-        
-        if not generated_images:
-            raise HTTPException(status_code=500, detail="Failed to generate any images")
-            
-        return {
-            "success": True,
-            "data": {
-                "images": generated_images,
-                "count": len(generated_images)
-            },
-            "message": f"Successfully generated {len(generated_images)} images"
-        }
+            return {
+                "success": True,
+                "data": {
+                    "images": generated_images,
+                    "count": len(generated_images)
+                },
+                "message": f"Successfully generated {len(generated_images)} images"
+            }
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
         
     except Exception as e:
         logger.error(f"Error generating image: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to generate image: {str(e)}")
 
 @app.post("/api/media/videos/generate")
-async def generate_video(request: VideoGenerationRequest):
-    """Generate marketing videos using AI"""
+async def generate_video(
+    request: VideoGenerationRequest,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Generate marketing videos using AI - requires authentication"""
     try:
         logger.info(f"Generating video: {request.prompt}")
         
-        result = await video_agent.generate_video_async(
-            prompt=request.prompt,
-            duration=request.duration,
-            style=f"{request.style} marketing video, {request.aspect_ratio} format"
-        )
-        
-        if not result.get("success") or not result.get("video_path"):
-            raise HTTPException(status_code=500, detail="Failed to generate video")
-        
-        video_id = str(uuid.uuid4())
-        media_entry = {
-            "id": video_id,
-            "type": "video",
-            "url": f"/uploads/{os.path.basename(result['video_path'])}",
-            "thumbnail": result.get("thumbnail_path", ""),
-            "prompt": request.prompt,
-            "style": request.style,
-            "duration": request.duration,
-            "aspect_ratio": request.aspect_ratio,
-            "created_at": datetime.now().isoformat(),
-            "file_path": result["video_path"]
-        }
-        
-        media_db[video_id] = media_entry
-        
-        return {
-            "success": True,
-            "data": media_entry,
-            "message": "Successfully generated marketing video"
-        }
+        # Create database session manually for this operation
+        db = SessionLocal()
+        try:
+            # Use media service to generate video
+            media_entry = await media_service.generate_video(
+                db,
+                user_id=current_user.id,
+                prompt=request.prompt,
+                style=request.style,
+                duration=request.duration,
+                aspect_ratio=request.aspect_ratio
+            )
+            
+            return {
+                "success": True,
+                "data": media_entry,
+                "message": "Successfully generated marketing video"
+            }
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
         
     except Exception as e:
         logger.error(f"Error generating video: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to generate video: {str(e)}")
 
 @app.get("/api/media")
-async def get_media(user_id: Optional[str] = "default_user", media_type: Optional[str] = None):
-    """Get generated media for user"""
+async def get_media(
+    media_type: Optional[str] = None, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get generated media for authenticated user from database"""
     try:
-        user_media = list(media_db.values())
-        
+        # Convert media_type string to ContentType enum
+        content_type = None
         if media_type:
-            user_media = [m for m in user_media if m.get("type") == media_type]
+            try:
+                content_type = ContentType(media_type.lower())
+            except ValueError:
+                pass
         
-        # Sort by creation date (newest first)
-        user_media.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        # Get authenticated user's AI-generated content from database
+        ai_content_list = AIContentCRUD.get_user_content(db, current_user.id, content_type=content_type, limit=100)
+        
+        # Convert to API response format
+        user_media = []
+        for content in ai_content_list:
+            media_entry = {
+                "id": content.id,
+                "type": content.content_type.value,
+                "url": content.file_url or f"/uploads/{os.path.basename(content.file_path or '')}",
+                "prompt": content.prompt,
+                "style": content.style,
+                "created_at": content.created_at.isoformat(),
+                "file_path": content.file_path
+            }
+            
+            # Add type-specific fields
+            if content.content_type == ContentType.VIDEO:
+                media_entry["duration"] = content.duration
+            if content.aspect_ratio:
+                media_entry["aspect_ratio"] = content.aspect_ratio
+                
+            user_media.append(media_entry)
         
         return {
             "success": True,
@@ -497,9 +584,10 @@ async def get_media(user_id: Optional[str] = "default_user", media_type: Optiona
 
 # Performance Tracking
 @app.post("/api/tracking/conversion")
-async def track_conversion(request: ConversionTrackingRequest):
-    """Track a conversion for revenue attribution"""
+async def track_conversion(request: ConversionTrackingRequest, db: Session = Depends(get_db)):
+    """Track a conversion for revenue attribution using database"""
     try:
+        # Use revenue engine to track conversion (now uses PostgreSQL)
         conversion_id = await revenue_engine.track_conversion(
             campaign_id=request.campaign_id,
             conversion_type=request.conversion_type,
@@ -507,16 +595,25 @@ async def track_conversion(request: ConversionTrackingRequest):
             customer_id=request.customer_id
         )
         
-        # Update campaign metrics
-        if request.campaign_id in campaigns_db:
-            campaign = campaigns_db[request.campaign_id]
-            campaign["revenue"] = campaign.get("revenue", 0) + request.value
-            campaign["conversions"] = campaign.get("conversions", 0) + 1
+        # Update campaign performance metrics in database
+        campaign = CampaignCRUD.get_campaign(db, request.campaign_id)
+        if campaign:
+            # Get all conversions for this campaign to calculate totals
+            conversions = ConversionCRUD.get_campaign_conversions(db, request.campaign_id)
+            total_revenue = sum(c.value for c in conversions if c.value)
+            conversion_count = len(conversions)
             
-            # Recalculate ROI
-            spend = campaign.get("spend", 0)
-            if spend > 0:
-                campaign["roi"] = (campaign["revenue"] / spend) * 100
+            # Update campaign with new metrics
+            CampaignCRUD.update_campaign_performance(
+                db, 
+                request.campaign_id,
+                {"conversions": conversion_count}
+            )
+            
+            # Recalculate ROAS (Return on Ad Spend)
+            if campaign.spend and campaign.spend > 0:
+                roas = total_revenue / campaign.spend
+                CampaignCRUD.update_campaign(db, request.campaign_id, roas=roas)
         
         return {
             "success": True,
@@ -529,18 +626,38 @@ async def track_conversion(request: ConversionTrackingRequest):
         raise HTTPException(status_code=500, detail="Failed to track conversion")
 
 @app.get("/api/analytics/dashboard/{user_id}")
-async def get_analytics_dashboard(user_id: str):
-    """Get analytics dashboard data"""
+async def get_analytics_dashboard(
+    user_id: str, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get analytics dashboard data from database - requires authentication"""
+    # Users can only access their own analytics
+    if current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
     try:
-        user_campaigns = [c for c in campaigns_db.values() if c.get("user_id") == user_id]
+        # Get analytics summary from database
+        analytics_summary = AnalyticsCRUD.get_user_analytics_summary(db, user_id, days=30)
         
-        # Calculate analytics
+        # Get campaigns for additional calculations
+        user_campaigns = CampaignCRUD.get_user_campaigns(db, user_id, limit=100)
+        
+        # Get revenue attribution data
+        revenue_attribution = ConversionCRUD.get_revenue_attribution(db, user_id, days=30)
+        
+        # Calculate additional metrics
         total_campaigns = len(user_campaigns)
-        total_revenue = sum(c.get("revenue", 0) for c in user_campaigns)
-        total_spend = sum(c.get("spend", 0) for c in user_campaigns)
-        total_conversions = sum(c.get("conversions", 0) for c in user_campaigns)
-        overall_roi = (total_revenue / total_spend * 100) if total_spend > 0 else 0
-        avg_ctr = sum(c.get("ctr", 0) for c in user_campaigns) / total_campaigns if total_campaigns > 0 else 0
+        total_revenue = analytics_summary.get('revenue', 0)
+        total_spend = analytics_summary.get('spend', 0)
+        total_conversions = analytics_summary.get('conversions', 0)
+        overall_roi = ((total_revenue - total_spend) / total_spend * 100) if total_spend > 0 else 0
+        avg_ctr = analytics_summary.get('ctr', 0)
+        
+        # Find top performing campaign
+        top_campaign = ""
+        if revenue_attribution:
+            top_campaign = max(revenue_attribution, key=lambda x: x['revenue'])['campaign_name']
         
         analytics_data = {
             "overview": {
@@ -549,19 +666,14 @@ async def get_analytics_dashboard(user_id: str):
                 "overall_roi": overall_roi,
                 "total_conversions": total_conversions,
                 "avg_ctr": avg_ctr,
-                "top_performing_campaign": max(user_campaigns, key=lambda c: c.get("revenue", 0))["name"] if user_campaigns else ""
+                "top_performing_campaign": top_campaign
             },
-            "revenue_by_campaign": [
-                {
-                    "name": c["name"],
-                    "revenue": c.get("revenue", 0),
-                    "spend": c.get("spend", 0),
-                    "roi": c.get("roi", 0)
-                }
-                for c in sorted(user_campaigns, key=lambda x: x.get("revenue", 0), reverse=True)[:10]
-            ],
-            "performance_trends": [],  # Would calculate time-series data in production
-            "campaign_types": {}  # Would group by campaign types
+            "revenue_by_campaign": revenue_attribution[:10],  # Top 10 campaigns
+            "performance_trends": [],  # Would implement time-series analysis
+            "campaign_types": {
+                "total_campaigns": total_campaigns,
+                "active_campaigns": len([c for c in user_campaigns if c.status == CampaignStatus.ACTIVE])
+            }
         }
         
         return {"success": True, "data": analytics_data}
@@ -606,23 +718,38 @@ async def get_viral_opportunities():
 
 # Background task for campaign monitoring
 async def monitor_campaign_performance(campaign_id: str):
-    """Monitor campaign performance and optimize if needed"""
+    """Monitor campaign performance and optimize if needed using database"""
     try:
         await asyncio.sleep(300)  # Wait 5 minutes before first check
         
-        # Check performance and optimize if needed
-        optimization_result = await performance_engine.auto_optimize_campaign(
-            campaign_id=campaign_id,
-            user_id=campaigns_db[campaign_id]["user_id"]
-        )
-        
-        if optimization_result.get("optimized"):
-            logger.info(f"Campaign {campaign_id} automatically optimized")
+        # Get campaign from database with proper session management
+        db = SessionLocal()
+        try:
+            campaign = CampaignCRUD.get_campaign(db, campaign_id)
+            if not campaign:
+                logger.warning(f"Campaign {campaign_id} not found for monitoring")
+                return
             
-            # Update campaign status
-            if campaign_id in campaigns_db:
-                campaigns_db[campaign_id]["performance_status"] = "optimized"
-                campaigns_db[campaign_id]["updated_at"] = datetime.now().isoformat()
+            # Check performance and optimize if needed
+            optimization_result = await performance_engine.auto_optimize_campaign(
+                campaign_id=campaign_id,
+                user_id=campaign.user_id
+            )
+            
+            if optimization_result.get("optimized"):
+                logger.info(f"Campaign {campaign_id} automatically optimized")
+                
+                # Update campaign status in database
+                CampaignCRUD.update_campaign(
+                    db,
+                    campaign_id, 
+                    description=f"{campaign.description} [Auto-optimized: {datetime.now().isoformat()}]"
+                )
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Error in campaign monitoring database operation: {e}")
+        finally:
+            db.close()
                 
     except Exception as e:
         logger.error(f"Error monitoring campaign {campaign_id}: {e}")

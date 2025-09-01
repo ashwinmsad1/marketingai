@@ -7,9 +7,16 @@ from dotenv import load_dotenv
 import os
 import asyncio
 import json
+import logging
 from typing import Optional, Dict, Any, List, Tuple
 from datetime import datetime, timedelta
 import time
+from concurrent.futures import ThreadPoolExecutor
+
+# Configure logging
+logger = logging.getLogger(__name__)
+
+from secure_config_manager import get_config, ConfigurationError
 
 try:
     from facebook_business.api import FacebookAdsApi
@@ -45,6 +52,9 @@ class MetaAdsAutomationEngine:
             self.account = AdAccount(f'act_{self.ad_account_id}')
         else:
             raise ValueError("Missing required Meta API credentials in environment variables")
+        
+        # Thread pool for blocking operations
+        self._thread_pool = ThreadPoolExecutor(max_workers=4)
     
     # CAMPAIGN OBJECTIVES MAPPING
     CAMPAIGN_OBJECTIVES = {
@@ -124,55 +134,80 @@ class MetaAdsAutomationEngine:
             
             return results
             
+        except ValueError as e:
+            logger.error(f"Validation error in campaign creation: {e}")
+            print(f"❌ Validation error: {str(e)}")
+            results['error'] = f'Validation error: {e}'
+            return results
         except Exception as e:
+            logger.error(f"Unexpected error in campaign creation: {e}")
             print(f"❌ Campaign creation failed: {str(e)}")
-            results['error'] = str(e)
+            results['error'] = f'Unexpected error: {e}'
             return results
     
     async def _create_campaign(self, config: Dict[str, Any]) -> Dict[str, str]:
-        """Create Meta advertising campaign"""
-        objective = self.CAMPAIGN_OBJECTIVES.get(config['objective'], Campaign.Objective.outcome_sales)
-        
-        campaign = self.account.create_campaign(
-            fields=[],
-            params={
-                Campaign.Field.name: config['name'],
-                Campaign.Field.objective: objective,
-                Campaign.Field.status: Campaign.Status.paused,  # Start paused for safety
-                Campaign.Field.buying_type: Campaign.BuyingType.auction,
-            }
-        )
-        return campaign
+        """Create Meta advertising campaign with proper async handling"""
+        try:
+            objective = self.CAMPAIGN_OBJECTIVES.get(config['objective'], Campaign.Objective.outcome_sales)
+            
+            # Run blocking Facebook API call in thread pool
+            loop = asyncio.get_event_loop()
+            campaign = await loop.run_in_executor(
+                self._thread_pool,
+                lambda: self.account.create_campaign(
+                    fields=[],
+                    params={
+                        Campaign.Field.name: config['name'],
+                        Campaign.Field.objective: objective,
+                        Campaign.Field.status: Campaign.Status.paused,  # Start paused for safety
+                        Campaign.Field.buying_type: Campaign.BuyingType.auction,
+                    }
+                )
+            )
+            return campaign
+            
+        except Exception as e:
+            logger.error(f"Failed to create campaign: {e}")
+            raise ValueError(f"Campaign creation failed: {e}")
     
     async def _create_adset(self, campaign_id: str, config: Dict[str, Any], platform: str) -> Dict[str, str]:
-        """Create optimized ad set for specific platform"""
-        
-        # Platform-specific targeting and placements
-        targeting = config['targeting'].copy()
-        targeting['publisher_platforms'] = [platform]
-        
-        # Set platform-specific placements
-        if platform == 'facebook':
-            targeting['facebook_positions'] = config.get('facebook_placements', ['feed', 'right_hand_column'])
-        elif platform == 'instagram':
-            targeting['instagram_positions'] = config.get('instagram_placements', ['stream', 'story', 'explore'])
-        
-        adset = self.account.create_ad_set(
-            fields=[],
-            params={
-                AdSet.Field.name: f"{config['name']} - {platform.upper()}",
-                AdSet.Field.campaign_id: campaign_id,
-                AdSet.Field.daily_budget: int(config['daily_budget'] * 100),  # Convert to cents
-                AdSet.Field.targeting: targeting,
-                AdSet.Field.billing_event: AdSet.BillingEvent.impressions,
-                AdSet.Field.optimization_goal: config.get('optimization_goal', AdSet.OptimizationGoal.link_clicks),
-                AdSet.Field.status: AdSet.Status.active,
-            }
-        )
-        return adset
+        """Create optimized ad set for specific platform with proper async handling"""
+        try:
+            # Platform-specific targeting and placements
+            targeting = config['targeting'].copy()
+            targeting['publisher_platforms'] = [platform]
+            
+            # Set platform-specific placements
+            if platform == 'facebook':
+                targeting['facebook_positions'] = config.get('facebook_placements', ['feed', 'right_hand_column'])
+            elif platform == 'instagram':
+                targeting['instagram_positions'] = config.get('instagram_placements', ['stream', 'story', 'explore'])
+            
+            # Run blocking Facebook API call in thread pool
+            loop = asyncio.get_event_loop()
+            adset = await loop.run_in_executor(
+                self._thread_pool,
+                lambda: self.account.create_ad_set(
+                    fields=[],
+                    params={
+                        AdSet.Field.name: f"{config['name']} - {platform.upper()}",
+                        AdSet.Field.campaign_id: campaign_id,
+                        AdSet.Field.daily_budget: int(config['daily_budget'] * 100),  # Convert to cents
+                        AdSet.Field.targeting: targeting,
+                        AdSet.Field.billing_event: AdSet.BillingEvent.impressions,
+                        AdSet.Field.optimization_goal: config.get('optimization_goal', AdSet.OptimizationGoal.link_clicks),
+                        AdSet.Field.status: AdSet.Status.active,
+                    }
+                )
+            )
+            return adset
+            
+        except Exception as e:
+            logger.error(f"Failed to create adset for {platform}: {e}")
+            raise ValueError(f"Adset creation failed: {e}")
     
     async def _create_creative(self, asset_config: Dict[str, Any], platform: str, index: int) -> Optional[Dict[str, str]]:
-        """Create platform-optimized ad creative"""
+        """Create platform-optimized ad creative with proper async handling"""
         try:
             creative_spec = {
                 'name': f"Creative_{platform}_{index+1}",
@@ -181,12 +216,18 @@ class MetaAdsAutomationEngine:
                 }
             }
             
+            loop = asyncio.get_event_loop()
+            
             # Handle different asset types
             if asset_config['type'] == 'image':
-                # Upload image first
-                image = AdImage(parent_id=self.account.get_id())
-                image[AdImage.Field.filename] = asset_config['path']
-                image.remote_create()
+                # Upload image first in thread pool
+                def upload_image():
+                    image = AdImage(parent_id=self.account.get_id())
+                    image[AdImage.Field.filename] = asset_config['path']
+                    image.remote_create()
+                    return image
+                
+                image = await loop.run_in_executor(self._thread_pool, upload_image)
                 
                 creative_spec['object_story_spec']['link_data'] = {
                     'image_hash': image[AdImage.Field.hash],
@@ -199,10 +240,14 @@ class MetaAdsAutomationEngine:
                 }
                 
             elif asset_config['type'] == 'video':
-                # Upload video first
-                video = AdVideo(parent_id=self.account.get_id())
-                video[AdVideo.Field.filename] = asset_config['path']
-                video.remote_create()
+                # Upload video first in thread pool
+                def upload_video():
+                    video = AdVideo(parent_id=self.account.get_id())
+                    video[AdVideo.Field.filename] = asset_config['path']
+                    video.remote_create()
+                    return video
+                
+                video = await loop.run_in_executor(self._thread_pool, upload_video)
                 
                 creative_spec['object_story_spec']['video_data'] = {
                     'video_id': video['id'],
@@ -213,32 +258,47 @@ class MetaAdsAutomationEngine:
                     }
                 }
             
-            creative = self.account.create_ad_creative(
-                fields=[],
-                params=creative_spec
+            # Create creative in thread pool
+            creative = await loop.run_in_executor(
+                self._thread_pool,
+                lambda: self.account.create_ad_creative(
+                    fields=[],
+                    params=creative_spec
+                )
             )
             
             return creative
             
+        except FileNotFoundError as e:
+            logger.error(f"Asset file not found for creative creation: {e}")
+            print(f"❌ Asset file not found: {str(e)}")
+            return None
         except Exception as e:
+            logger.error(f"Creative creation failed: {e}")
             print(f"❌ Creative creation failed: {str(e)}")
             return None
     
     async def _create_ad(self, adset_id: str, creative_id: str, ad_name: str) -> Optional[Dict[str, str]]:
-        """Create individual ad"""
+        """Create individual ad with proper async handling"""
         try:
-            ad = self.account.create_ad(
-                fields=[],
-                params={
-                    Ad.Field.name: ad_name,
-                    Ad.Field.adset_id: adset_id,
-                    Ad.Field.creative: {'creative_id': creative_id},
-                    Ad.Field.status: Ad.Status.active,
-                }
+            # Run blocking Facebook API call in thread pool
+            loop = asyncio.get_event_loop()
+            ad = await loop.run_in_executor(
+                self._thread_pool,
+                lambda: self.account.create_ad(
+                    fields=[],
+                    params={
+                        Ad.Field.name: ad_name,
+                        Ad.Field.adset_id: adset_id,
+                        Ad.Field.creative: {'creative_id': creative_id},
+                        Ad.Field.status: Ad.Status.active,
+                    }
+                )
             )
             return ad
             
         except Exception as e:
+            logger.error(f"Ad creation failed: {e}")
             print(f"❌ Ad creation failed: {str(e)}")
             return None
     
@@ -292,27 +352,33 @@ class MetaAdsAutomationEngine:
         return message
     
     async def get_campaign_insights(self, campaign_id: str, days: int = 7) -> Dict[str, Any]:
-        """Get detailed campaign performance analytics"""
+        """Get detailed campaign performance analytics with proper async handling"""
         try:
-            campaign = Campaign(campaign_id)
-            insights = campaign.get_insights(
-                fields=[
-                    'impressions',
-                    'clicks', 
-                    'spend',
-                    'cpm',
-                    'ctr',
-                    'cpc',
-                    'conversions',
-                    'cost_per_conversion',
-                    'reach',
-                    'frequency'
-                ],
-                params={
-                    'breakdowns': ['publisher_platform', 'placement'],
-                    'date_preset': f'last_{days}_days'
-                }
-            )
+            # Run blocking Facebook API call in thread pool
+            loop = asyncio.get_event_loop()
+            
+            def get_insights():
+                campaign = Campaign(campaign_id)
+                return campaign.get_insights(
+                    fields=[
+                        'impressions',
+                        'clicks', 
+                        'spend',
+                        'cpm',
+                        'ctr',
+                        'cpc',
+                        'conversions',
+                        'cost_per_conversion',
+                        'reach',
+                        'frequency'
+                    ],
+                    params={
+                        'breakdowns': ['publisher_platform', 'placement'],
+                        'date_preset': f'last_{days}_days'
+                    }
+                )
+            
+            insights = await loop.run_in_executor(self._thread_pool, get_insights)
             
             return {
                 'campaign_id': campaign_id,
@@ -320,9 +386,14 @@ class MetaAdsAutomationEngine:
                 'summary': self._calculate_performance_summary(insights)
             }
             
+        except ValueError as e:
+            logger.error(f"Validation error getting campaign insights: {e}")
+            print(f"❌ Validation error: {str(e)}")
+            return {'error': f'Validation error: {e}'}
         except Exception as e:
+            logger.error(f"Failed to get campaign insights: {e}")
             print(f"❌ Failed to get insights: {str(e)}")
-            return {'error': str(e)}
+            return {'error': f'Unexpected error: {e}'}
     
     def _calculate_performance_summary(self, insights) -> Dict[str, float]:
         """Calculate performance summary across all platforms"""

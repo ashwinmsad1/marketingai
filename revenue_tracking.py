@@ -1,15 +1,23 @@
 """
-Revenue Attribution & ROI Tracking System
-Tracks every lead/sale back to specific AI-generated content
+Enhanced Revenue Attribution Engine for AI Marketing Automation Platform
+Using PostgreSQL database with proper CRUD operations
 """
 
 import asyncio
 import json
-import sqlite3
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any, List, Tuple
-from dataclasses import dataclass, asdict
+from typing import Optional, Dict, Any, List
+from dataclasses import dataclass
 import uuid
+import logging
+
+from database import get_db
+from database.models import Campaign, Conversion, User, Analytics, CampaignStatus, ConversionType
+from database.crud import CampaignCRUD, ConversionCRUD, AnalyticsCRUD
+from sqlalchemy.orm import Session
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 @dataclass
 class CampaignConversion:
@@ -17,12 +25,12 @@ class CampaignConversion:
     conversion_id: str
     campaign_id: str
     user_id: str
-    conversion_type: str  # 'lead', 'sale', 'signup', 'download'
+    conversion_type: str
     value: float
     timestamp: datetime
-    source_platform: str  # 'facebook', 'instagram'
-    creative_asset: str  # path to AI-generated content
-    attribution_window: int = 7  # days
+    source_platform: str
+    creative_asset: str
+    attribution_window: int = 7
 
 @dataclass
 class ROIMetrics:
@@ -37,429 +45,272 @@ class ROIMetrics:
 
 class RevenueAttributionEngine:
     """
-    Complete revenue tracking and attribution system
+    Complete revenue tracking and attribution system using PostgreSQL
     """
     
-    def __init__(self, db_path: str = "revenue_tracking.db"):
-        self.db_path = db_path
-        self.init_database()
+    def __init__(self):
+        """Initialize the revenue attribution engine"""
+        logger.info("Revenue Attribution Engine initialized with PostgreSQL backend")
     
-    def init_database(self):
-        """Initialize SQLite database for revenue tracking"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        # Campaigns table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS campaigns (
-                campaign_id TEXT PRIMARY KEY,
-                user_id TEXT NOT NULL,
-                campaign_name TEXT,
-                creative_asset TEXT,
-                platform TEXT,
-                total_spend REAL DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-        
-        # Conversions table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS conversions (
-                conversion_id TEXT PRIMARY KEY,
-                campaign_id TEXT,
-                user_id TEXT,
-                conversion_type TEXT,
-                value REAL,
-                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                source_platform TEXT,
-                attribution_window INTEGER DEFAULT 7,
-                FOREIGN KEY (campaign_id) REFERENCES campaigns (campaign_id)
-            )
-        ''')
-        
-        # Customer lifetime value table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS customer_ltv (
-                customer_id TEXT PRIMARY KEY,
-                user_id TEXT,
-                first_conversion_campaign TEXT,
-                total_lifetime_value REAL DEFAULT 0,
-                conversion_count INTEGER DEFAULT 0,
-                first_conversion_date TIMESTAMP,
-                last_conversion_date TIMESTAMP
-            )
-        ''')
-        
-        conn.commit()
-        conn.close()
-    
+    def _get_db_session(self) -> Session:
+        """Get database session - in production this would use dependency injection"""
+        return next(get_db())
+
     async def track_campaign_launch(self, campaign_id: str, user_id: str, campaign_name: str, 
                                   creative_asset: str, platform: str) -> bool:
-        """Track new campaign launch"""
+        """Track new campaign launch using PostgreSQL"""
         try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
+            # Validate input parameters
+            if not all([campaign_id, user_id, campaign_name, platform]):
+                raise ValueError("All required parameters must be provided")
             
-            cursor.execute('''
-                INSERT OR REPLACE INTO campaigns 
-                (campaign_id, user_id, campaign_name, creative_asset, platform)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (campaign_id, user_id, campaign_name, creative_asset, platform))
+            db = self._get_db_session()
+            try:
+                # Check if campaign already exists
+                existing_campaign = CampaignCRUD.get_campaign(db, campaign_id)
+                if existing_campaign:
+                    # Update existing campaign
+                    CampaignCRUD.update_campaign(
+                        db, campaign_id, 
+                        name=campaign_name,
+                        description=f"Platform: {platform}, Asset: {creative_asset}"
+                    )
+                else:
+                    # Create new campaign
+                    CampaignCRUD.create_campaign(
+                        db, 
+                        user_id=user_id,
+                        name=campaign_name,
+                        description=f"Platform: {platform}, Asset: {creative_asset}",
+                        status=CampaignStatus.ACTIVE
+                    )
+                
+                logger.info(f"Campaign {campaign_id} tracked for revenue attribution")
+                return True
+                
+            finally:
+                db.close()
             
-            conn.commit()
-            conn.close()
-            
-            print(f"✅ Campaign {campaign_id} tracked for revenue attribution")
-            return True
-            
-        except Exception as e:
-            print(f"❌ Error tracking campaign launch: {e}")
+        except ValueError as e:
+            logger.error(f"Validation error tracking campaign launch: {e}")
             return False
-    
+        except Exception as e:
+            logger.error(f"Unexpected error tracking campaign launch: {e}")
+            return False
+
     async def track_conversion(self, campaign_id: str, conversion_type: str, 
                              value: float, customer_id: Optional[str] = None) -> str:
-        """Track a conversion and attribute it to a campaign"""
+        """Track a conversion and attribute it to a campaign using PostgreSQL"""
         try:
-            conversion_id = str(uuid.uuid4())
+            # Validate input parameters
+            if not campaign_id or not conversion_type or value < 0:
+                raise ValueError("Invalid conversion parameters")
             
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            
-            # Get campaign details
-            cursor.execute('SELECT user_id, platform FROM campaigns WHERE campaign_id = ?', (campaign_id,))
-            campaign_data = cursor.fetchone()
-            
-            if not campaign_data:
-                raise ValueError(f"Campaign {campaign_id} not found")
-            
-            user_id, platform = campaign_data
-            
-            # Insert conversion
-            cursor.execute('''
-                INSERT INTO conversions 
-                (conversion_id, campaign_id, user_id, conversion_type, value, source_platform)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (conversion_id, campaign_id, user_id, conversion_type, value, platform))
-            
-            # Update customer LTV if customer_id provided
-            if customer_id:
-                await self._update_customer_ltv(cursor, customer_id, user_id, campaign_id, value)
-            
-            conn.commit()
-            conn.close()
-            
-            print(f"✅ Conversion tracked: {conversion_type} worth ${value} from campaign {campaign_id}")
-            return conversion_id
-            
-        except Exception as e:
-            print(f"❌ Error tracking conversion: {e}")
-            return ""
-    
-    async def _update_customer_ltv(self, cursor, customer_id: str, user_id: str, 
-                                 campaign_id: str, value: float):
-        """Update customer lifetime value"""
-        cursor.execute('SELECT total_lifetime_value, conversion_count FROM customer_ltv WHERE customer_id = ?', 
-                      (customer_id,))
-        existing = cursor.fetchone()
-        
-        if existing:
-            new_ltv = existing[0] + value
-            new_count = existing[1] + 1
-            cursor.execute('''
-                UPDATE customer_ltv 
-                SET total_lifetime_value = ?, conversion_count = ?, last_conversion_date = CURRENT_TIMESTAMP
-                WHERE customer_id = ?
-            ''', (new_ltv, new_count, customer_id))
-        else:
-            cursor.execute('''
-                INSERT INTO customer_ltv 
-                (customer_id, user_id, first_conversion_campaign, total_lifetime_value, conversion_count,
-                 first_conversion_date, last_conversion_date)
-                VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-            ''', (customer_id, user_id, campaign_id, value))
-    
-    async def calculate_campaign_roi(self, campaign_id: str, ad_spend: float = 0) -> ROIMetrics:
-        """Calculate comprehensive ROI metrics for a campaign"""
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            
-            # Get total revenue from conversions
-            cursor.execute('''
-                SELECT COUNT(*), SUM(value), AVG(value)
-                FROM conversions 
-                WHERE campaign_id = ?
-            ''', (campaign_id,))
-            
-            result = cursor.fetchone()
-            conversion_count = result[0] or 0
-            total_revenue = result[1] or 0
-            avg_conversion_value = result[2] or 0
-            
-            # Update campaign spend if provided
-            if ad_spend > 0:
-                cursor.execute('UPDATE campaigns SET total_spend = ? WHERE campaign_id = ?', 
-                             (ad_spend, campaign_id))
-                conn.commit()
-            
-            # Get campaign spend
-            cursor.execute('SELECT total_spend FROM campaigns WHERE campaign_id = ?', (campaign_id,))
-            spend_result = cursor.fetchone()
-            total_spend = spend_result[0] if spend_result else ad_spend
-            
-            conn.close()
-            
-            # Calculate metrics
-            roi_percentage = ((total_revenue - total_spend) / total_spend * 100) if total_spend > 0 else 0
-            cost_per_conversion = total_spend / conversion_count if conversion_count > 0 else 0
-            
-            # Estimate lifetime value (simple model)
-            lifetime_value = avg_conversion_value * 3.5  # Average customer makes 3.5 purchases
-            
-            return ROIMetrics(
-                campaign_id=campaign_id,
-                total_spend=total_spend,
-                total_revenue=total_revenue,
-                roi_percentage=roi_percentage,
-                cost_per_conversion=cost_per_conversion,
-                conversion_count=conversion_count,
-                lifetime_value=lifetime_value
-            )
-            
-        except Exception as e:
-            print(f"❌ Error calculating ROI: {e}")
-            return ROIMetrics(campaign_id, 0, 0, 0, 0, 0, 0)
-    
-    async def generate_success_report(self, user_id: str, days: int = 30) -> Dict[str, Any]:
-        """Generate comprehensive success report for user"""
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            
-            # Date range
-            end_date = datetime.now()
-            start_date = end_date - timedelta(days=days)
-            
-            # Campaign performance
-            cursor.execute('''
-                SELECT c.campaign_id, c.campaign_name, c.creative_asset, c.total_spend,
-                       COUNT(conv.conversion_id) as conversions,
-                       SUM(conv.value) as revenue
-                FROM campaigns c
-                LEFT JOIN conversions conv ON c.campaign_id = conv.campaign_id
-                WHERE c.user_id = ? AND c.created_at >= ?
-                GROUP BY c.campaign_id
-                ORDER BY revenue DESC
-            ''', (user_id, start_date))
-            
-            campaigns = cursor.fetchall()
-            
-            # Overall metrics
-            cursor.execute('''
-                SELECT 
-                    COUNT(DISTINCT c.campaign_id) as total_campaigns,
-                    SUM(c.total_spend) as total_spend,
-                    COUNT(conv.conversion_id) as total_conversions,
-                    SUM(conv.value) as total_revenue
-                FROM campaigns c
-                LEFT JOIN conversions conv ON c.campaign_id = conv.campaign_id
-                WHERE c.user_id = ? AND c.created_at >= ?
-            ''', (user_id, start_date))
-            
-            overall = cursor.fetchone()
-            
-            # Top performing creative assets
-            cursor.execute('''
-                SELECT c.creative_asset, COUNT(conv.conversion_id) as conversions, 
-                       SUM(conv.value) as revenue
-                FROM campaigns c
-                LEFT JOIN conversions conv ON c.campaign_id = conv.campaign_id
-                WHERE c.user_id = ? AND c.created_at >= ?
-                GROUP BY c.creative_asset
-                ORDER BY revenue DESC
-                LIMIT 5
-            ''', (user_id, start_date))
-            
-            top_creatives = cursor.fetchall()
-            
-            conn.close()
-            
-            # Calculate overall ROI
-            total_spend = overall[1] or 0
-            total_revenue = overall[3] or 0
-            overall_roi = ((total_revenue - total_spend) / total_spend * 100) if total_spend > 0 else 0
-            
-            return {
-                'report_period': f'{days} days',
-                'generated_at': datetime.now().isoformat(),
-                'overall_metrics': {
-                    'total_campaigns': overall[0] or 0,
-                    'total_spend': total_spend,
-                    'total_conversions': overall[2] or 0,
-                    'total_revenue': total_revenue,
-                    'overall_roi': round(overall_roi, 2),
-                    'avg_cost_per_conversion': total_spend / (overall[2] or 1)
-                },
-                'campaign_performance': [
-                    {
-                        'campaign_id': row[0],
-                        'name': row[1],
-                        'creative_asset': row[2],
-                        'spend': row[3] or 0,
-                        'conversions': row[4] or 0,
-                        'revenue': row[5] or 0,
-                        'roi': ((row[5] or 0) - (row[3] or 0)) / (row[3] or 1) * 100
-                    } for row in campaigns
-                ],
-                'top_performing_creatives': [
-                    {
-                        'asset': row[0],
-                        'conversions': row[1],
-                        'revenue': row[2] or 0
-                    } for row in top_creatives
-                ]
-            }
-            
-        except Exception as e:
-            print(f"❌ Error generating success report: {e}")
-            return {}
-    
-    async def track_lead_source(self, lead_data: Dict[str, Any]) -> bool:
-        """Track lead source from external forms/webhooks"""
-        try:
-            # Extract campaign ID from lead source or referrer
-            campaign_id = lead_data.get('campaign_id') or lead_data.get('utm_campaign')
-            
-            if campaign_id:
-                conversion_id = await self.track_conversion(
+            db = self._get_db_session()
+            try:
+                # Get campaign details
+                campaign = CampaignCRUD.get_campaign(db, campaign_id)
+                if not campaign:
+                    raise ValueError(f"Campaign {campaign_id} not found")
+                
+                # Convert conversion type to enum
+                try:
+                    conv_type = ConversionType(conversion_type.lower())
+                except ValueError:
+                    conv_type = ConversionType.SALE  # Default fallback
+                
+                # Create conversion record
+                conversion = ConversionCRUD.create_conversion(
+                    db,
+                    user_id=campaign.user_id,
                     campaign_id=campaign_id,
-                    conversion_type='lead',
-                    value=lead_data.get('estimated_value', 50.0),  # Default lead value
-                    customer_id=lead_data.get('email') or lead_data.get('phone')
+                    conversion_type=conv_type,
+                    value=value,
+                    customer_id=customer_id,
+                    platform="facebook"  # Default platform, could be passed as parameter
                 )
-                return bool(conversion_id)
+                
+                logger.info(f"Conversion tracked: {conversion_type} worth ${value} from campaign {campaign_id}")
+                return conversion.id
+                
+            finally:
+                db.close()
             
-            return False
-            
+        except ValueError as e:
+            logger.error(f"Validation error tracking conversion: {e}")
+            return ""
         except Exception as e:
-            print(f"❌ Error tracking lead source: {e}")
-            return False
-    
-    async def get_attribution_insights(self, user_id: str) -> Dict[str, Any]:
-        """Get insights on which AI content performs best"""
+            logger.error(f"Unexpected error tracking conversion: {e}")
+            return ""
+
+    async def update_campaign_spend(self, campaign_id: str, ad_spend: float) -> ROIMetrics:
+        """Update campaign spending and calculate ROI using PostgreSQL"""
         try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            
-            # Creative asset performance
-            cursor.execute('''
-                SELECT 
-                    c.creative_asset,
-                    c.platform,
-                    COUNT(conv.conversion_id) as conversions,
-                    SUM(conv.value) as revenue,
-                    AVG(conv.value) as avg_conversion_value
-                FROM campaigns c
-                LEFT JOIN conversions conv ON c.campaign_id = conv.campaign_id
-                WHERE c.user_id = ?
-                GROUP BY c.creative_asset, c.platform
-                ORDER BY revenue DESC
-            ''', (user_id,))
-            
-            asset_performance = cursor.fetchall()
-            
-            # Platform comparison
-            cursor.execute('''
-                SELECT 
-                    c.platform,
-                    COUNT(DISTINCT c.campaign_id) as campaigns,
-                    COUNT(conv.conversion_id) as conversions,
-                    SUM(conv.value) as revenue,
-                    AVG(conv.value) as avg_conversion_value
-                FROM campaigns c
-                LEFT JOIN conversions conv ON c.campaign_id = conv.campaign_id
-                WHERE c.user_id = ?
-                GROUP BY c.platform
-            ''', (user_id,))
-            
-            platform_performance = cursor.fetchall()
-            
-            conn.close()
-            
-            return {
-                'creative_insights': [
-                    {
-                        'asset': row[0],
-                        'platform': row[1],
-                        'conversions': row[2],
-                        'revenue': row[3] or 0,
-                        'avg_conversion_value': row[4] or 0
-                    } for row in asset_performance
-                ],
-                'platform_comparison': [
-                    {
-                        'platform': row[0],
-                        'campaigns': row[1],
-                        'conversions': row[2],
-                        'revenue': row[3] or 0,
-                        'avg_conversion_value': row[4] or 0
-                    } for row in platform_performance
-                ]
-            }
-            
+            db = self._get_db_session()
+            try:
+                # Update campaign spend
+                campaign = CampaignCRUD.update_campaign(
+                    db, campaign_id,
+                    spend=ad_spend
+                )
+                
+                if not campaign:
+                    raise ValueError(f"Campaign {campaign_id} not found")
+                
+                # Get conversions for this campaign
+                conversions = ConversionCRUD.get_campaign_conversions(db, campaign_id)
+                
+                # Calculate metrics
+                total_revenue = sum(c.value for c in conversions if c.value)
+                conversion_count = len(conversions)
+                roi_percentage = ((total_revenue - ad_spend) / ad_spend * 100) if ad_spend > 0 else 0
+                cost_per_conversion = ad_spend / conversion_count if conversion_count > 0 else 0
+                
+                # Create ROI metrics
+                roi_metrics = ROIMetrics(
+                    campaign_id=campaign_id,
+                    total_spend=ad_spend,
+                    total_revenue=total_revenue,
+                    roi_percentage=roi_percentage,
+                    cost_per_conversion=cost_per_conversion,
+                    conversion_count=conversion_count,
+                    lifetime_value=total_revenue  # Simplified LTV calculation
+                )
+                
+                logger.info(f"Campaign spend updated: ${ad_spend}, ROI: {roi_percentage:.2f}%")
+                return roi_metrics
+                
+            finally:
+                db.close()
+                
+        except ValueError as e:
+            logger.error(f"Validation error updating campaign spend: {e}")
+            return self._empty_roi_metrics(campaign_id)
         except Exception as e:
-            print(f"❌ Error getting attribution insights: {e}")
-            return {}
+            logger.error(f"Error updating campaign spend: {e}")
+            return self._empty_roi_metrics(campaign_id)
 
-# Helper functions for easy integration
-async def track_campaign_success(campaign_id: str, user_id: str, campaign_name: str, 
-                               creative_asset: str, platform: str):
-    """Quick campaign tracking setup"""
-    engine = RevenueAttributionEngine()
-    return await engine.track_campaign_launch(campaign_id, user_id, campaign_name, creative_asset, platform)
+    async def get_campaign_roi(self, campaign_id: str) -> ROIMetrics:
+        """Calculate current ROI for a campaign"""
+        try:
+            db = self._get_db_session()
+            try:
+                campaign = CampaignCRUD.get_campaign(db, campaign_id)
+                if not campaign:
+                    raise ValueError(f"Campaign {campaign_id} not found")
+                
+                conversions = ConversionCRUD.get_campaign_conversions(db, campaign_id)
+                
+                total_revenue = sum(c.value for c in conversions if c.value)
+                conversion_count = len(conversions)
+                total_spend = campaign.spend or 0
+                
+                roi_percentage = ((total_revenue - total_spend) / total_spend * 100) if total_spend > 0 else 0
+                cost_per_conversion = total_spend / conversion_count if conversion_count > 0 else 0
+                
+                return ROIMetrics(
+                    campaign_id=campaign_id,
+                    total_spend=total_spend,
+                    total_revenue=total_revenue,
+                    roi_percentage=roi_percentage,
+                    cost_per_conversion=cost_per_conversion,
+                    conversion_count=conversion_count,
+                    lifetime_value=total_revenue
+                )
+                
+            finally:
+                db.close()
+                
+        except Exception as e:
+            logger.error(f"Error calculating campaign ROI: {e}")
+            return self._empty_roi_metrics(campaign_id)
 
-async def record_conversion(campaign_id: str, conversion_type: str, value: float, customer_id: str = None):
-    """Quick conversion recording"""
-    engine = RevenueAttributionEngine()
-    return await engine.track_conversion(campaign_id, conversion_type, value, customer_id)
+    async def generate_revenue_report(self, user_id: str, days: int = 30) -> Dict[str, Any]:
+        """Generate comprehensive revenue report for user"""
+        try:
+            db = self._get_db_session()
+            try:
+                # Get analytics summary
+                analytics_summary = AnalyticsCRUD.get_user_analytics_summary(db, user_id, days)
+                
+                # Get revenue attribution
+                revenue_attribution = ConversionCRUD.get_revenue_attribution(db, user_id, days)
+                
+                # Calculate additional metrics
+                total_campaigns = len(CampaignCRUD.get_user_campaigns(db, user_id))
+                
+                report = {
+                    "user_id": user_id,
+                    "period_days": days,
+                    "generated_at": datetime.now().isoformat(),
+                    "overview": analytics_summary,
+                    "revenue_by_campaign": revenue_attribution,
+                    "total_campaigns": total_campaigns,
+                    "performance_insights": {
+                        "top_performing_campaign": max(revenue_attribution, key=lambda x: x['revenue'])['campaign_name'] if revenue_attribution else "",
+                        "best_roi_campaign": "",  # Would need additional calculation
+                        "conversion_trends": []  # Could add time-series analysis
+                    }
+                }
+                
+                logger.info(f"Revenue report generated for user {user_id}")
+                return report
+                
+            finally:
+                db.close()
+                
+        except Exception as e:
+            logger.error(f"Error generating revenue report: {e}")
+            return {
+                "user_id": user_id,
+                "period_days": days,
+                "generated_at": datetime.now().isoformat(),
+                "error": str(e)
+            }
 
-async def get_campaign_roi(campaign_id: str, ad_spend: float = 0) -> Dict[str, Any]:
-    """Quick ROI calculation"""
-    engine = RevenueAttributionEngine()
-    roi_metrics = await engine.calculate_campaign_roi(campaign_id, ad_spend)
-    return asdict(roi_metrics)
+    def _empty_roi_metrics(self, campaign_id: str) -> ROIMetrics:
+        """Return empty ROI metrics for error cases"""
+        return ROIMetrics(
+            campaign_id=campaign_id,
+            total_spend=0.0,
+            total_revenue=0.0,
+            roi_percentage=0.0,
+            cost_per_conversion=0.0,
+            conversion_count=0,
+            lifetime_value=0.0
+        )
 
-async def main():
-    """Test the revenue attribution system"""
-    print("💰 Revenue Attribution & ROI Tracking System")
-    print("=" * 50)
+# Test function
+async def test_revenue_engine():
+    """Test revenue attribution engine functionality"""
+    print("🔍 Testing Revenue Attribution Engine...")
     
     engine = RevenueAttributionEngine()
     
-    # Demo: Track a campaign
-    campaign_id = f"camp_{int(datetime.now().timestamp())}"
-    await engine.track_campaign_launch(
-        campaign_id=campaign_id,
-        user_id="user_123",
-        campaign_name="Restaurant Promotion",
-        creative_asset="hyperrealistic_food_poster.png",
+    # Test campaign tracking
+    campaign_tracked = await engine.track_campaign_launch(
+        campaign_id="test-campaign-001",
+        user_id="test-user-001", 
+        campaign_name="Test Campaign",
+        creative_asset="test_image.jpg",
         platform="facebook"
     )
+    print(f"✅ Campaign tracking: {'Success' if campaign_tracked else 'Failed'}")
     
-    # Demo: Track conversions
-    await engine.track_conversion(campaign_id, "lead", 50.0, "customer@example.com")
-    await engine.track_conversion(campaign_id, "sale", 150.0, "customer@example.com")
+    # Test conversion tracking
+    conversion_id = await engine.track_conversion(
+        campaign_id="test-campaign-001",
+        conversion_type="sale",
+        value=99.99,
+        customer_id="customer-001"
+    )
+    print(f"✅ Conversion tracking: {'Success' if conversion_id else 'Failed'}")
     
-    # Demo: Calculate ROI
-    roi_metrics = await engine.calculate_campaign_roi(campaign_id, 100.0)
-    print(f"\n📊 Campaign ROI: {roi_metrics.roi_percentage:.2f}%")
-    print(f"💰 Revenue: ${roi_metrics.total_revenue}")
-    print(f"💸 Cost per conversion: ${roi_metrics.cost_per_conversion:.2f}")
+    # Test ROI calculation
+    roi_metrics = await engine.get_campaign_roi("test-campaign-001")
+    print(f"✅ ROI calculation: Revenue=${roi_metrics.total_revenue}, ROI={roi_metrics.roi_percentage}%")
     
-    # Demo: Success report
-    report = await engine.generate_success_report("user_123")
-    print(f"\n📈 Success Report:")
-    print(json.dumps(report, indent=2))
+    print("🎉 Revenue engine tests completed!")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(test_revenue_engine())

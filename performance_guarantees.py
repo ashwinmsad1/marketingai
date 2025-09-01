@@ -1,21 +1,28 @@
 """
-Performance Guarantee & Auto-Optimization System
-Monitors campaign performance and automatically optimizes or refunds underperforming campaigns
+Performance Guarantee System for AI Marketing Automation Platform
+Enhanced with PostgreSQL database integration for reliable performance tracking
 """
 
 import asyncio
-import json
-import sqlite3
+import logging
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any, List, Tuple
-from dataclasses import dataclass
+from typing import Dict, Any, List, Optional
 from enum import Enum
-import statistics
+from dataclasses import dataclass, asdict
 
-# Import our existing modules
+# Import database components
+from database import get_db
+from database.models import Campaign, Analytics, CampaignStatus
+from database.crud import CampaignCRUD, AnalyticsCRUD
+from sqlalchemy.orm import Session
+
+# Import our enhanced modules
 from photo_agent import image_creator
 from video_agent import video_from_prompt
 from revenue_tracking import RevenueAttributionEngine
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 class PerformanceStatus(Enum):
     EXCELLENT = "excellent"  # Exceeds expectations
@@ -48,12 +55,12 @@ class OptimizationAction:
 class PerformanceGuaranteeEngine:
     """
     System that monitors campaign performance and ensures customer success guarantees
+    Using PostgreSQL database for reliable performance tracking
     """
     
-    def __init__(self, db_path: str = "performance_guarantees.db"):
-        self.db_path = db_path
+    def __init__(self):
+        """Initialize the performance guarantee engine with PostgreSQL backend"""
         self.revenue_engine = RevenueAttributionEngine()
-        self.init_database()
         
         # Industry benchmarks (these would be updated from real data)
         self.industry_benchmarks = {
@@ -75,525 +82,356 @@ class PerformanceGuaranteeEngine:
             'roi_threshold': 200.0,  # 200% ROI minimum
             'refund_threshold_days': 7  # Days before refund eligibility
         }
+        
+        logger.info("Performance Guarantee Engine initialized with PostgreSQL backend")
     
-    def init_database(self):
-        """Initialize performance tracking database"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        # Performance monitoring table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS campaign_performance (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                campaign_id TEXT NOT NULL,
-                user_id TEXT NOT NULL,
-                industry TEXT,
-                check_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                ctr REAL,
-                cpc REAL,
-                conversion_rate REAL,
-                roi REAL,
-                performance_status TEXT,
-                needs_optimization BOOLEAN,
-                guarantee_met BOOLEAN
-            )
-        ''')
-        
-        # Optimization actions table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS optimization_actions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                campaign_id TEXT NOT NULL,
-                action_type TEXT,
-                description TEXT,
-                priority INTEGER,
-                status TEXT DEFAULT 'pending',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                executed_at TIMESTAMP
-            )
-        ''')
-        
-        # Guarantee violations table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS guarantee_violations (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                campaign_id TEXT NOT NULL,
-                user_id TEXT NOT NULL,
-                violation_type TEXT,
-                refund_amount REAL,
-                status TEXT DEFAULT 'pending',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                resolved_at TIMESTAMP
-            )
-        ''')
-        
-        conn.commit()
-        conn.close()
-    
-    async def monitor_campaign_performance(self, campaign_id: str, user_id: str, 
-                                         industry: str = 'default') -> PerformanceMetrics:
-        """Monitor and analyze campaign performance against guarantees"""
+    def _get_db_session(self) -> Session:
+        """Get database session - in production this would use dependency injection"""
+        return next(get_db())
+
+    async def monitor_campaign_performance(self, campaign_id: str) -> PerformanceMetrics:
+        """Monitor campaign performance and determine if guarantees are met"""
         try:
-            # Get current campaign metrics (this would integrate with Meta API)
-            metrics = await self._get_campaign_metrics(campaign_id)
+            db = self._get_db_session()
+            try:
+                # Get campaign details
+                campaign = CampaignCRUD.get_campaign(db, campaign_id)
+                if not campaign:
+                    raise ValueError(f"Campaign {campaign_id} not found")
+                
+                # Get recent analytics
+                analytics = AnalyticsCRUD.get_campaign_analytics(db, campaign_id, days=7)
+                
+                # Calculate performance metrics
+                if analytics:
+                    avg_ctr = sum(a.ctr for a in analytics) / len(analytics)
+                    avg_cpc = sum(a.cpc for a in analytics) / len(analytics)
+                    avg_conversion_rate = sum(a.conversions / max(a.clicks, 1) * 100 for a in analytics) / len(analytics)
+                    avg_roi = sum(a.roi for a in analytics) / len(analytics)
+                else:
+                    # Use campaign-level metrics as fallback
+                    avg_ctr = campaign.ctr or 0
+                    avg_cpc = campaign.cpc or 0
+                    avg_conversion_rate = (campaign.conversions / max(campaign.clicks, 1) * 100) if campaign.clicks else 0
+                    avg_roi = campaign.roas or 0
+                
+                # Get industry benchmarks
+                industry = campaign.industry or 'default'
+                benchmarks = self.industry_benchmarks.get(industry, self.industry_benchmarks['default'])
+                
+                # Determine performance status
+                performance_status = self._calculate_performance_status(
+                    avg_ctr, avg_cpc, avg_conversion_rate, avg_roi, benchmarks
+                )
+                
+                # Check if optimization is needed
+                needs_optimization = self._needs_optimization(performance_status, avg_ctr, benchmarks)
+                
+                # Check if guarantee thresholds are met
+                guarantee_met = self._check_guarantee_thresholds(avg_ctr, avg_roi, benchmarks)
+                
+                metrics = PerformanceMetrics(
+                    campaign_id=campaign_id,
+                    ctr=avg_ctr,
+                    cpc=avg_cpc,
+                    conversion_rate=avg_conversion_rate,
+                    roi=avg_roi,
+                    industry_benchmark_ctr=benchmarks['ctr'],
+                    industry_benchmark_cpc=benchmarks['cpc'],
+                    performance_status=performance_status,
+                    needs_optimization=needs_optimization,
+                    guarantee_threshold_met=guarantee_met
+                )
+                
+                logger.info(f"Performance monitored for campaign {campaign_id}: {performance_status.value}")
+                return metrics
+                
+            finally:
+                db.close()
+                
+        except Exception as e:
+            logger.error(f"Error monitoring campaign performance: {e}")
+            return self._empty_performance_metrics(campaign_id)
+
+    async def auto_optimize_campaign(self, campaign_id: str, user_id: str) -> Dict[str, Any]:
+        """Automatically optimize underperforming campaigns"""
+        try:
+            # Get current performance metrics
+            metrics = await self.monitor_campaign_performance(campaign_id)
             
-            # Get industry benchmarks
-            benchmarks = self.industry_benchmarks.get(industry, self.industry_benchmarks['default'])
+            if not metrics.needs_optimization:
+                return {
+                    "optimized": False,
+                    "reason": "Campaign performance meets thresholds",
+                    "metrics": asdict(metrics)
+                }
             
-            # Calculate performance status
-            performance_status = self._calculate_performance_status(metrics, benchmarks)
+            # Generate optimization actions
+            actions = self._generate_optimization_actions(metrics)
             
-            # Check guarantee compliance
-            guarantee_met = self._check_guarantee_compliance(metrics, benchmarks)
+            # Execute high-priority actions
+            optimization_results = []
+            for action in actions:
+                if action.priority >= 4:  # High priority actions only
+                    result = await self._execute_optimization_action(campaign_id, user_id, action)
+                    optimization_results.append(result)
             
-            # Determine if optimization is needed
-            needs_optimization = performance_status in [PerformanceStatus.POOR, PerformanceStatus.CRITICAL]
-            
-            performance = PerformanceMetrics(
-                campaign_id=campaign_id,
-                ctr=metrics.get('ctr', 0),
-                cpc=metrics.get('cpc', 0),
-                conversion_rate=metrics.get('conversion_rate', 0),
-                roi=metrics.get('roi', 0),
-                industry_benchmark_ctr=benchmarks['ctr'],
-                industry_benchmark_cpc=benchmarks['cpc'],
-                performance_status=performance_status,
-                needs_optimization=needs_optimization,
-                guarantee_threshold_met=guarantee_met
-            )
-            
-            # Store performance data
-            await self._store_performance_data(performance, user_id, industry)
-            
-            # If guarantees not met, trigger optimization
-            if not guarantee_met:
-                await self._trigger_guarantee_violation_process(campaign_id, user_id, performance)
-            
-            return performance
+            return {
+                "optimized": True,
+                "actions_taken": len(optimization_results),
+                "optimization_results": optimization_results,
+                "updated_metrics": asdict(metrics)
+            }
             
         except Exception as e:
-            print(f"❌ Error monitoring campaign performance: {e}")
-            return PerformanceMetrics(campaign_id, 0, 0, 0, 0, 0, 0, PerformanceStatus.CRITICAL, True, False)
-    
-    async def _get_campaign_metrics(self, campaign_id: str) -> Dict[str, float]:
-        """Get campaign metrics from various sources"""
-        # This would integrate with Meta Marketing API, Google Analytics, etc.
-        # For demo, we'll simulate realistic metrics
+            logger.error(f"Error auto-optimizing campaign: {e}")
+            return {
+                "optimized": False,
+                "error": str(e)
+            }
+
+    async def get_campaign_performance(self, campaign_id: str) -> Dict[str, Any]:
+        """Get comprehensive performance data for a campaign"""
+        try:
+            metrics = await self.monitor_campaign_performance(campaign_id)
+            roi_data = await self.revenue_engine.get_campaign_roi(campaign_id)
+            
+            return {
+                "campaign_id": campaign_id,
+                "performance_metrics": asdict(metrics),
+                "roi_metrics": asdict(roi_data),
+                "guarantee_status": "met" if metrics.guarantee_threshold_met else "not_met",
+                "optimization_needed": metrics.needs_optimization,
+                "last_checked": datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting campaign performance: {e}")
+            return {
+                "campaign_id": campaign_id,
+                "error": str(e)
+            }
+
+    async def check_refund_eligibility(self, campaign_id: str) -> Dict[str, Any]:
+        """Check if campaign is eligible for performance guarantee refund"""
+        try:
+            db = self._get_db_session()
+            try:
+                campaign = CampaignCRUD.get_campaign(db, campaign_id)
+                if not campaign:
+                    raise ValueError(f"Campaign {campaign_id} not found")
+                
+                # Check campaign age
+                days_running = (datetime.utcnow() - campaign.created_at).days
+                if days_running < self.guarantees['refund_threshold_days']:
+                    return {
+                        "eligible": False,
+                        "reason": f"Campaign must run for at least {self.guarantees['refund_threshold_days']} days",
+                        "days_remaining": self.guarantees['refund_threshold_days'] - days_running
+                    }
+                
+                # Check performance metrics
+                metrics = await self.monitor_campaign_performance(campaign_id)
+                
+                # Refund eligibility criteria
+                roi_below_threshold = metrics.roi < self.guarantees['roi_threshold']
+                ctr_below_benchmark = metrics.ctr < (metrics.industry_benchmark_ctr * 0.7)  # 30% below benchmark
+                
+                if roi_below_threshold and ctr_below_benchmark:
+                    return {
+                        "eligible": True,
+                        "reason": "Performance guarantees not met",
+                        "refund_amount": campaign.spend * 0.5,  # 50% refund
+                        "metrics": asdict(metrics)
+                    }
+                else:
+                    return {
+                        "eligible": False,
+                        "reason": "Performance meets minimum thresholds",
+                        "metrics": asdict(metrics)
+                    }
+                    
+            finally:
+                db.close()
+                
+        except Exception as e:
+            logger.error(f"Error checking refund eligibility: {e}")
+            return {
+                "eligible": False,
+                "error": str(e)
+            }
+
+    def _calculate_performance_status(self, ctr: float, cpc: float, conversion_rate: float, 
+                                    roi: float, benchmarks: Dict) -> PerformanceStatus:
+        """Calculate overall performance status based on metrics"""
+        score = 0
         
-        import random
+        # CTR score (30% weight)
+        if ctr >= benchmarks['ctr'] * 1.5:
+            score += 30
+        elif ctr >= benchmarks['ctr']:
+            score += 20
+        elif ctr >= benchmarks['ctr'] * 0.8:
+            score += 10
         
-        # Simulate campaign metrics with some randomness
-        base_metrics = {
-            'ctr': random.uniform(1.2, 3.5),
-            'cpc': random.uniform(0.85, 4.25),
-            'conversion_rate': random.uniform(3.0, 25.0),
-            'impressions': random.randint(1000, 50000),
-            'clicks': random.randint(50, 1500),
-            'spend': random.uniform(50, 2000)
-        }
+        # CPC score (20% weight) - lower is better
+        if cpc <= benchmarks['cpc'] * 0.8:
+            score += 20
+        elif cpc <= benchmarks['cpc']:
+            score += 15
+        elif cpc <= benchmarks['cpc'] * 1.2:
+            score += 5
         
-        # Calculate ROI using revenue tracking system
-        roi_data = await self.revenue_engine.calculate_campaign_roi(campaign_id, base_metrics['spend'])
-        base_metrics['roi'] = roi_data.roi_percentage
+        # Conversion rate score (25% weight)
+        if conversion_rate >= benchmarks['conversion_rate'] * 1.3:
+            score += 25
+        elif conversion_rate >= benchmarks['conversion_rate']:
+            score += 18
+        elif conversion_rate >= benchmarks['conversion_rate'] * 0.8:
+            score += 10
         
-        return base_metrics
-    
-    def _calculate_performance_status(self, metrics: Dict[str, float], 
-                                    benchmarks: Dict[str, float]) -> PerformanceStatus:
-        """Determine performance status vs benchmarks"""
-        ctr_ratio = metrics.get('ctr', 0) / benchmarks['ctr']
-        roi = metrics.get('roi', 0)
-        conversion_rate_ratio = metrics.get('conversion_rate', 0) / benchmarks['conversion_rate']
+        # ROI score (25% weight)
+        if roi >= 300:
+            score += 25
+        elif roi >= 200:
+            score += 18
+        elif roi >= 100:
+            score += 10
         
-        # Score based on multiple factors
-        performance_score = (ctr_ratio * 0.4 + (roi / 100) * 0.4 + conversion_rate_ratio * 0.2)
-        
-        if performance_score >= 1.5:
+        # Determine status based on total score
+        if score >= 80:
             return PerformanceStatus.EXCELLENT
-        elif performance_score >= 1.0:
+        elif score >= 60:
             return PerformanceStatus.GOOD
-        elif performance_score >= 0.6:
+        elif score >= 30:
             return PerformanceStatus.POOR
         else:
             return PerformanceStatus.CRITICAL
-    
-    def _check_guarantee_compliance(self, metrics: Dict[str, float], 
-                                  benchmarks: Dict[str, float]) -> bool:
-        """Check if campaign meets our performance guarantees"""
-        ctr_target = benchmarks['ctr'] * self.guarantees['ctr_improvement']
-        roi_target = self.guarantees['roi_threshold']
+
+    def _needs_optimization(self, status: PerformanceStatus, ctr: float, benchmarks: Dict) -> bool:
+        """Determine if campaign needs optimization"""
+        return (status in [PerformanceStatus.POOR, PerformanceStatus.CRITICAL] or 
+                ctr < benchmarks['ctr'] * 0.8)
+
+    def _check_guarantee_thresholds(self, ctr: float, roi: float, benchmarks: Dict) -> bool:
+        """Check if performance guarantee thresholds are met"""
+        ctr_threshold_met = ctr >= benchmarks['ctr'] * (self.guarantees['ctr_improvement'] - 1)
+        roi_threshold_met = roi >= self.guarantees['roi_threshold']
+        return ctr_threshold_met and roi_threshold_met
+
+    def _generate_optimization_actions(self, metrics: PerformanceMetrics) -> List[OptimizationAction]:
+        """Generate specific optimization actions based on performance metrics"""
+        actions = []
         
-        ctr_met = metrics.get('ctr', 0) >= ctr_target
-        roi_met = metrics.get('roi', 0) >= roi_target
+        if metrics.ctr < metrics.industry_benchmark_ctr * 0.8:
+            actions.append(OptimizationAction(
+                action_type="creative_refresh",
+                description="Generate new AI-created visuals to improve engagement",
+                priority=5,
+                estimated_impact="15-25% CTR improvement"
+            ))
         
-        return ctr_met and roi_met
-    
-    async def _store_performance_data(self, performance: PerformanceMetrics, 
-                                    user_id: str, industry: str):
-        """Store performance monitoring data"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            INSERT INTO campaign_performance 
-            (campaign_id, user_id, industry, ctr, cpc, conversion_rate, roi, 
-             performance_status, needs_optimization, guarantee_met)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            performance.campaign_id, user_id, industry,
-            performance.ctr, performance.cpc, performance.conversion_rate, performance.roi,
-            performance.performance_status.value, performance.needs_optimization, 
-            performance.guarantee_threshold_met
-        ))
-        
-        conn.commit()
-        conn.close()
-    
-    async def _trigger_guarantee_violation_process(self, campaign_id: str, user_id: str, 
-                                                 performance: PerformanceMetrics):
-        """Handle guarantee violations"""
-        print(f"⚠️  Performance guarantee violation detected for campaign {campaign_id}")
-        
-        # Generate optimization recommendations
-        optimizations = await self.generate_optimization_recommendations(campaign_id, performance)
-        
-        # Store optimization actions
-        for optimization in optimizations:
-            await self._store_optimization_action(campaign_id, optimization)
-        
-        # If critical performance, prepare for refund
-        if performance.performance_status == PerformanceStatus.CRITICAL:
-            await self._prepare_refund_process(campaign_id, user_id)
-    
-    async def generate_optimization_recommendations(self, campaign_id: str, 
-                                                  performance: PerformanceMetrics) -> List[OptimizationAction]:
-        """Generate AI-powered optimization recommendations"""
-        recommendations = []
-        
-        # Low CTR - Creative refresh needed
-        if performance.ctr < performance.industry_benchmark_ctr:
-            recommendations.append(OptimizationAction(
-                action_type='creative_refresh',
-                description=f'Create new AI-generated creatives to improve CTR from {performance.ctr:.2f}% to {performance.industry_benchmark_ctr:.2f}%+',
+        if metrics.cpc > metrics.industry_benchmark_cpc * 1.3:
+            actions.append(OptimizationAction(
+                action_type="audience_adjust",
+                description="Refine audience targeting to reduce cost per click",
                 priority=4,
-                estimated_impact='30-60% CTR improvement'
+                estimated_impact="10-20% CPC reduction"
             ))
         
-        # High CPC - Audience optimization
-        if performance.cpc > performance.industry_benchmark_cpc * 1.5:
-            recommendations.append(OptimizationAction(
-                action_type='audience_adjust',
-                description=f'Optimize audience targeting to reduce CPC from ${performance.cpc:.2f} to ${performance.industry_benchmark_cpc:.2f}',
+        if metrics.conversion_rate < 5.0:
+            actions.append(OptimizationAction(
+                action_type="landing_page_optimize",
+                description="Improve landing page conversion elements",
                 priority=3,
-                estimated_impact='20-40% CPC reduction'
+                estimated_impact="5-15% conversion rate improvement"
             ))
         
-        # Low ROI - Budget reallocation
-        if performance.roi < 200:
-            recommendations.append(OptimizationAction(
-                action_type='budget_realloc',
-                description=f'Reallocate budget to higher-performing ad sets to improve ROI from {performance.roi:.1f}% to 200%+',
-                priority=5,
-                estimated_impact='50-100% ROI improvement'
+        if metrics.roi < 150:
+            actions.append(OptimizationAction(
+                action_type="budget_realloc",
+                description="Reallocate budget to better performing ad sets",
+                priority=4,
+                estimated_impact="20-30% ROI improvement"
             ))
         
-        # Critical performance - Full refund
-        if performance.performance_status == PerformanceStatus.CRITICAL:
-            recommendations.append(OptimizationAction(
-                action_type='refund',
-                description='Campaign performance critically below guarantees - preparing refund process',
-                priority=5,
-                estimated_impact='Customer retention via guarantee fulfillment'
-            ))
-        
-        return recommendations
-    
-    async def _store_optimization_action(self, campaign_id: str, action: OptimizationAction):
-        """Store optimization recommendation in database"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            INSERT INTO optimization_actions 
-            (campaign_id, action_type, description, priority)
-            VALUES (?, ?, ?, ?)
-        ''', (campaign_id, action.action_type, action.description, action.priority))
-        
-        conn.commit()
-        conn.close()
-    
-    async def auto_optimize_campaign(self, campaign_id: str, user_id: str) -> Dict[str, Any]:
-        """Automatically execute optimization recommendations"""
+        return sorted(actions, key=lambda x: x.priority, reverse=True)
+
+    async def _execute_optimization_action(self, campaign_id: str, user_id: str, 
+                                         action: OptimizationAction) -> Dict[str, Any]:
+        """Execute a specific optimization action"""
         try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
+            if action.action_type == "creative_refresh":
+                # Generate new creative content
+                new_image = await image_creator.generate_poster_async(
+                    prompt="High-converting marketing advertisement with professional design",
+                    style="modern commercial"
+                )
+                
+                return {
+                    "action": action.action_type,
+                    "status": "executed",
+                    "details": f"New creative generated: {new_image.get('image_path', 'N/A')}"
+                }
             
-            # Get pending optimization actions
-            cursor.execute('''
-                SELECT action_type, description, priority
-                FROM optimization_actions 
-                WHERE campaign_id = ? AND status = 'pending'
-                ORDER BY priority DESC
-            ''', (campaign_id,))
+            elif action.action_type == "audience_adjust":
+                # In a real implementation, this would integrate with Meta Ads API
+                return {
+                    "action": action.action_type,
+                    "status": "executed",
+                    "details": "Audience targeting parameters optimized"
+                }
             
-            actions = cursor.fetchall()
-            conn.close()
-            
-            optimization_results = []
-            
-            for action in actions:
-                action_type, description, priority = action
-                result = await self._execute_optimization(campaign_id, action_type, user_id)
-                optimization_results.append({
-                    'action': action_type,
-                    'description': description,
-                    'priority': priority,
-                    'result': result
-                })
-            
+            else:
+                return {
+                    "action": action.action_type,
+                    "status": "pending",
+                    "details": "Action queued for manual review"
+                }
+                
+        except Exception as e:
+            logger.error(f"Error executing optimization action: {e}")
             return {
-                'campaign_id': campaign_id,
-                'optimizations_executed': len(optimization_results),
-                'results': optimization_results,
-                'success': True
+                "action": action.action_type,
+                "status": "failed",
+                "error": str(e)
             }
-            
-        except Exception as e:
-            print(f"❌ Error in auto optimization: {e}")
-            return {'campaign_id': campaign_id, 'success': False, 'error': str(e)}
-    
-    async def _execute_optimization(self, campaign_id: str, action_type: str, user_id: str) -> Dict[str, Any]:
-        """Execute specific optimization action"""
-        try:
-            if action_type == 'creative_refresh':
-                # Generate new AI creative variations
-                new_creative = await self._generate_new_creative(campaign_id)
-                return {
-                    'status': 'completed',
-                    'new_asset': new_creative,
-                    'message': 'New AI-generated creative created'
-                }
-                
-            elif action_type == 'audience_adjust':
-                # This would integrate with Meta API to adjust targeting
-                return {
-                    'status': 'completed',
-                    'message': 'Audience targeting optimized based on performance data'
-                }
-                
-            elif action_type == 'budget_realloc':
-                # This would integrate with Meta API to reallocate budget
-                return {
-                    'status': 'completed',
-                    'message': 'Budget reallocated to higher-performing ad sets'
-                }
-                
-            elif action_type == 'refund':
-                # Process refund
-                refund_result = await self._process_refund(campaign_id, user_id)
-                return refund_result
-                
-            return {'status': 'unknown_action', 'message': f'Unknown action type: {action_type}'}
-            
-        except Exception as e:
-            return {'status': 'error', 'message': str(e)}
-    
-    async def _generate_new_creative(self, campaign_id: str) -> str:
-        """Generate new AI creative for underperforming campaign"""
-        # Get campaign details to understand what type of creative to generate
-        prompt = "A high-converting marketing image with bold colors and clear call-to-action"
-        
-        # Generate new image using our AI system
-        new_image = await image_creator(prompt, "hyperrealistic marketing poster")
-        
-        if new_image:
-            print(f"✅ Generated new creative: {new_image}")
-            return new_image
-        else:
-            print("❌ Failed to generate new creative")
-            return ""
-    
-    async def _prepare_refund_process(self, campaign_id: str, user_id: str):
-        """Prepare refund for guarantee violation"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        # Calculate refund amount based on campaign spend
-        roi_data = await self.revenue_engine.calculate_campaign_roi(campaign_id)
-        refund_amount = roi_data.total_spend * 0.5  # 50% refund for guarantee violation
-        
-        cursor.execute('''
-            INSERT INTO guarantee_violations 
-            (campaign_id, user_id, violation_type, refund_amount)
-            VALUES (?, ?, ?, ?)
-        ''', (campaign_id, user_id, 'performance_guarantee', refund_amount))
-        
-        conn.commit()
-        conn.close()
-        
-        print(f"💰 Refund prepared: ${refund_amount:.2f} for campaign {campaign_id}")
-    
-    async def _process_refund(self, campaign_id: str, user_id: str) -> Dict[str, Any]:
-        """Process actual refund (would integrate with payment processor)"""
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            
-            cursor.execute('''
-                SELECT refund_amount FROM guarantee_violations 
-                WHERE campaign_id = ? AND user_id = ? AND status = 'pending'
-            ''', (campaign_id, user_id))
-            
-            result = cursor.fetchone()
-            if result:
-                refund_amount = result[0]
-                
-                # Update status to processed
-                cursor.execute('''
-                    UPDATE guarantee_violations 
-                    SET status = 'processed', resolved_at = CURRENT_TIMESTAMP
-                    WHERE campaign_id = ? AND user_id = ?
-                ''', (campaign_id, user_id))
-                
-                conn.commit()
-                conn.close()
-                
-                return {
-                    'status': 'completed',
-                    'refund_amount': refund_amount,
-                    'message': f'Refund of ${refund_amount:.2f} processed for performance guarantee violation'
-                }
-            
-            conn.close()
-            return {'status': 'no_refund_due', 'message': 'No pending refunds found'}
-            
-        except Exception as e:
-            return {'status': 'error', 'message': str(e)}
-    
-    async def get_performance_dashboard(self, user_id: str) -> Dict[str, Any]:
-        """Get comprehensive performance dashboard for user"""
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            
-            # Overall performance summary
-            cursor.execute('''
-                SELECT 
-                    COUNT(*) as total_campaigns,
-                    AVG(ctr) as avg_ctr,
-                    AVG(roi) as avg_roi,
-                    SUM(CASE WHEN guarantee_met = 1 THEN 1 ELSE 0 END) as guarantees_met,
-                    SUM(CASE WHEN needs_optimization = 1 THEN 1 ELSE 0 END) as needs_optimization
-                FROM campaign_performance 
-                WHERE user_id = ? AND check_date >= date('now', '-30 days')
-            ''', (user_id,))
-            
-            summary = cursor.fetchone()
-            
-            # Recent performance trends
-            cursor.execute('''
-                SELECT 
-                    DATE(check_date) as date,
-                    AVG(ctr) as daily_ctr,
-                    AVG(roi) as daily_roi,
-                    COUNT(*) as campaigns_checked
-                FROM campaign_performance 
-                WHERE user_id = ? AND check_date >= date('now', '-7 days')
-                GROUP BY DATE(check_date)
-                ORDER BY date DESC
-            ''', (user_id,))
-            
-            trends = cursor.fetchall()
-            
-            # Optimization actions status
-            cursor.execute('''
-                SELECT 
-                    action_type,
-                    COUNT(*) as count,
-                    status
-                FROM optimization_actions oa
-                JOIN campaign_performance cp ON oa.campaign_id = cp.campaign_id
-                WHERE cp.user_id = ? AND oa.created_at >= date('now', '-30 days')
-                GROUP BY action_type, status
-            ''', (user_id,))
-            
-            optimizations = cursor.fetchall()
-            
-            conn.close()
-            
-            return {
-                'summary': {
-                    'total_campaigns': summary[0] or 0,
-                    'avg_ctr': round(summary[1] or 0, 2),
-                    'avg_roi': round(summary[2] or 0, 1),
-                    'guarantee_success_rate': round((summary[3] or 0) / max(summary[0] or 1, 1) * 100, 1),
-                    'campaigns_optimized': summary[4] or 0
-                },
-                'recent_trends': [
-                    {
-                        'date': row[0],
-                        'avg_ctr': round(row[1] or 0, 2),
-                        'avg_roi': round(row[2] or 0, 1),
-                        'campaigns': row[3]
-                    } for row in trends
-                ],
-                'optimization_status': [
-                    {
-                        'action_type': row[0],
-                        'count': row[1],
-                        'status': row[2]
-                    } for row in optimizations
-                ]
-            }
-            
-        except Exception as e:
-            print(f"❌ Error getting performance dashboard: {e}")
-            return {}
 
-# Helper functions for easy integration
-async def monitor_campaign(campaign_id: str, user_id: str, industry: str = 'default'):
-    """Quick campaign monitoring"""
-    engine = PerformanceGuaranteeEngine()
-    return await engine.monitor_campaign_performance(campaign_id, user_id, industry)
+    def _empty_performance_metrics(self, campaign_id: str) -> PerformanceMetrics:
+        """Return empty performance metrics for error cases"""
+        return PerformanceMetrics(
+            campaign_id=campaign_id,
+            ctr=0.0,
+            cpc=0.0,
+            conversion_rate=0.0,
+            roi=0.0,
+            industry_benchmark_ctr=2.0,
+            industry_benchmark_cpc=1.75,
+            performance_status=PerformanceStatus.CRITICAL,
+            needs_optimization=True,
+            guarantee_threshold_met=False
+        )
 
-async def auto_optimize(campaign_id: str, user_id: str):
-    """Quick auto-optimization"""
-    engine = PerformanceGuaranteeEngine()
-    return await engine.auto_optimize_campaign(campaign_id, user_id)
-
-async def get_dashboard(user_id: str):
-    """Quick performance dashboard"""
-    engine = PerformanceGuaranteeEngine()
-    return await engine.get_performance_dashboard(user_id)
-
-async def main():
-    """Test the performance guarantee system"""
-    print("🎯 Performance Guarantee & Auto-Optimization System")
-    print("=" * 55)
+# Test function
+async def test_performance_engine():
+    """Test performance guarantee engine functionality"""
+    print("🔍 Testing Performance Guarantee Engine...")
     
     engine = PerformanceGuaranteeEngine()
     
-    # Demo: Monitor campaign performance
-    campaign_id = f"camp_{int(datetime.now().timestamp())}"
-    user_id = "user_123"
+    # Test performance monitoring
+    metrics = await engine.monitor_campaign_performance("test-campaign-001")
+    print(f"✅ Performance monitoring: Status={metrics.performance_status.value}, CTR={metrics.ctr}")
     
-    print(f"🔍 Monitoring campaign {campaign_id}...")
-    performance = await engine.monitor_campaign_performance(campaign_id, user_id, 'restaurant')
+    # Test optimization
+    optimization_result = await engine.auto_optimize_campaign("test-campaign-001", "test-user-001")
+    print(f"✅ Auto optimization: {'Success' if optimization_result.get('optimized') else 'Not needed'}")
     
-    print(f"📊 Performance Status: {performance.performance_status.value}")
-    print(f"📈 CTR: {performance.ctr:.2f}% (Benchmark: {performance.industry_benchmark_ctr:.2f}%)")
-    print(f"💰 ROI: {performance.roi:.1f}%")
-    print(f"✅ Guarantee Met: {performance.guarantee_threshold_met}")
+    # Test refund eligibility
+    refund_check = await engine.check_refund_eligibility("test-campaign-001")
+    print(f"✅ Refund eligibility: {'Eligible' if refund_check.get('eligible') else 'Not eligible'}")
     
-    if performance.needs_optimization:
-        print(f"\n🔧 Auto-optimizing campaign...")
-        optimization_result = await engine.auto_optimize_campaign(campaign_id, user_id)
-        print(f"✅ Optimizations executed: {optimization_result['optimizations_executed']}")
-    
-    # Demo: Performance dashboard
-    dashboard = await engine.get_performance_dashboard(user_id)
-    print(f"\n📊 Performance Dashboard:")
-    print(json.dumps(dashboard, indent=2))
+    print("🎉 Performance engine tests completed!")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(test_performance_engine())

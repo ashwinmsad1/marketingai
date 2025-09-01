@@ -18,20 +18,37 @@ pydub
 numpy
 pandas
 
-# Web framework (for future web interface)
+# Web framework
 fastapi
-uvicorn
+uvicorn[standard]
 
-# Database (for future data persistence)
+# Database with PostgreSQL
 sqlalchemy
 psycopg2-binary
+alembic
 
-# Social media APIs (current integration)
+# Async database support
+asyncpg
+
+# Social media APIs
 aiohttp
 facebook-sdk
 facebook-business
 python-instagram
 
-# Utilities
+# Authentication & Security
+python-jose[cryptography]
+passlib[bcrypt]
 python-multipart
+
+# File handling
 aiofiles
+
+
+# Monitoring & Logging
+prometheus-client
+
+# Development tools
+pytest
+pytest-asyncio
+httpx

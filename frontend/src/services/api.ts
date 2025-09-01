@@ -37,6 +37,117 @@ api.interceptors.response.use(
   }
 );
 
+// Authentication Management
+export const authService = {
+  // Auth token management
+  setAuthToken: (token: string | null) => {
+    if (token) {
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    } else {
+      delete api.defaults.headers.common['Authorization'];
+    }
+  },
+
+  // Authentication endpoints
+  login: async (email: string, password: string) => {
+    const response = await api.post('/api/auth/login', { email, password });
+    return response;
+  },
+
+  register: async (userData: {
+    email: string;
+    password: string;
+    first_name: string;
+    last_name: string;
+    company_name?: string;
+    phone?: string;
+  }) => {
+    const response = await api.post('/api/auth/register', userData);
+    return response;
+  },
+
+  refreshToken: async (refreshToken: string) => {
+    const response = await api.post('/api/auth/refresh', { refresh_token: refreshToken });
+    return response;
+  },
+
+  logout: async () => {
+    const response = await api.post('/api/auth/logout');
+    return response;
+  },
+
+  getCurrentUser: async () => {
+    const response = await api.get('/api/auth/me');
+    return response;
+  },
+
+  updateProfile: async (userData: any) => {
+    const response = await api.put('/api/auth/me', userData);
+    return response;
+  },
+
+  // Email verification
+  verifyEmail: async (token: string) => {
+    const response = await api.post('/api/auth/verify-email', { token });
+    return response;
+  },
+
+  // Password reset
+  requestPasswordReset: async (email: string) => {
+    const response = await api.post('/api/auth/request-password-reset', { email });
+    return response;
+  },
+
+  resetPassword: async (token: string, newPassword: string) => {
+    const response = await api.post('/api/auth/reset-password', {
+      token,
+      new_password: newPassword
+    });
+    return response;
+  },
+
+  changePassword: async (currentPassword: string, newPassword: string) => {
+    const response = await api.post('/api/auth/change-password', {
+      current_password: currentPassword,
+      new_password: newPassword
+    });
+    return response;
+  },
+};
+
+// Meta Account Management
+export const metaService = {
+  // Start Meta OAuth connection
+  startConnection: async () => {
+    const response = await api.get('/api/meta/connect/start');
+    return response;
+  },
+
+  // Handle OAuth callback
+  handleOAuthCallback: async (code: string, state: string) => {
+    const response = await api.post('/api/meta/connect/callback', { code, state });
+    return response;
+  },
+
+  // Get connected accounts
+  getConnectedAccounts: async () => {
+    const response = await api.get('/api/meta/accounts');
+    return response;
+  },
+
+  // Disconnect account
+  disconnectAccount: async (accountId: string) => {
+    const response = await api.delete(`/api/meta/accounts/${accountId}`);
+    return response;
+  },
+
+  // Refresh account token
+  refreshToken: async (accountId: string) => {
+    const response = await api.post(`/api/meta/accounts/${accountId}/refresh`);
+    return response;
+  },
+};
+
 // API service functions
 
 // User Management

@@ -1,16 +1,15 @@
-from dotenv import load_dotenv
-import os
 import asyncio
 from google import genai
 from google.genai import types
 
-load_dotenv()
+from secure_config_manager import get_config
 
 class VideoAgent:
     def __init__(self):
-        self.client = genai.Client(api_key=os.getenv("API_KEY"))
-        if not os.getenv("API_KEY"):
-            raise ValueError("API_KEY not found in environment variables")
+        api_key = get_config("GOOGLE_API_KEY")
+        self.client = genai.Client(api_key=api_key)
+        if not api_key:
+            raise ValueError("GOOGLE_API_KEY not found in configuration")
     
     async def create_video_from_prompt(self, prompt, style="cinematic", aspect_ratio="16:9"):
         """Create video from text prompt using Veo 3.0"""

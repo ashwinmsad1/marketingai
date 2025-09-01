@@ -5,13 +5,19 @@ Detects trending topics and creates viral-optimized content automatically
 
 import asyncio
 import json
-import sqlite3
+import logging
+import os
 import requests
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List, Tuple
 from dataclasses import dataclass
 import random
 import re
+
+# Database imports
+from sqlalchemy.orm import Session
+from database import get_db
+from database.models import ViralTrend, Campaign, AIContent
 
 # Import our AI agents
 from photo_agent import image_creator
@@ -60,9 +66,16 @@ class ViralContentEngine:
     AI-powered system for detecting trends and creating viral content
     """
     
-    def __init__(self, db_path: str = "viral_engine.db"):
-        self.db_path = db_path
-        self.init_database()
+    def __init__(self):
+        # Setup logging
+        self.logger = logging.getLogger(__name__)
+        
+        # API keys for trend detection
+        self.api_keys = {
+            'twitter': os.getenv('TWITTER_API_KEY'),
+            'google': os.getenv('GOOGLE_API_KEY'),
+            'newsapi': os.getenv('NEWS_API_KEY')
+        }
         
         # Viral content patterns and frameworks
         self.viral_frameworks = {
@@ -114,75 +127,9 @@ class ViralContentEngine:
             'fashion': ['style_trends', 'outfit_challenges', 'fashion_weeks']
         }
     
-    def init_database(self):
-        """Initialize viral content database"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        # Trending topics table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS trending_topics (
-                topic_id TEXT PRIMARY KEY,
-                topic_name TEXT NOT NULL,
-                trend_score REAL,
-                industry TEXT,
-                keywords TEXT,
-                hashtags TEXT,
-                viral_elements TEXT,
-                detected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                peak_period TEXT,
-                engagement_potential REAL
-            )
-        ''')
-        
-        # Viral content templates table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS viral_content (
-                content_id TEXT PRIMARY KEY,
-                topic_id TEXT,
-                content_type TEXT,
-                viral_prompt TEXT,
-                viral_caption TEXT,
-                viral_hashtags TEXT,
-                engagement_hooks TEXT,
-                optimal_posting_time TEXT,
-                virality_score REAL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (topic_id) REFERENCES trending_topics (topic_id)
-            )
-        ''')
-        
-        # Viral campaigns table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS viral_campaigns (
-                campaign_id TEXT PRIMARY KEY,
-                user_id TEXT NOT NULL,
-                topic_id TEXT,
-                content_id TEXT,
-                generated_assets TEXT,
-                performance_prediction TEXT,
-                actual_performance TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (topic_id) REFERENCES trending_topics (topic_id),
-                FOREIGN KEY (content_id) REFERENCES viral_content (content_id)
-            )
-        ''')
-        
-        # Trend tracking table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS trend_tracking (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                topic_id TEXT,
-                tracking_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                trend_score REAL,
-                engagement_metrics TEXT,
-                platform TEXT,
-                FOREIGN KEY (topic_id) REFERENCES trending_topics (topic_id)
-            )
-        ''')
-        
-        conn.commit()
-        conn.close()
+    def get_database_session(self) -> Session:
+        """Get database session for PostgreSQL operations"""
+        return next(get_db())
     
     async def detect_trending_topics(self, industry: str = 'general') -> List[TrendingTopic]:
         """Detect current trending topics for specific industry"""
@@ -196,11 +143,11 @@ class ViralContentEngine:
             for trend in simulated_trends:
                 await self._store_trending_topic(trend)
             
-            print(f"✅ Detected {len(simulated_trends)} trending topics for {industry}")
+            self.logger.info(f"Detected {len(simulated_trends)} trending topics for {industry}")
             return simulated_trends
             
         except Exception as e:
-            print(f"❌ Error detecting trending topics: {e}")
+            self.logger.error(f"Error detecting trending topics: {e}")
             return []
     
     async def _simulate_trending_topics(self, industry: str) -> List[TrendingTopic]:
@@ -283,23 +230,43 @@ class ViralContentEngine:
     
     async def _store_trending_topic(self, trend: TrendingTopic):
         """Store trending topic in database"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            INSERT OR REPLACE INTO trending_topics
-            (topic_id, topic_name, trend_score, industry, keywords, hashtags,
-             viral_elements, peak_period, engagement_potential)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            trend.topic_id, trend.topic_name, trend.trend_score, trend.industry,
-            json.dumps(trend.keywords), json.dumps(trend.hashtags),
-            json.dumps(trend.viral_elements), trend.peak_period,
-            trend.engagement_potential
-        ))
-        
-        conn.commit()
-        conn.close()
+        try:
+            db = self.get_database_session()
+            
+            # Create or update viral trend
+            viral_trend = ViralTrend(
+                id=trend.topic_id,
+                topic=trend.topic_name,
+                industry=trend.industry,
+                platform='general',
+                virality_score=trend.trend_score,
+                engagement_rate=trend.engagement_potential,
+                growth_rate=random.uniform(10, 50),  # Placeholder
+                framework_type='general',
+                key_elements=trend.viral_elements,
+                recommended_hashtags=trend.hashtags,
+                peak_time=datetime.now(),
+                trend_lifespan=7,  # 7 days
+                optimal_posting_times=['9:00', '12:00', '17:00', '21:00']
+            )
+            
+            # Check if exists and update, otherwise create new
+            existing = db.query(ViralTrend).filter(ViralTrend.id == trend.topic_id).first()
+            if existing:
+                for key, value in viral_trend.__dict__.items():
+                    if key != '_sa_instance_state':
+                        setattr(existing, key, value)
+            else:
+                db.add(viral_trend)
+            
+            db.commit()
+            self.logger.info(f"Stored trending topic: {trend.topic_name}")
+            
+        except Exception as e:
+            self.logger.error(f"Error storing trending topic: {e}")
+            db.rollback()
+        finally:
+            db.close()
     
     async def create_viral_content_from_trend(self, topic_id: str, framework: str = 'auto') -> ViralContent:
         """Create viral content based on trending topic"""
@@ -346,37 +313,36 @@ class ViralContentEngine:
             return viral_content
             
         except Exception as e:
-            print(f"❌ Error creating viral content: {e}")
+            self.logger.error(f"Error creating viral content: {e}")
             raise
     
     async def _get_trending_topic(self, topic_id: str) -> Optional[TrendingTopic]:
         """Get trending topic from database"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            SELECT topic_name, trend_score, industry, keywords, hashtags,
-                   viral_elements, peak_period, engagement_potential
-            FROM trending_topics WHERE topic_id = ?
-        ''', (topic_id,))
-        
-        result = cursor.fetchone()
-        conn.close()
-        
-        if result:
-            return TrendingTopic(
-                topic_id=topic_id,
-                topic_name=result[0],
-                trend_score=result[1],
-                industry=result[2],
-                keywords=json.loads(result[3]),
-                hashtags=json.loads(result[4]),
-                viral_elements=json.loads(result[5]),
-                detected_at=datetime.now(),
-                peak_period=result[6],
-                engagement_potential=result[7]
-            )
-        return None
+        try:
+            db = self.get_database_session()
+            
+            viral_trend = db.query(ViralTrend).filter(ViralTrend.id == topic_id).first()
+            
+            if viral_trend:
+                return TrendingTopic(
+                    topic_id=viral_trend.id,
+                    topic_name=viral_trend.topic,
+                    trend_score=viral_trend.virality_score or 0.0,
+                    industry=viral_trend.industry or 'general',
+                    keywords=viral_trend.key_elements or [],
+                    hashtags=viral_trend.recommended_hashtags or [],
+                    viral_elements=viral_trend.key_elements or [],
+                    detected_at=viral_trend.created_at or datetime.now(),
+                    peak_period=f"Peak in {viral_trend.trend_lifespan or 7} days",
+                    engagement_potential=viral_trend.engagement_rate or 0.0
+                )
+            return None
+            
+        except Exception as e:
+            self.logger.error(f"Error getting trending topic: {e}")
+            return None
+        finally:
+            db.close()
     
     def _select_optimal_framework(self, trend: TrendingTopic) -> str:
         """Select best viral framework for trending topic"""
@@ -497,23 +463,29 @@ class ViralContentEngine:
     
     async def _store_viral_content(self, content: ViralContent):
         """Store viral content in database"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            INSERT INTO viral_content
-            (content_id, topic_id, content_type, viral_prompt, viral_caption,
-             viral_hashtags, engagement_hooks, optimal_posting_time, virality_score)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            content.content_id, content.topic_id, content.content_type,
-            content.viral_prompt, content.viral_caption,
-            json.dumps(content.viral_hashtags), json.dumps(content.engagement_hooks),
-            content.optimal_posting_time, content.virality_score
-        ))
-        
-        conn.commit()
-        conn.close()
+        try:
+            db = self.get_database_session()
+            
+            # Create AIContent entry for the viral content
+            ai_content = AIContent(
+                id=content.content_id,
+                prompt=content.viral_prompt,
+                content_type=content.content_type,
+                platform_optimized=['facebook', 'instagram', 'tiktok'],
+                virality_score=content.virality_score,
+                optimal_posting_time=content.optimal_posting_time,
+                viral_elements=content.engagement_hooks
+            )
+            
+            db.add(ai_content)
+            db.commit()
+            self.logger.info(f"Stored viral content: {content.content_id}")
+            
+        except Exception as e:
+            self.logger.error(f"Error storing viral content: {e}")
+            db.rollback()
+        finally:
+            db.close()
     
     async def generate_viral_campaign(self, user_id: str, industry: str = 'general') -> ViralCampaign:
         """Generate complete viral campaign from trending topics"""
@@ -531,7 +503,7 @@ class ViralContentEngine:
             viral_content = await self.create_viral_content_from_trend(best_trend.topic_id)
             
             # Generate AI assets
-            print(f"🎨 Generating viral content: {viral_content.viral_prompt}")
+            self.logger.info(f"Generating viral content: {viral_content.viral_prompt}")
             generated_image = await image_creator(viral_content.viral_prompt, "viral social media content")
             
             generated_assets = [generated_image] if generated_image else []
@@ -557,7 +529,7 @@ class ViralContentEngine:
             return viral_campaign
             
         except Exception as e:
-            print(f"❌ Error generating viral campaign: {e}")
+            self.logger.error(f"Error generating viral campaign: {e}")
             raise
     
     def _predict_viral_performance(self, content: ViralContent, trend: TrendingTopic) -> Dict[str, float]:
@@ -575,55 +547,64 @@ class ViralContentEngine:
     
     async def _store_viral_campaign(self, campaign: ViralCampaign):
         """Store viral campaign in database"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            INSERT INTO viral_campaigns
-            (campaign_id, user_id, topic_id, content_id, generated_assets, performance_prediction)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (
-            campaign.campaign_id, campaign.user_id, campaign.trending_topic.topic_id,
-            campaign.viral_content.content_id, json.dumps(campaign.generated_assets),
-            json.dumps(campaign.performance_prediction)
-        ))
-        
-        conn.commit()
-        conn.close()
+        try:
+            db = self.get_database_session()
+            
+            # Create Campaign entry for the viral campaign
+            campaign_record = Campaign(
+                id=campaign.campaign_id,
+                user_id=campaign.user_id,
+                name=f"Viral Campaign: {campaign.trending_topic.topic_name}",
+                type='viral',
+                prompt=campaign.viral_content.viral_prompt,
+                caption=campaign.viral_content.viral_caption,
+                style='viral',
+                industry=campaign.trending_topic.industry,
+                status='draft'
+            )
+            
+            db.add(campaign_record)
+            db.commit()
+            self.logger.info(f"Stored viral campaign: {campaign.campaign_id}")
+            
+        except Exception as e:
+            self.logger.error(f"Error storing viral campaign: {e}")
+            db.rollback()
+        finally:
+            db.close()
     
     async def get_viral_opportunities(self, industry: str = 'general') -> List[Dict[str, Any]]:
         """Get current viral opportunities for industry"""
         try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
+            db = self.get_database_session()
             
-            cursor.execute('''
-                SELECT topic_id, topic_name, trend_score, peak_period, engagement_potential
-                FROM trending_topics 
-                WHERE industry = ? AND detected_at >= datetime('now', '-24 hours')
-                ORDER BY trend_score DESC
-                LIMIT 10
-            ''', (industry,))
+            # Query viral trends from last 24 hours
+            from datetime import datetime, timedelta
+            yesterday = datetime.now() - timedelta(days=1)
             
-            results = cursor.fetchall()
-            conn.close()
+            viral_trends = db.query(ViralTrend).filter(
+                ViralTrend.industry == industry,
+                ViralTrend.created_at >= yesterday
+            ).order_by(ViralTrend.virality_score.desc()).limit(10).all()
             
             opportunities = []
-            for row in results:
+            for trend in viral_trends:
                 opportunities.append({
-                    'topic_id': row[0],
-                    'topic_name': row[1],
-                    'trend_score': row[2],
-                    'peak_period': row[3],
-                    'engagement_potential': row[4],
-                    'urgency_level': self._calculate_urgency(row[3], row[2])
+                    'topic_id': trend.id,
+                    'topic_name': trend.topic,
+                    'trend_score': trend.virality_score or 0,
+                    'peak_period': f"Peak in {trend.trend_lifespan or 7} days",
+                    'engagement_potential': trend.engagement_rate or 0,
+                    'urgency_level': self._calculate_urgency(f"Peak in {trend.trend_lifespan or 7} days", trend.virality_score or 0)
                 })
             
             return opportunities
             
         except Exception as e:
-            print(f"❌ Error getting viral opportunities: {e}")
+            self.logger.error(f"Error getting viral opportunities: {e}")
             return []
+        finally:
+            db.close()
     
     def _calculate_urgency(self, peak_period: str, trend_score: float) -> str:
         """Calculate urgency level for trending topic"""
@@ -661,7 +642,7 @@ class ViralContentEngine:
             return viral_series
             
         except Exception as e:
-            print(f"❌ Error creating viral series: {e}")
+            self.logger.error(f"Error creating viral series: {e}")
             return []
 
 # Helper functions for easy integration

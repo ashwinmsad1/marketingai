@@ -9,9 +9,19 @@ import aiohttp
 import json
 import secrets
 import webbrowser
+import logging
 from urllib.parse import urlencode, parse_qs
 from typing import Dict, Optional, List
 from datetime import datetime, timedelta
+
+from secure_state_manager import (
+    SecureStateManager, StateTokenError, StateTokenExpiredError, 
+    StateTokenInvalidError, generate_oauth_state, validate_oauth_state
+)
+from secure_config_manager import get_config, ConfigurationError
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 class MetaAPIAuthenticator:
     """
@@ -19,19 +29,25 @@ class MetaAPIAuthenticator:
     """
     
     def __init__(self):
-        self.app_id = os.getenv("FACEBOOK_APP_ID")
-        self.app_secret = os.getenv("FACEBOOK_APP_SECRET")
-        self.redirect_uri = os.getenv("FACEBOOK_REDIRECT_URI", "http://localhost:8000/auth/callback")
+        try:
+            self.app_id = get_config("FACEBOOK_APP_ID")
+            self.app_secret = get_config("FACEBOOK_APP_SECRET")
+            self.redirect_uri = get_config("FACEBOOK_REDIRECT_URI")
+        except ConfigurationError as e:
+            logger.error(f"Configuration error: {e}")
+            raise ValueError(f"Meta API configuration error: {e}")
+        
+        # Initialize secure state manager
+        self.state_manager = SecureStateManager()
         
         # Meta API endpoints
         self.auth_base_url = "https://www.facebook.com/v19.0/dialog/oauth"
         self.token_url = "https://graph.facebook.com/v19.0/oauth/access_token"
         self.graph_api_url = "https://graph.facebook.com/v19.0"
         
-        if not all([self.app_id, self.app_secret]):
-            raise ValueError("FACEBOOK_APP_ID and FACEBOOK_APP_SECRET must be set in environment variables")
+        logger.info("Meta API Authenticator initialized successfully")
     
-    def generate_auth_url(self, scopes: List[str] = None) -> tuple[str, str]:
+    def generate_auth_url(self, scopes: List[str] = None, user_session: Optional[str] = None) -> tuple[str, str]:
         """
         Generate Facebook OAuth URL for user authorization
         
@@ -51,8 +67,20 @@ class MetaAPIAuthenticator:
                 'instagram_content_publish' # Publish to Instagram
             ]
         
-        # Generate state for CSRF protection
-        state = secrets.token_urlsafe(32)
+        # Generate secure state token for CSRF protection
+        try:
+            state, state_hash = self.state_manager.generate_state_token(
+                user_session=user_session,
+                metadata={
+                    'scopes': scopes,
+                    'redirect_uri': self.redirect_uri,
+                    'timestamp': datetime.now().isoformat()
+                }
+            )
+            logger.info(f"Generated OAuth state token: {state[:8]}...")
+        except StateTokenError as e:
+            logger.error(f"Failed to generate state token: {e}")
+            raise ValueError(f"State token generation failed: {e}")
         
         params = {
             'client_id': self.app_id,
@@ -65,16 +93,36 @@ class MetaAPIAuthenticator:
         auth_url = f"{self.auth_base_url}?{urlencode(params)}"
         return auth_url, state
     
-    async def exchange_code_for_token(self, code: str) -> Dict[str, any]:
+    async def exchange_code_for_token(self, code: str, state_token: Optional[str] = None, 
+                                     user_session: Optional[str] = None) -> Dict[str, any]:
         """
-        Exchange authorization code for access token
+        Exchange authorization code for access token with state validation
         
         Args:
             code: Authorization code from callback
+            state_token: State token for CSRF protection
+            user_session: Optional user session identifier
             
         Returns:
             Dict with access token and expiration info
+        
+        Raises:
+            ValueError: If code is invalid or state validation fails
         """
+        # Validate state token if provided
+        if state_token:
+            try:
+                validation_result = self.state_manager.validate_state_token(state_token, user_session)
+                logger.info(f"State token validated successfully for OAuth exchange")
+            except (StateTokenExpiredError, StateTokenInvalidError) as e:
+                logger.error(f"State token validation failed: {e}")
+                raise ValueError(f"Invalid OAuth state: {e}")
+            except StateTokenError as e:
+                logger.error(f"State token error: {e}")
+                raise ValueError(f"State validation error: {e}")
+        
+        if not code:
+            raise ValueError("Authorization code is required")
         params = {
             'client_id': self.app_id,
             'client_secret': self.app_secret,
@@ -97,8 +145,13 @@ class MetaAPIAuthenticator:
                         'expires_at': datetime.now() + timedelta(seconds=long_lived_token.get('expires_in', 5184000))
                     }
                 else:
-                    error_data = await response.json()
-                    raise Exception(f"Token exchange failed: {error_data}")
+                    try:
+                        error_data = await response.json()
+                        error_msg = error_data.get('error', {}).get('message', 'Unknown error')
+                    except:
+                        error_msg = await response.text()
+                    logger.error(f"Token exchange failed: HTTP {response.status} - {error_msg}")
+                    raise ValueError(f"Token exchange failed: {error_msg}")
     
     async def get_long_lived_token(self, short_token: str) -> Dict[str, any]:
         """Convert short-lived token to long-lived token"""
@@ -114,8 +167,13 @@ class MetaAPIAuthenticator:
                 if response.status == 200:
                     return await response.json()
                 else:
-                    error_data = await response.json()
-                    raise Exception(f"Long-lived token exchange failed: {error_data}")
+                    try:
+                        error_data = await response.json()
+                        error_msg = error_data.get('error', {}).get('message', 'Unknown error')
+                    except:
+                        error_msg = await response.text()
+                    logger.error(f"Long-lived token exchange failed: HTTP {response.status} - {error_msg}")
+                    raise ValueError(f"Long-lived token exchange failed: {error_msg}")
     
     async def get_user_info(self, access_token: str) -> Dict[str, any]:
         """Get user information and permissions"""
@@ -129,8 +187,13 @@ class MetaAPIAuthenticator:
                 if response.status == 200:
                     return await response.json()
                 else:
-                    error_data = await response.json()
-                    raise Exception(f"Failed to get user info: {error_data}")
+                    try:
+                        error_data = await response.json()
+                        error_msg = error_data.get('error', {}).get('message', 'Unknown error')
+                    except:
+                        error_msg = await response.text()
+                    logger.error(f"Failed to get user info: HTTP {response.status} - {error_msg}")
+                    raise ValueError(f"Failed to get user info: {error_msg}")
     
     async def get_user_ad_accounts(self, access_token: str) -> List[Dict[str, any]]:
         """Get user's advertising accounts"""
@@ -145,8 +208,13 @@ class MetaAPIAuthenticator:
                     data = await response.json()
                     return data.get('data', [])
                 else:
-                    error_data = await response.json()
-                    raise Exception(f"Failed to get ad accounts: {error_data}")
+                    try:
+                        error_data = await response.json()
+                        error_msg = error_data.get('error', {}).get('message', 'Unknown error')
+                    except:
+                        error_msg = await response.text()
+                    logger.error(f"Failed to get ad accounts: HTTP {response.status} - {error_msg}")
+                    raise ValueError(f"Failed to get ad accounts: {error_msg}")
     
     async def get_user_pages(self, access_token: str) -> List[Dict[str, any]]:
         """Get user's Facebook pages"""
@@ -161,8 +229,13 @@ class MetaAPIAuthenticator:
                     data = await response.json()
                     return data.get('data', [])
                 else:
-                    error_data = await response.json()
-                    raise Exception(f"Failed to get pages: {error_data}")
+                    try:
+                        error_data = await response.json()
+                        error_msg = error_data.get('error', {}).get('message', 'Unknown error')
+                    except:
+                        error_msg = await response.text()
+                    logger.error(f"Failed to get pages: HTTP {response.status} - {error_msg}")
+                    raise ValueError(f"Failed to get pages: {error_msg}")
     
     async def validate_token(self, access_token: str) -> Dict[str, any]:
         """Validate access token and check permissions"""
@@ -177,8 +250,13 @@ class MetaAPIAuthenticator:
                     data = await response.json()
                     return data.get('data', {})
                 else:
-                    error_data = await response.json()
-                    raise Exception(f"Token validation failed: {error_data}")
+                    try:
+                        error_data = await response.json()
+                        error_msg = error_data.get('error', {}).get('message', 'Unknown error')
+                    except:
+                        error_msg = await response.text()
+                    logger.error(f"Token validation failed: HTTP {response.status} - {error_msg}")
+                    raise ValueError(f"Token validation failed: {error_msg}")
 
 class UserOnboardingFlow:
     """
@@ -187,6 +265,7 @@ class UserOnboardingFlow:
     
     def __init__(self):
         self.authenticator = MetaAPIAuthenticator()
+        self._current_session_id = None
     
     async def start_onboarding(self) -> Dict[str, any]:
         """
@@ -195,8 +274,15 @@ class UserOnboardingFlow:
         print("🚀 Starting Meta API Onboarding Process")
         print("=" * 50)
         
-        # Step 1: Generate authorization URL
-        auth_url, state = self.authenticator.generate_auth_url()
+        # Generate session ID for state tracking
+        self._current_session_id = secrets.token_urlsafe(16)
+        logger.info(f"Starting onboarding session: {self._current_session_id}")
+        
+        # Step 1: Generate authorization URL with secure state
+        auth_url, state = self.authenticator.generate_auth_url(
+            user_session=self._current_session_id
+        )
+        self._current_state_token = state
         
         print(f"📱 Step 1: Facebook Authorization")
         print(f"Please visit the following URL to authorize the application:")
@@ -206,16 +292,38 @@ class UserOnboardingFlow:
         if input("Open browser automatically? (y/n): ").lower().strip() == 'y':
             webbrowser.open(auth_url)
         
-        # Step 2: Get authorization code
+        # Step 2: Get authorization code and state validation
         print("\n📝 Step 2: Authorization Code")
-        print("After authorizing, you'll be redirected to a URL containing a 'code' parameter.")
-        code = input("Enter the authorization code: ").strip()
+        print("After authorizing, you'll be redirected to a URL containing 'code' and 'state' parameters.")
+        callback_url = input("Enter the full callback URL (or just the authorization code): ").strip()
+        
+        # Parse callback URL or use as direct code
+        if callback_url.startswith('http'):
+            from urllib.parse import urlparse, parse_qs
+            parsed = urlparse(callback_url)
+            query_params = parse_qs(parsed.query)
+            code = query_params.get('code', [None])[0]
+            returned_state = query_params.get('state', [None])[0]
+            
+            if returned_state != state:
+                logger.error("State mismatch in OAuth callback")
+                raise ValueError("Invalid OAuth state - possible CSRF attack")
+        else:
+            code = callback_url
+            returned_state = state  # Assume state is correct for direct code entry
+        
+        if not code:
+            raise ValueError("Authorization code not found")
         
         try:
-            # Step 3: Exchange code for token
+            # Step 3: Exchange code for token with state validation
             print("\n🔐 Step 3: Token Exchange")
-            token_data = await self.authenticator.exchange_code_for_token(code)
-            print("✅ Successfully obtained access token!")
+            token_data = await self.authenticator.exchange_code_for_token(
+                code, 
+                state_token=returned_state, 
+                user_session=self._current_session_id
+            )
+            print("✅ Successfully obtained access token with state validation!")
             
             # Step 4: Get user information
             print("\n👤 Step 4: User Information")
@@ -307,7 +415,12 @@ class UserOnboardingFlow:
                 print(f"❌ Setup validation failed: {validation_result['error']}")
                 return {'success': False, 'error': validation_result['error']}
                 
+        except ValueError as e:
+            logger.error(f"Validation error in onboarding: {e}")
+            print(f"❌ Validation error: {str(e)}")
+            return {'success': False, 'error': str(e)}
         except Exception as e:
+            logger.error(f"Unexpected error in onboarding: {e}")
             print(f"❌ Onboarding failed: {str(e)}")
             return {'success': False, 'error': str(e)}
     
@@ -371,7 +484,11 @@ class UserOnboardingFlow:
             
             return {'success': True, 'message': 'All validations passed'}
             
+        except ValueError as e:
+            logger.error(f"Token validation error: {e}")
+            return {'success': False, 'error': str(e)}
         except Exception as e:
+            logger.error(f"Unexpected error in token validation: {e}")
             return {'success': False, 'error': str(e)}
 
 async def main():
@@ -407,7 +524,11 @@ async def main():
             
     except KeyboardInterrupt:
         print("\n\nSetup cancelled by user.")
+    except ValueError as e:
+        logger.error(f"Validation error in main: {e}")
+        print(f"\n❌ Configuration error: {str(e)}")
     except Exception as e:
+        logger.error(f"Unexpected error in main: {e}")
         print(f"\n❌ Unexpected error: {str(e)}")
 
 if __name__ == "__main__":

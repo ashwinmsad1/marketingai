@@ -3,21 +3,36 @@ import os
 import asyncio
 import aiohttp
 import json
+import logging
 from typing import Optional, Dict, Any, List
 from pathlib import Path
 import mimetypes
+
+# Configure logging
+logger = logging.getLogger(__name__)
+
+from secure_config_manager import get_config, ConfigurationError
 
 load_dotenv()
 
 class FacebookMarketingAgent:
     def __init__(self):
-        self.access_token = os.getenv("FACEBOOK_ACCESS_TOKEN")
-        self.page_id = os.getenv("FACEBOOK_PAGE_ID") 
-        self.instagram_business_id = os.getenv("INSTAGRAM_BUSINESS_ID")
-        self.graph_api_url = "https://graph.facebook.com/v19.0"
-        
-        if not self.access_token:
-            raise ValueError("FACEBOOK_ACCESS_TOKEN not found in environment variables")
+        try:
+            # Use secure config manager consistently
+            self.access_token = get_config("META_ACCESS_TOKEN")
+            self.page_id = get_config("FACEBOOK_PAGE_ID") 
+            # Add Instagram Business ID to secure config if needed
+            try:
+                self.instagram_business_id = get_config("INSTAGRAM_BUSINESS_ID")
+            except:
+                self.instagram_business_id = None  # Optional parameter
+            self.graph_api_url = "https://graph.facebook.com/v19.0"
+            
+            if not self.access_token:
+                raise ConfigurationError("FACEBOOK_ACCESS_TOKEN or META_ACCESS_TOKEN not found")
+        except ConfigurationError as e:
+            logger.error(f"Facebook agent configuration error: {e}")
+            raise ValueError(f"Facebook agent configuration error: {e}")
     
     async def upload_video_to_facebook(self, video_path: str, caption: str = "", scheduled_time: Optional[int] = None) -> Optional[Dict[str, Any]]:
         """
@@ -52,9 +67,14 @@ class FacebookMarketingAgent:
             init_url = f"{self.graph_api_url}/{self.page_id}/videos"
             
             async with aiohttp.ClientSession() as session:
-                # Open video file
-                with open(video_path, 'rb') as video_file:
-                    video_data = video_file.read()
+                # Safely read video file using context manager
+                try:
+                    with open(video_path, 'rb') as video_file:
+                        video_data = video_file.read()
+                except IOError as e:
+                    logger.error(f"Failed to read video file {video_path}: {e}")
+                    print(f"❌ Failed to read video file: {e}")
+                    return None
                 
                 # Prepare form data
                 form_data = aiohttp.FormData()
@@ -86,7 +106,20 @@ class FacebookMarketingAgent:
                         print(f"❌ Error: {error_text}")
                         return None
                         
+        except FileNotFoundError as e:
+            logger.error(f"Video file not found: {e}")
+            print(f"❌ Video file not found: {str(e)}")
+            return None
+        except PermissionError as e:
+            logger.error(f"Permission denied accessing video file: {e}")
+            print(f"❌ Permission denied: {str(e)}")
+            return None
+        except aiohttp.ClientError as e:
+            logger.error(f"Network error uploading to Facebook: {e}")
+            print(f"❌ Network error: {str(e)}")
+            return None
         except Exception as e:
+            logger.error(f"Unexpected error uploading to Facebook: {e}")
             print(f"❌ Error uploading to Facebook: {str(e)}")
             return None
     
@@ -167,7 +200,20 @@ class FacebookMarketingAgent:
                         print(f"❌ Error: {error_text}")
                         return None
                         
+        except FileNotFoundError as e:
+            logger.error(f"Video file not found for Instagram: {e}")
+            print(f"❌ Video file not found: {str(e)}")
+            return None
+        except PermissionError as e:
+            logger.error(f"Permission denied accessing video file for Instagram: {e}")
+            print(f"❌ Permission denied: {str(e)}")
+            return None
+        except aiohttp.ClientError as e:
+            logger.error(f"Network error uploading to Instagram: {e}")
+            print(f"❌ Network error: {str(e)}")
+            return None
         except Exception as e:
+            logger.error(f"Unexpected error uploading to Instagram: {e}")
             print(f"❌ Error uploading to Instagram: {str(e)}")
             return None
     
@@ -184,8 +230,14 @@ class FacebookMarketingAgent:
             url = f"{self.graph_api_url}/{self.page_id}/photos"
             
             async with aiohttp.ClientSession() as session:
-                with open(image_path, 'rb') as image_file:
-                    image_data = image_file.read()
+                # Safely read image file using context manager
+                try:
+                    with open(image_path, 'rb') as image_file:
+                        image_data = image_file.read()
+                except IOError as e:
+                    logger.error(f"Failed to read image file {image_path}: {e}")
+                    print(f"❌ Failed to read image file: {e}")
+                    return None
                 
                 form_data = aiohttp.FormData()
                 form_data.add_field('access_token', self.access_token)
@@ -209,7 +261,20 @@ class FacebookMarketingAgent:
                         print(f"❌ Error: {error_text}")
                         return None
                         
+        except FileNotFoundError as e:
+            logger.error(f"Image file not found: {e}")
+            print(f"❌ Image file not found: {str(e)}")
+            return None
+        except PermissionError as e:
+            logger.error(f"Permission denied accessing image file: {e}")
+            print(f"❌ Permission denied: {str(e)}")
+            return None
+        except aiohttp.ClientError as e:
+            logger.error(f"Network error uploading image to Facebook: {e}")
+            print(f"❌ Network error: {str(e)}")
+            return None
         except Exception as e:
+            logger.error(f"Unexpected error uploading image to Facebook: {e}")
             print(f"❌ Error uploading image to Facebook: {str(e)}")
             return None
     
@@ -277,7 +342,20 @@ class FacebookMarketingAgent:
                         print(f"❌ Error: {error_text}")
                         return None
                         
+        except FileNotFoundError as e:
+            logger.error(f"Image file not found for Instagram: {e}")
+            print(f"❌ Image file not found: {str(e)}")
+            return None
+        except PermissionError as e:
+            logger.error(f"Permission denied accessing image file for Instagram: {e}")
+            print(f"❌ Permission denied: {str(e)}")
+            return None
+        except aiohttp.ClientError as e:
+            logger.error(f"Network error uploading image to Instagram: {e}")
+            print(f"❌ Network error: {str(e)}")
+            return None
         except Exception as e:
+            logger.error(f"Unexpected error uploading image to Instagram: {e}")
             print(f"❌ Error uploading image to Instagram: {str(e)}")
             return None
     
@@ -308,7 +386,16 @@ class FacebookMarketingAgent:
                         print(f"❌ Error: {error_text}")
                         return None
                         
+        except aiohttp.ClientError as e:
+            logger.error(f"Network error getting page insights: {e}")
+            print(f"❌ Network error getting insights: {str(e)}")
+            return None
+        except ValueError as e:
+            logger.error(f"Invalid response getting page insights: {e}")
+            print(f"❌ Invalid response: {str(e)}")
+            return None
         except Exception as e:
+            logger.error(f"Unexpected error getting page insights: {e}")
             print(f"❌ Error getting page insights: {str(e)}")
             return None
 
