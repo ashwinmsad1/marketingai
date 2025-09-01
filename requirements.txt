@@ -1,0 +1,37 @@
+# Core AI and API dependencies
+google-genai
+python-dotenv
+requests
+
+# Image processing
+Pillow
+opencv-python
+
+# Video processing and editing
+moviepy
+imageio-ffmpeg
+
+# Audio processing
+pydub
+
+# Data processing
+numpy
+pandas
+
+# Web framework (for future web interface)
+fastapi
+uvicorn
+
+# Database (for future data persistence)
+sqlalchemy
+psycopg2-binary
+
+# Social media APIs (current integration)
+aiohttp
+facebook-sdk
+facebook-business
+python-instagram
+
+# Utilities
+python-multipart
+aiofiles
