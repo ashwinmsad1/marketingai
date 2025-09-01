@@ -4,6 +4,7 @@ from google.genai import types
 from PIL import Image
 from io import BytesIO
 import base64
+import os
 
 from secure_config_manager import get_config
 

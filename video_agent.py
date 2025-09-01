@@ -1,7 +1,7 @@
 import asyncio
 from google import genai
 from google.genai import types
-
+import os
 from secure_config_manager import get_config
 
 class VideoAgent:
