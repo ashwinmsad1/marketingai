@@ -68,7 +68,7 @@ class GooglePayService:
     async def create_payment_intent(
         self,
         amount: float,
-        currency: str = "USD",
+        currency: str = "INR",
         customer_id: str = None,
         subscription_id: str = None,
         metadata: Dict[str, str] = None
@@ -334,15 +334,15 @@ class GooglePayService:
         
         subscription_tiers = {
             "starter": {
-                "unit_amount": 4999,  # $49.99
+                "unit_amount": 79900,  # ₹799.00 in paise (799 * 100)
                 "nickname": "Starter Plan"
             },
             "professional": {
-                "unit_amount": 14999,  # $149.99
+                "unit_amount": 159900,  # ₹1,599.00 in paise (1599 * 100)
                 "nickname": "Professional Plan"
             },
             "enterprise": {
-                "unit_amount": 39999,  # $399.99
+                "unit_amount": 299900,  # ₹2,999.00 in paise (2999 * 100)
                 "nickname": "Enterprise Plan"
             }
         }
@@ -351,7 +351,7 @@ class GooglePayService:
             try:
                 price = stripe.Price.create(
                     unit_amount=config["unit_amount"],
-                    currency="usd",
+                    currency="inr",
                     recurring={"interval": "month"},
                     product_data={
                         "name": f"AI Marketing Automation - {config['nickname']}",

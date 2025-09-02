@@ -5,7 +5,7 @@ import SubscriptionPlans from '../components/Subscription/SubscriptionPlans';
 import toast from 'react-hot-toast';
 import { getAuthHeaders, isAuthenticated } from '../utils/auth';
 import { sanitizeString } from '../utils/validation';
-import { SubscriptionDetails, ApiResponse } from '../types/payment';
+import { SubscriptionDetails } from '../types/payment';
 
 
 const Subscription: React.FC = () => {

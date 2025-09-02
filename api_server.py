@@ -39,6 +39,7 @@ from database.crud import CampaignCRUD, AIContentCRUD, ConversionCRUD, Analytics
 
 # Import authentication
 from auth import get_current_active_user
+from auth.jwt_handler import get_current_active_verified_user
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -245,15 +246,28 @@ async def get_user_dashboard(
 async def create_campaign(
     request: CampaignCreateRequest, 
     background_tasks: BackgroundTasks,
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_verified_user),
+    db: Session = Depends(get_db)
 ):
     """Create a new marketing campaign - requires authentication"""
     try:
+        from database.payment_crud import BillingSubscriptionCRUD
+        
         campaign_id = str(uuid.uuid4())
         
         # Use authenticated user ID instead of request user ID
         user_id = current_user.id
         logger.info(f"Creating campaign: {request.type} for user {user_id}")
+        
+        # Check subscription and usage limits
+        subscription = BillingSubscriptionCRUD.get_user_active_subscription(db, user_id)
+        if not subscription:
+            raise HTTPException(status_code=403, detail="No active subscription found. Please subscribe to create campaigns.")
+        
+        # Check if user can create more campaigns
+        can_create, limit_message = BillingSubscriptionCRUD.check_usage_limits(subscription, 'campaigns')
+        if not can_create:
+            raise HTTPException(status_code=403, detail=limit_message)
         
         # Create campaign based on type
         if request.type == "viral":
@@ -364,6 +378,9 @@ async def create_campaign(
         
         campaign_data = campaign_response_data
         
+        # Track usage after successful campaign creation
+        BillingSubscriptionCRUD.track_usage(db, subscription.id, 'campaigns', 1)
+        
         # Start performance monitoring in background
         background_tasks.add_task(monitor_campaign_performance, campaign_data["campaign_id"])
         
@@ -451,15 +468,26 @@ async def delete_campaign(
 @app.post("/api/media/images/generate")
 async def generate_image(
     request: ImageGenerationRequest,
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_verified_user)
 ):
     """Generate marketing images using AI - requires authentication"""
     try:
+        from database.payment_crud import BillingSubscriptionCRUD
+        
         logger.info(f"Generating image: {request.prompt}")
         
         # Create database session manually for this operation
         db = SessionLocal()
         try:
+            # Check subscription and usage limits
+            subscription = BillingSubscriptionCRUD.get_user_active_subscription(db, current_user.id)
+            if not subscription:
+                raise HTTPException(status_code=403, detail="No active subscription found. Please subscribe to generate content.")
+            
+            # Check if user can generate more AI content
+            can_generate, limit_message = BillingSubscriptionCRUD.check_usage_limits(subscription, 'ai_generations')
+            if not can_generate:
+                raise HTTPException(status_code=403, detail=limit_message)
             # Use media service to generate images
             generated_images = await media_service.generate_images(
                 db,
@@ -469,6 +497,9 @@ async def generate_image(
                 aspect_ratio=request.aspect_ratio,
                 iterations=request.iterations
             )
+            
+            # Track usage after successful generation
+            BillingSubscriptionCRUD.track_usage(db, subscription.id, 'ai_generations', len(generated_images))
             
             return {
                 "success": True,
@@ -491,15 +522,26 @@ async def generate_image(
 @app.post("/api/media/videos/generate")
 async def generate_video(
     request: VideoGenerationRequest,
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_verified_user)
 ):
     """Generate marketing videos using AI - requires authentication"""
     try:
+        from database.payment_crud import BillingSubscriptionCRUD
+        
         logger.info(f"Generating video: {request.prompt}")
         
         # Create database session manually for this operation
         db = SessionLocal()
         try:
+            # Check subscription and usage limits
+            subscription = BillingSubscriptionCRUD.get_user_active_subscription(db, current_user.id)
+            if not subscription:
+                raise HTTPException(status_code=403, detail="No active subscription found. Please subscribe to generate content.")
+            
+            # Check if user can generate more AI content
+            can_generate, limit_message = BillingSubscriptionCRUD.check_usage_limits(subscription, 'ai_generations')
+            if not can_generate:
+                raise HTTPException(status_code=403, detail=limit_message)
             # Use media service to generate video
             media_entry = await media_service.generate_video(
                 db,
@@ -509,6 +551,9 @@ async def generate_video(
                 duration=request.duration,
                 aspect_ratio=request.aspect_ratio
             )
+            
+            # Track usage after successful generation
+            BillingSubscriptionCRUD.track_usage(db, subscription.id, 'ai_generations', 1)
             
             return {
                 "success": True,

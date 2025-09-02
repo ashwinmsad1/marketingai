@@ -120,8 +120,29 @@ async def get_current_verified_user(
     """Get current verified user (email verified)"""
     if not current_user.is_verified:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email not verified"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "message": "Email verification required",
+                "error_code": "EMAIL_NOT_VERIFIED",
+                "user_email": current_user.email,
+                "requires_verification": True
+            }
+        )
+    return current_user
+
+async def get_current_active_verified_user(
+    current_user: User = Depends(get_current_active_user)
+) -> User:
+    """Get current active and verified user (combines both checks)"""
+    if not current_user.is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "message": "Email verification required to access this feature",
+                "error_code": "EMAIL_NOT_VERIFIED",
+                "user_email": current_user.email,
+                "requires_verification": True
+            }
         )
     return current_user
 

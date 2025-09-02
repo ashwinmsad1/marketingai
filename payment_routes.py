@@ -10,14 +10,16 @@ from datetime import datetime
 import json
 import logging
 from database import get_db
-from database.models import User, SubscriptionTier, PaymentProvider, PaymentStatus
+from database.models import User, SubscriptionTier, PaymentProvider, PaymentStatus, Payment, BillingSubscription
 from database.payment_crud import (
     BillingSubscriptionCRUD, PaymentCRUD, InvoiceCRUD, 
     PaymentMethodCRUD, WebhookEventCRUD
 )
 from upi_payment_service import upi_payment_service
 from subscription_management import PlatformSubscriptionManager
+from google_pay_service import google_pay_service
 from auth import get_current_active_user
+from auth.jwt_handler import get_current_active_verified_user
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -72,7 +74,7 @@ async def get_payment_config():
 async def create_subscription(
     request: CreateSubscriptionRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_verified_user)
 ):
     """Create a new subscription with trial period"""
     try:
@@ -176,7 +178,7 @@ async def create_payment_order(
 async def activate_subscription_with_upi(
     request: UPIPaymentRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_verified_user)
 ):
     """Activate subscription using UPI payment verification"""
     try:
@@ -287,7 +289,8 @@ async def get_current_subscription(
         # Calculate days remaining in trial
         trial_days_remaining = None
         if subscription.is_trial and subscription.trial_end:
-            remaining = (subscription.trial_end - datetime.utcnow()).days\n            trial_days_remaining = max(0, remaining)
+            remaining = (subscription.trial_end - datetime.utcnow()).days
+            trial_days_remaining = max(0, remaining)
         
         subscription_data = {
             "subscription_id": subscription.id,
@@ -479,6 +482,55 @@ async def update_payment_method(
     except Exception as e:
         logger.error(f"Error updating payment method: {e}")
         raise HTTPException(status_code=500, detail="Failed to update payment method")
+
+
+@router.get("/status/{order_id}")
+async def get_payment_status(
+    order_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get payment status by order ID"""
+    try:
+        # Get payment by order ID (using receipt field)
+        payment = db.query(Payment).filter(
+            Payment.user_id == current_user.id
+        ).join(BillingSubscription, Payment.subscription_id == BillingSubscription.id).filter(
+            BillingSubscription.user_id == current_user.id
+        ).first()
+        
+        if not payment:
+            return {
+                "success": True,
+                "data": {
+                    "status": "pending",
+                    "order_id": order_id,
+                    "payment_id": None,
+                    "error_message": None
+                }
+            }
+        
+        # Map payment status to frontend expected format
+        status_mapping = {
+            PaymentStatus.PENDING: "pending",
+            PaymentStatus.SUCCEEDED: "succeeded", 
+            PaymentStatus.FAILED: "failed",
+            PaymentStatus.CANCELED: "cancelled"
+        }
+        
+        return {
+            "success": True,
+            "data": {
+                "status": status_mapping.get(payment.status, "pending"),
+                "order_id": order_id,
+                "payment_id": payment.provider_payment_id,
+                "error_message": payment.failure_reason
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting payment status: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get payment status")
 
 
 @router.post("/webhook")

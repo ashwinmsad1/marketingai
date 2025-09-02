@@ -17,6 +17,7 @@ import ConnectMeta from './pages/ConnectMeta';
 import MetaAccounts from './pages/MetaAccounts';
 import Subscription from './pages/Subscription';
 import BillingHistory from './pages/BillingHistory';
+import EmailVerification from './pages/EmailVerification';
 import DemoNavigation from './components/DemoNavigation';
 import { AppLayout } from './design-system';
 
@@ -44,6 +45,7 @@ const AppWithAuth: React.FC = () => {
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/verify-email" element={<EmailVerification />} />
             
             {/* Protected Routes - wrapped in AppLayout */}
             <Route 
@@ -59,7 +61,7 @@ const AppWithAuth: React.FC = () => {
             <Route 
               path="/create-campaign" 
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requiresVerification={true}>
                   <AppLayout>
                     <CreateCampaign />
                   </AppLayout>
@@ -95,7 +97,7 @@ const AppWithAuth: React.FC = () => {
             <Route 
               path="/media-creation" 
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requiresVerification={true}>
                   <AppLayout>
                     <MediaCreation onMediaCreated={handleMediaCreated} />
                   </AppLayout>
@@ -135,7 +137,7 @@ const AppWithAuth: React.FC = () => {
             <Route 
               path="/subscription" 
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requiresVerification={true}>
                   <Subscription />
                 </ProtectedRoute>
               } 
@@ -143,7 +145,7 @@ const AppWithAuth: React.FC = () => {
             <Route 
               path="/billing/history" 
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requiresVerification={true}>
                   <BillingHistory />
                 </ProtectedRoute>
               } 

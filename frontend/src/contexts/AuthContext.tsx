@@ -79,6 +79,21 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Token management utility functions
+const setAuthTokens = (tokens: { access_token: string; refresh_token: string }) => {
+  localStorage.setItem('auth_token', tokens.access_token);
+  localStorage.setItem('refresh_token', tokens.refresh_token);
+};
+
+const getRefreshToken = (): string | null => {
+  return localStorage.getItem('refresh_token');
+};
+
+const removeAuthTokens = () => {
+  localStorage.removeItem('auth_token');
+  localStorage.removeItem('refresh_token');
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 

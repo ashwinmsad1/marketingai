@@ -6,11 +6,9 @@ import { isValidSubscriptionId, isValidPaymentAmount, validatePaymentData } from
 import { PaymentStatusPoller } from '../../utils/paymentPolling';
 import { 
   UPIPaymentData, 
-  PaymentOrder, 
   PaymentSuccessData, 
   PaymentConfig,
-  PaymentError,
-  ApiResponse 
+  PaymentError
 } from '../../types/payment';
 
 interface UPIPaymentButtonProps {
@@ -34,15 +32,12 @@ const UPIPaymentButton: React.FC<UPIPaymentButtonProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [paymentOrder, setPaymentOrder] = useState<UPIPaymentData | null>(null);
   const [showPaymentOptions, setShowPaymentOptions] = useState(false);
-  const [paymentConfig, setPaymentConfig] = useState<PaymentConfig | null>(null);
   const [isPollingPayment, setIsPollingPayment] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<string>('idle');
   const paymentPollerRef = useRef<PaymentStatusPoller | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    fetchPaymentConfig();
-    
     // Cleanup on unmount
     return () => {
       cleanup();
@@ -73,34 +68,6 @@ const UPIPaymentButton: React.FC<UPIPaymentButtonProps> = ({
     }
   }, []);
 
-  const fetchPaymentConfig = async () => {
-    try {
-      abortControllerRef.current = new AbortController();
-      const headers = getAuthHeaders();
-      
-      const response = await fetch('/api/payments/config', {
-        headers,
-        signal: abortControllerRef.current.signal
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        setPaymentConfig(result.data);
-      } else {
-        throw new Error(result.error || 'Failed to fetch payment config');
-      }
-    } catch (error: any) {
-      if (error.name !== 'AbortError') {
-        console.error('Error fetching payment config:', error);
-        toast.error('Failed to load payment configuration');
-      }
-    }
-  };
 
   const createPaymentOrder = async () => {
     // Validate inputs before API call
@@ -300,7 +267,7 @@ const UPIPaymentButton: React.FC<UPIPaymentButtonProps> = ({
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Complete Payment</h3>
             <span className="text-xl font-bold text-green-600">
-              {formatAmount(paymentOrder.order.amount / 100)}
+              {formatAmount(paymentOrder.order.amount)}
             </span>
           </div>
           

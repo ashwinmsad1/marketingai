@@ -14,6 +14,7 @@ import uuid
 from upi_payment_service import upi_payment_service
 from database.payment_crud import BillingSubscriptionCRUD, PaymentCRUD
 from database.models import SubscriptionTier, SubscriptionStatus, PaymentProvider
+from google_pay_service import google_pay_service
 
 load_dotenv()
 
@@ -25,10 +26,10 @@ class PlatformSubscriptionManager:
     Users pay Meta directly for ads, platform charges for automation services
     """
     
-    # Subscription Pricing (Monthly INR) - Indian Market Pricing
+    # Subscription Pricing (Monthly INR) - Optimized Indian Market Pricing
     PRICING = {
         SubscriptionTier.STARTER: {
-            'monthly_price': 999.00,  # ₹999
+            'monthly_price': 799.00,  # ₹799 (Reduced from ₹999)
             'campaigns_limit': 5,
             'ad_accounts_limit': 1,
             'ai_generations_limit': 100,
@@ -42,7 +43,7 @@ class PlatformSubscriptionManager:
             ]
         },
         SubscriptionTier.PROFESSIONAL: {
-            'monthly_price': 1999.00,  # ₹1,999
+            'monthly_price': 1599.00,  # ₹1,599 (Reduced from ₹1,999)
             'campaigns_limit': 25,
             'ad_accounts_limit': 3,
             'ai_generations_limit': 500,
@@ -59,7 +60,7 @@ class PlatformSubscriptionManager:
             ]
         },
         SubscriptionTier.ENTERPRISE: {
-            'monthly_price': 2999.00,  # ₹2,999 (Max ₹3000)
+            'monthly_price': 2999.00,  # ₹2,999 (Unchanged)
             'campaigns_limit': -1,  # Unlimited
             'ad_accounts_limit': -1,  # Unlimited
             'ai_generations_limit': -1,  # Unlimited

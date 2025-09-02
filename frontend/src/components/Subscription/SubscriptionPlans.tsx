@@ -1,27 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import { Check, Star, Zap, Crown, AlertCircle } from 'lucide-react';
 import UPIPaymentButton from '../UPIPayment/UPIPaymentButton';
 import toast from 'react-hot-toast';
 import { getAuthHeaders, isAuthenticated } from '../../utils/auth';
-import { isValidSubscriptionId, sanitizeString, cleanObject } from '../../utils/validation';
-import { SubscriptionPlan, PaymentSuccessData, PaymentError, ApiResponse } from '../../types/payment';
-
-interface SubscriptionPlan {
-  id: string;
-  name: string;
-  price: number;
-  description: string;
-  features: string[];
-  icon: React.ReactNode;
-  popular?: boolean;
-  tier: 'starter' | 'professional' | 'enterprise';
-}
+import { SubscriptionPlan } from '../../types/payment';
 
 const plans: SubscriptionPlan[] = [
   {
     id: 'starter',
     name: 'Starter',
-    price: 999,
+    price: 799,
     description: 'Perfect for small businesses getting started',
     tier: 'starter',
     icon: <Star className="w-6 h-6" />,
@@ -38,7 +26,7 @@ const plans: SubscriptionPlan[] = [
   {
     id: 'professional',
     name: 'Professional',
-    price: 1999,
+    price: 1599,
     description: 'Advanced features for growing businesses',
     tier: 'professional',
     icon: <Zap className="w-6 h-6" />,
@@ -83,14 +71,56 @@ interface SubscriptionPlansProps {
 const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onPlanSelect }) => {
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
   const [loading, setLoading] = useState(false);
-  const [activeSubscriptions] = useState<{[key: string]: any}>({});
+  const [createdSubscription, setCreatedSubscription] = useState<string | null>(null);
 
-  const handlePlanSelection = (plan: SubscriptionPlan) => {
-    setSelectedPlan(plan);
-    onPlanSelect?.(plan);
+  const handlePlanSelection = async (plan: SubscriptionPlan) => {
+    if (!isAuthenticated()) {
+      toast.error('Please log in to start your subscription');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setSelectedPlan(plan);
+      
+      // Create subscription
+      const subscriptionId = await createSubscription(plan);
+      setCreatedSubscription(subscriptionId);
+      
+      onPlanSelect?.(plan);
+    } catch (error: any) {
+      console.error('Error selecting plan:', error);
+      toast.error(error.message || 'Failed to create subscription');
+      setSelectedPlan(null);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Removed unused createSubscription function
+  const createSubscription = async (plan: SubscriptionPlan): Promise<string> => {
+    const headers = getAuthHeaders();
+    
+    const response = await fetch('/api/payments/create-subscription', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        tier: plan.tier,
+        trial_days: 30
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    
+    if (result.success && result.data) {
+      return result.data.subscription_id;
+    } else {
+      throw new Error(result.error || 'Failed to create subscription');
+    }
+  };
 
   const handleUPIPaymentSuccess = async (_paymentData: any) => {
     if (!selectedPlan) return;
@@ -174,10 +204,10 @@ const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onPlanSelect }) =
               </ul>
 
               <div className="space-y-3">
-                {selectedPlan?.id === plan.id ? (
+                {selectedPlan?.id === plan.id && createdSubscription ? (
                   <UPIPaymentButton
                     amount={plan.price}
-                    subscriptionId={activeSubscriptions[selectedPlan.tier]?.subscription_id || ''}
+                    subscriptionId={createdSubscription}
                     onPaymentSuccess={handleUPIPaymentSuccess}
                     onPaymentError={handleUPIPaymentError}
                     disabled={loading}
@@ -192,7 +222,7 @@ const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onPlanSelect }) =
                         : 'bg-gray-100 hover:bg-gray-200 text-gray-900'
                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
-                    {loading ? 'Processing...' : 'Start Free Trial'}
+                    {loading && selectedPlan?.id === plan.id ? 'Creating Subscription...' : 'Start Free Trial'}
                   </button>
                 )}
                 

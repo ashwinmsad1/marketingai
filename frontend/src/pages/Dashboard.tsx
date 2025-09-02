@@ -22,6 +22,7 @@ import {
   Button,
   IconButton,
 } from '../design-system';
+import EmailVerificationBanner from '../components/EmailVerificationBanner';
 
 interface DashboardProps {
   user: {
@@ -112,6 +113,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 
   return (
     <div className="space-y-6">
+      {/* Email Verification Banner */}
+      <EmailVerificationBanner className="mb-4" />
+      
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}

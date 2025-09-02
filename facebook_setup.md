@@ -1,26 +1,52 @@
 # Meta Marketing API Setup Guide for AI Ad Automation Platform
 
 ## 🎯 Platform Overview
-You're building an **AI-powered marketing automation SaaS platform** where:
-- Users pay you $29.99-$299.99/month for automation services
-- Users pay Meta directly for their ad spend (no financial risk for you)
-- Your platform creates and optimizes campaigns in users' Meta ad accounts
+This is an **AI-powered marketing automation SaaS platform** with:
+- **Subscription Model**: Users pay ₹999-₹2,999/month for automation services (INR-based pricing)
+- **Payment Processing**: Stripe + UPI integration for Indian market
+- **Usage Enforcement**: Tier-based limits on campaigns and AI generations
+- **Meta Integration**: Creates and optimizes campaigns in users' Meta ad accounts
+- **AI Content Generation**: Google Gemini + Veo for images and videos
 
-## 📋 Critical Prerequisites for YOUR Platform
+## 📋 Critical Prerequisites for Production Deployment
 
 ### **Business Requirements**
 1. **Meta Developer Account**: Create at https://developers.facebook.com
 2. **Meta Business Manager**: Required for agency-style app (https://business.facebook.com)
-3. **Your Business Facebook Page**: For your platform/company
-4. **Domain & SSL Certificate**: For OAuth redirect URLs
-5. **Business Registration**: LLC/Corporation recommended for Meta Business verification
+3. **Business Facebook Page**: For your platform/company
+4. **Domain & SSL Certificate**: For OAuth redirect URLs (HTTPS required)
+5. **Business Registration**: LLC/Corporation required for Meta Business verification
+6. **Privacy Policy & Terms**: Required for app approval and GDPR compliance
 
 ### **Technical Requirements**
-1. **Production Domain**: Cannot use localhost for Meta App Review
-2. **Privacy Policy & Terms of Service**: Required for app approval
-3. **Media Hosting**: AWS S3 or Google Cloud Storage (Instagram requirement)
-4. **Database**: For storing user subscriptions and Meta tokens (encrypted)
-5. **Payment Processing**: Stripe account for subscription billing
+1. **Production Domain**: HTTPS domain required (no localhost for Meta App Review)
+2. **Media Hosting**: AWS S3 or Google Cloud Storage (Instagram requires publicly accessible URLs)
+3. **Database**: PostgreSQL with encrypted Meta tokens and subscription data
+4. **Payment Processing**: 
+   - Stripe account for international payments
+   - UPI payment gateway (Razorpay/PayU) for Indian market
+   - Google Pay integration for seamless payments
+5. **AI Services**: Google AI API key for Gemini + Veo content generation
+
+## 🏗️ Current Platform Architecture
+
+### **Backend (FastAPI + Python 3.13)**
+- ✅ **Usage Enforcement**: Campaign and AI generation limits per subscription tier
+- ✅ **Payment System**: Full Stripe + UPI integration with subscription management
+- ✅ **Database**: PostgreSQL with proper schema and migrations
+- ✅ **AI Integration**: Google Gemini 2.5 Flash + Veo 3.0 working
+- ✅ **Meta Integration**: Complete campaign automation and OAuth flow
+
+### **Frontend (React + TypeScript)**
+- ✅ **Professional UI**: Zoho-inspired design system
+- ✅ **Payment Flow**: Complete subscription plans and payment processing
+- ✅ **Campaign Management**: AI content creation and campaign wizard
+- ✅ **Analytics Dashboard**: Performance tracking and insights
+
+### **Subscription Tiers (INR Pricing)**
+- **Starter**: ₹999/month - 5 campaigns, 100 AI generations
+- **Professional**: ₹1,999/month - 25 campaigns, 500 AI generations  
+- **Enterprise**: ₹2,999/month - Unlimited campaigns and AI generations
 
 ## Step-by-Step Setup
 

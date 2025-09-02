@@ -277,6 +277,57 @@ async def verify_email(
         success=True
     )
 
+@router.post("/resend-verification", response_model=MessageResponse)
+async def resend_verification_email(
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Resend email verification to current user"""
+    # Check if user is already verified
+    if current_user.is_verified:
+        return MessageResponse(
+            message="Your email is already verified!",
+            success=True
+        )
+    
+    try:
+        # Generate new verification token
+        verification_token = EmailHandler.generate_verification_token(current_user.id)
+        
+        # Send verification email in background
+        background_tasks.add_task(
+            EmailHandler.send_verification_email, 
+            current_user, 
+            verification_token
+        )
+        
+        logger.info(f"Verification email resent to: {current_user.email}")
+        
+        return MessageResponse(
+            message="Verification email sent! Please check your inbox and spam folder.",
+            success=True
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to resend verification email to {current_user.email}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to send verification email. Please try again."
+        )
+
+@router.get("/verification-status", response_model=dict)
+async def get_verification_status(
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get current user's email verification status"""
+    return {
+        "is_verified": current_user.is_verified,
+        "email": current_user.email,
+        "user_id": current_user.id,
+        "requires_verification": not current_user.is_verified
+    }
+
 @router.post("/request-password-reset", response_model=MessageResponse)
 async def request_password_reset(
     reset_request: PasswordReset,

@@ -17,6 +17,14 @@ class BillingSubscriptionCRUD:
     """CRUD operations for billing subscriptions"""
     
     @staticmethod
+    def get_user_active_subscription(db: Session, user_id: str) -> Optional[BillingSubscription]:
+        """Get user's active subscription"""
+        return db.query(BillingSubscription).filter(
+            BillingSubscription.user_id == user_id,
+            BillingSubscription.status.in_([SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIAL])
+        ).first()
+    
+    @staticmethod
     def create_subscription(
         db: Session, 
         user_id: str, 
@@ -212,7 +220,7 @@ class PaymentCRUD:
         amount: float,
         provider: PaymentProvider,
         description: str = "Monthly subscription",
-        currency: str = "USD"
+        currency: str = "INR"
     ) -> Payment:
         """Create a new payment record"""
         payment = Payment(
@@ -309,7 +317,7 @@ class InvoiceCRUD:
         period_start: datetime,
         period_end: datetime,
         line_items: List[Dict[str, Any]],
-        currency: str = "USD"
+        currency: str = "INR"
     ) -> Invoice:
         """Create a new invoice"""
         # Generate invoice number

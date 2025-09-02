@@ -31,7 +31,15 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       // Handle unauthorized access
       localStorage.removeItem('auth_token');
+      localStorage.removeItem('refresh_token');
       window.location.href = '/login';
+    } else if (error.response?.status === 403) {
+      // Check if this is an email verification error
+      const errorDetail = error.response?.data?.detail;
+      if (typeof errorDetail === 'object' && errorDetail?.error_code === 'EMAIL_NOT_VERIFIED') {
+        // Redirect to email verification page with context
+        window.location.href = '/verify-email';
+      }
     }
     return Promise.reject(error);
   }
@@ -89,6 +97,16 @@ export const authService = {
   // Email verification
   verifyEmail: async (token: string) => {
     const response = await api.post('/api/auth/verify-email', { token });
+    return response;
+  },
+
+  resendVerificationEmail: async () => {
+    const response = await api.post('/api/auth/resend-verification');
+    return response;
+  },
+
+  getVerificationStatus: async () => {
+    const response = await api.get('/api/auth/verification-status');
     return response;
   },
 

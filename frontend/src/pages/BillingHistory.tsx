@@ -4,7 +4,7 @@ import { ArrowLeft, Download, Receipt, CreditCard, CheckCircle, XCircle, Clock, 
 import toast from 'react-hot-toast';
 import { getAuthHeaders, isAuthenticated } from '../utils/auth';
 import { sanitizeString } from '../utils/validation';
-import { BillingItem, ApiResponse } from '../types/payment';
+import { BillingItem } from '../types/payment';
 
 
 const BillingHistory: React.FC = () => {

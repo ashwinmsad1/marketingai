@@ -81,7 +81,7 @@ class Subscription(Base):
     
     # Pricing
     monthly_price = Column(Float)
-    currency = Column(String, default="USD")
+    currency = Column(String, default="INR")
     
     # Billing
     stripe_subscription_id = Column(String)  # For Stripe integration
@@ -275,7 +275,7 @@ class Conversion(Base):
     # Conversion Details
     conversion_type = Column(Enum(ConversionType), nullable=False)
     value = Column(Float)  # Revenue value
-    currency = Column(String, default="USD")
+    currency = Column(String, default="INR")
     
     # Attribution
     customer_email = Column(String)
@@ -454,7 +454,7 @@ class BillingSubscription(Base):
     
     # Pricing
     monthly_price = Column(Float, nullable=False)
-    currency = Column(String, default="USD")
+    currency = Column(String, default="INR")
     
     # Trial Information
     trial_start = Column(DateTime)
@@ -501,7 +501,7 @@ class Payment(Base):
     
     # Payment Details
     amount = Column(Float, nullable=False)
-    currency = Column(String, default="USD")
+    currency = Column(String, default="INR")
     description = Column(String)
     
     # Payment Provider Information
@@ -545,7 +545,7 @@ class Invoice(Base):
     # Invoice Details
     invoice_number = Column(String, unique=True, nullable=False)
     amount = Column(Float, nullable=False)
-    currency = Column(String, default="USD")
+    currency = Column(String, default="INR")
     
     # Billing Period
     period_start = Column(DateTime, nullable=False)
