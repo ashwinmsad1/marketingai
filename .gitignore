@@ -1,6 +1,1 @@
 .env
-frontend/node_modules
-venv
-.vscode
-__pycache__
-.claude
