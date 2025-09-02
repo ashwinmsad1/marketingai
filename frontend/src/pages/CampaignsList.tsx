@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   Search,
   Filter,
-  MoreVertical,
   Play,
   Pause,
   Eye,
@@ -10,7 +9,6 @@ import {
   Trash2,
   TrendingUp,
   DollarSign,
-  Users,
   Target
 } from 'lucide-react';
 import { motion } from 'framer-motion';

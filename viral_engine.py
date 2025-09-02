@@ -4,15 +4,12 @@ Detects trending topics and creates viral-optimized content automatically
 """
 
 import asyncio
-import json
 import logging
 import os
-import requests
-from datetime import datetime, timedelta
-from typing import Optional, Dict, Any, List, Tuple
+from datetime import datetime
+from typing import Optional, Dict, Any, List
 from dataclasses import dataclass
 import random
-import re
 
 # Database imports
 from sqlalchemy.orm import Session
@@ -21,7 +18,6 @@ from database.models import ViralTrend, Campaign, AIContent
 
 # Import our AI agents
 from photo_agent import image_creator
-from video_agent import video_from_prompt
 
 @dataclass
 class TrendingTopic:

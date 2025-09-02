@@ -8,36 +8,27 @@ import os
 import asyncio
 import json
 from datetime import datetime, timedelta, timezone
-from typing import Dict, Optional, List, Tuple
+from typing import Dict, Optional, List, Tuple, Any
 from enum import Enum
 import uuid
+from upi_payment_service import upi_payment_service
+from database.payment_crud import BillingSubscriptionCRUD, PaymentCRUD
+from database.models import SubscriptionTier, SubscriptionStatus, PaymentProvider
 
 load_dotenv()
 
-class SubscriptionTier(Enum):
-    """Platform subscription tiers"""
-    STARTER = "starter"
-    PROFESSIONAL = "professional" 
-    ENTERPRISE = "enterprise"
-
-class SubscriptionStatus(Enum):
-    """Subscription status options"""
-    ACTIVE = "active"
-    TRIAL = "trial"
-    SUSPENDED = "suspended"
-    CANCELLED = "cancelled"
-    PAST_DUE = "past_due"
+# Import enums from models instead of duplicating them
 
 class PlatformSubscriptionManager:
     """
-    Manages platform subscriptions for users who pay Meta directly for ads
-    Platform charges only for automation services and features
+    Manages platform subscriptions with Google Pay integration
+    Users pay Meta directly for ads, platform charges for automation services
     """
     
-    # Subscription Pricing (Monthly USD)
+    # Subscription Pricing (Monthly INR) - Indian Market Pricing
     PRICING = {
         SubscriptionTier.STARTER: {
-            'monthly_price': 29.99,
+            'monthly_price': 999.00,  # ₹999
             'campaigns_limit': 5,
             'ad_accounts_limit': 1,
             'ai_generations_limit': 100,
@@ -46,11 +37,12 @@ class PlatformSubscriptionManager:
                 'Basic AI content generation',
                 'Campaign automation',
                 'Performance analytics',
-                'Email support'
+                'Email support',
+                '30-day free trial'
             ]
         },
         SubscriptionTier.PROFESSIONAL: {
-            'monthly_price': 99.99,
+            'monthly_price': 1999.00,  # ₹1,999
             'campaigns_limit': 25,
             'ad_accounts_limit': 3,
             'ai_generations_limit': 500,
@@ -61,11 +53,13 @@ class PlatformSubscriptionManager:
                 'Advanced analytics & reporting',
                 'A/B testing tools',
                 'Priority support',
-                'Custom audiences'
+                'Custom audiences',
+                'Usage analytics',
+                '30-day free trial'
             ]
         },
         SubscriptionTier.ENTERPRISE: {
-            'monthly_price': 299.99,
+            'monthly_price': 2999.00,  # ₹2,999 (Max ₹3000)
             'campaigns_limit': -1,  # Unlimited
             'ad_accounts_limit': -1,  # Unlimited
             'ai_generations_limit': -1,  # Unlimited
@@ -77,7 +71,9 @@ class PlatformSubscriptionManager:
                 'Custom integrations',
                 'Dedicated account manager',
                 'API access',
-                'Team collaboration tools'
+                'Team collaboration tools',
+                'Custom billing terms',
+                '30-day free trial'
             ]
         }
     }
@@ -85,8 +81,24 @@ class PlatformSubscriptionManager:
     def __init__(self):
         self.stripe_secret_key = os.getenv("STRIPE_SECRET_KEY")
         self.webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
+        self.google_pay_service = google_pay_service
         
-    def create_subscription(self, user_id: str, tier: SubscriptionTier, trial_days: int = 14) -> Dict[str, any]:
+        # Initialize Stripe prices if not already created
+        self.stripe_price_ids = {
+            'starter': os.getenv('STRIPE_STARTER_PRICE_ID'),
+            'professional': os.getenv('STRIPE_PROFESSIONAL_PRICE_ID'), 
+            'enterprise': os.getenv('STRIPE_ENTERPRISE_PRICE_ID')
+        }
+        
+    async def create_subscription_with_upi(
+        self, 
+        db_session,
+        user_id: str, 
+        user_email: str,
+        tier: SubscriptionTier, 
+        trial_days: int = 30,  # Changed to 1 month (30 days)
+        user_name: str = None
+    ) -> Dict[str, any]:
         """
         Create new platform subscription for user
         
@@ -98,43 +110,103 @@ class PlatformSubscriptionManager:
         Returns:
             Dict with subscription details
         """
-        subscription_id = str(uuid.uuid4())
-        trial_end = datetime.now(timezone.utc) + timedelta(days=trial_days)
-        
-        subscription = {
-            'subscription_id': subscription_id,
-            'user_id': user_id,
-            'tier': tier.value,
-            'status': SubscriptionStatus.TRIAL.value,
-            'trial_start': datetime.now(timezone.utc).isoformat(),
-            'trial_end': trial_end.isoformat(),
-            'billing_cycle_start': trial_end.isoformat(),
-            'next_billing_date': trial_end.isoformat(),
-            'monthly_price': self.PRICING[tier]['monthly_price'],
-            'limits': {
-                'campaigns': self.PRICING[tier]['campaigns_limit'],
-                'ad_accounts': self.PRICING[tier]['ad_accounts_limit'],
-                'ai_generations': self.PRICING[tier]['ai_generations_limit'],
-                'analytics_retention_days': self.PRICING[tier]['analytics_retention_days']
-            },
-            'features': self.PRICING[tier]['features'],
-            'usage_current_period': {
-                'campaigns_created': 0,
-                'ai_generations_used': 0,
-                'api_calls_made': 0
-            },
-            'meta_ad_spend': 0,  # User pays Meta directly - this is for reporting only
-            'created_at': datetime.now(timezone.utc).isoformat(),
-            'updated_at': datetime.now(timezone.utc).isoformat()
-        }
-        
-        print(f"✅ Created {tier.value} subscription for user {user_id}")
-        print(f"🎁 Trial period: {trial_days} days (until {trial_end.strftime('%Y-%m-%d')})")
-        print(f"💰 Monthly price after trial: ${self.PRICING[tier]['monthly_price']}")
-        
-        return subscription
+        """Create new subscription with UPI integration"""
+        try:
+            
+            # Create database subscription
+            subscription = BillingSubscriptionCRUD.create_subscription(
+                db=db_session,
+                user_id=user_id,
+                tier=tier,
+                monthly_price=self.PRICING[tier]['monthly_price'],
+                trial_days=trial_days,
+                provider=PaymentProvider.UPI
+            )
+            
+            print(f"✅ Created {tier.value} subscription for user {user_id}")
+            print(f"🎁 Trial period: {trial_days} days")
+            print(f"💰 Monthly price after trial: ₹{self.PRICING[tier]['monthly_price']}")
+            
+            return {
+                "success": True,
+                "subscription": {
+                    "subscription_id": subscription.id,
+                    "user_id": subscription.user_id,
+                    "tier": subscription.tier.value,
+                    "status": subscription.status.value,
+                    "monthly_price": subscription.monthly_price,
+                    "currency": "INR",
+                    "trial_end": subscription.trial_end.isoformat() if subscription.trial_end else None,
+                    "limits": {
+                        "campaigns": subscription.max_campaigns,
+                        "ai_generations": subscription.max_ai_generations,
+                        "api_calls": subscription.max_api_calls,
+                        "analytics_retention_days": subscription.analytics_retention_days
+                    },
+                    "features": self.PRICING[tier]['features']
+                }
+            }
+            
+        except Exception as e:
+            print(f"❌ Error creating subscription: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
     
-    def check_usage_limits(self, subscription: Dict[str, any], action: str) -> Tuple[bool, Optional[str]]:
+    async def activate_subscription_with_payment(
+        self, 
+        db_session,
+        subscription_id: str,
+        google_pay_token: Dict[str, Any],
+        stripe_customer_id: str
+    ) -> Dict[str, Any]:
+        """Activate subscription after successful Google Pay payment"""
+        try:
+            # Get subscription from database
+            subscription = BillingSubscriptionCRUD.get_user_subscription(db_session, subscription_id)
+            if not subscription:
+                return {"success": False, "error": "Subscription not found"}
+            
+            # Get price ID for the subscription tier
+            price_id = self.stripe_price_ids.get(subscription.tier.value)
+            if not price_id:
+                return {"success": False, "error": "Price ID not found for tier"}
+            
+            # Create Stripe subscription
+            stripe_result = await self.google_pay_service.create_subscription(
+                customer_id=stripe_customer_id,
+                price_id=price_id,
+                trial_period_days=0,  # Already handled trial in database
+                metadata={"subscription_id": subscription_id}
+            )
+            
+            if not stripe_result.get("success"):
+                return {
+                    "success": False,
+                    "error": f"Failed to create Stripe subscription: {stripe_result.get('error')}"
+                }
+            
+            # Update database subscription with Stripe subscription ID
+            BillingSubscriptionCRUD.update_subscription_status(
+                db=db_session,
+                subscription_id=subscription_id,
+                status=SubscriptionStatus.ACTIVE,
+                provider_subscription_id=stripe_result["subscription"]["id"]
+            )
+            
+            return {
+                "success": True,
+                "subscription_id": subscription_id,
+                "stripe_subscription_id": stripe_result["subscription"]["id"],
+                "status": "active"
+            }
+            
+        except Exception as e:
+            print(f"❌ Error activating subscription: {e}")
+            return {"success": False, "error": str(e)}
+    
+    def check_usage_limits(self, subscription, action: str) -> Tuple[bool, Optional[str]]:
         """
         Check if user can perform action within subscription limits
         
@@ -145,30 +217,48 @@ class PlatformSubscriptionManager:
         Returns:
             Tuple of (allowed: bool, limit_message: Optional[str])
         """
-        if subscription['status'] not in [SubscriptionStatus.ACTIVE.value, SubscriptionStatus.TRIAL.value]:
-            return False, f"Subscription is {subscription['status']}. Please update billing information."
-        
-        limits = subscription['limits']
-        usage = subscription['usage_current_period']
-        
-        if action == 'create_campaign':
-            if limits['campaigns'] == -1:  # Unlimited
-                return True, None
-            if usage['campaigns_created'] >= limits['campaigns']:
-                return False, f"Campaign limit reached ({limits['campaigns']}). Upgrade to create more campaigns."
-        
-        elif action == 'ai_generation':
-            if limits['ai_generations'] == -1:  # Unlimited
-                return True, None
-            if usage['ai_generations_used'] >= limits['ai_generations']:
-                return False, f"AI generation limit reached ({limits['ai_generations']}). Upgrade for more generations."
-        
-        elif action == 'connect_ad_account':
-            if limits['ad_accounts'] == -1:  # Unlimited
-                return True, None
-            # This would need to check actual connected accounts count
-            # For now, assume it's within limits
-            return True, None
+        """Check if action is allowed within subscription limits"""
+        if hasattr(subscription, 'status'):
+            # Database model object
+            if subscription.status not in [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIAL]:
+                return False, f"Subscription is {subscription.status.value}. Please update billing information."
+            
+            if action == 'create_campaign':
+                if subscription.max_campaigns == -1:  # Unlimited
+                    return True, None
+                if subscription.campaigns_used >= subscription.max_campaigns:
+                    return False, f"Campaign limit reached ({subscription.max_campaigns}). Upgrade to create more campaigns."
+            
+            elif action == 'ai_generation':
+                if subscription.max_ai_generations == -1:  # Unlimited
+                    return True, None
+                if subscription.ai_generations_used >= subscription.max_ai_generations:
+                    return False, f"AI generation limit reached ({subscription.max_ai_generations}). Upgrade for more generations."
+            
+            elif action == 'api_calls':
+                if subscription.max_api_calls == -1:  # Unlimited
+                    return True, None
+                if subscription.api_calls_used >= subscription.max_api_calls:
+                    return False, f"API call limit reached ({subscription.max_api_calls}). Upgrade your plan."
+        else:
+            # Legacy dictionary format support
+            if subscription['status'] not in [SubscriptionStatus.ACTIVE.value, SubscriptionStatus.TRIAL.value]:
+                return False, f"Subscription is {subscription['status']}. Please update billing information."
+            
+            limits = subscription['limits']
+            usage = subscription['usage_current_period']
+            
+            if action == 'create_campaign':
+                if limits['campaigns'] == -1:  # Unlimited
+                    return True, None
+                if usage['campaigns_created'] >= limits['campaigns']:
+                    return False, f"Campaign limit reached ({limits['campaigns']}). Upgrade to create more campaigns."
+            
+            elif action == 'ai_generation':
+                if limits['ai_generations'] == -1:  # Unlimited
+                    return True, None
+                if usage['ai_generations_used'] >= limits['ai_generations']:
+                    return False, f"AI generation limit reached ({limits['ai_generations']}). Upgrade for more generations."
         
         return True, None
     

@@ -95,16 +95,38 @@ class VideoAgent:
             with open(image_path, "rb") as f:
                 image_data = f.read()
             
+            # Detect MIME type based on file extension
+            import mimetypes
+            mime_type, _ = mimetypes.guess_type(image_path)
+            if not mime_type or not mime_type.startswith('image/'):
+                # Fallback based on file extension
+                ext = image_path.lower().split('.')[-1]
+                if ext in ['jpg', 'jpeg']:
+                    mime_type = 'image/jpeg'
+                elif ext == 'png':
+                    mime_type = 'image/png'
+                elif ext == 'webp':
+                    mime_type = 'image/webp'
+                else:
+                    mime_type = 'image/jpeg'  # Default fallback
+            
             enhanced_prompt = f"{style} animation: {prompt}"
             
             print(f"🚀 Creating video from image...")
             print(f"⚠️  Note: Veo 3.0 generates fixed 8-second videos")
             
+            # Convert image data to base64
+            import base64
+            image_base64 = base64.b64encode(image_data).decode('utf-8')
+            
             operation = self.client.models.generate_videos(
                 model="veo-3.0-generate-preview",
                 prompt=enhanced_prompt,
                 config=types.GenerateVideosConfig(aspect_ratio=aspect_ratio),
-                image=types.Part.from_bytes(data=image_data, mime_type="image/jpeg")
+                image={
+                    'bytesBase64Encoded': image_base64,
+                    'mimeType': mime_type
+                }
             )
             
             # Poll for completion

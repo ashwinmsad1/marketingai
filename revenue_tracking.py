@@ -280,6 +280,40 @@ class RevenueAttributionEngine:
             lifetime_value=0.0
         )
 
+async def track_campaign_success(campaign_id: str, metrics: Dict[str, Any]) -> bool:
+    """
+    Track campaign success metrics and update campaign performance
+    This is a utility function for compatibility with marketing automation
+    """
+    try:
+        engine = RevenueAttributionEngine()
+        
+        # Extract relevant metrics from the provided data
+        spend = metrics.get('spend', 0.0)
+        conversions = metrics.get('conversions', [])
+        
+        # Update campaign spend if provided
+        if spend > 0:
+            roi_metrics = await engine.update_campaign_spend(campaign_id, spend)
+            logger.info(f"Campaign spend updated: ${spend}, ROI: {roi_metrics.roi_percentage:.2f}%")
+        
+        # Track conversions if provided
+        for conversion in conversions:
+            conversion_id = await engine.track_conversion(
+                campaign_id=campaign_id,
+                conversion_type=conversion.get('type', 'sale'),
+                value=conversion.get('value', 0.0),
+                customer_id=conversion.get('customer_id')
+            )
+            if conversion_id:
+                logger.info(f"Conversion tracked: {conversion_id}")
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error tracking campaign success: {e}")
+        return False
+
 # Test function
 async def test_revenue_engine():
     """Test revenue attribution engine functionality"""

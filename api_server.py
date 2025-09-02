@@ -3,21 +3,17 @@ FastAPI server for AI Marketing Automation Platform
 Connects React frontend to all backend systems
 """
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, BackgroundTasks, Depends
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional, Dict, Any
 import asyncio
 import uuid
 import os
-import json
 import logging
-from datetime import datetime, timedelta
-import aiofiles
-import base64
+from datetime import datetime
 from pathlib import Path
 
 # Import our enhanced backend systems
@@ -25,10 +21,10 @@ from marketing_automation import EnhancedMarketingAutomationEngine
 from revenue_tracking import RevenueAttributionEngine
 from performance_guarantees import PerformanceGuaranteeEngine
 from industry_templates import IndustryTemplateEngine
-from competitor_analyzer import CompetitorAnalyzer
+from competitor_analyzer import CompetitorAnalysisEngine
 from viral_engine import ViralContentEngine
-from photo_agent import image_creator, poster_editor
-from video_agent import video_from_prompt, video_from_image
+from photo_agent import image_creator
+from video_agent import video_from_prompt
 
 # Import service layer
 from services import CampaignService, MediaService, AnalyticsService, UserService
@@ -36,20 +32,13 @@ from services import CampaignService, MediaService, AnalyticsService, UserServic
 # Import database
 from database import get_db, init_db, check_db_connection, SessionLocal
 from database.models import (
-    User, Subscription, Campaign, AIContent, MetaAccount,
-    Analytics, Conversion, UsageTracking, SubscriptionTier,
-    CampaignStatus, ContentType, ConversionType
+    User, Campaign, AIContent,
+    CampaignStatus, ContentType
 )
-from database.crud import UserCRUD, SubscriptionCRUD, CampaignCRUD, AIContentCRUD, ConversionCRUD, AnalyticsCRUD
+from database.crud import CampaignCRUD, AIContentCRUD, ConversionCRUD, AnalyticsCRUD
 
 # Import authentication
-from auth import JWTHandler, PasswordHandler, get_current_user, get_current_active_user
-from auth.models import (
-    UserRegister, UserLogin, Token, AuthResponse, MessageResponse,
-    PasswordReset, PasswordResetConfirm, PasswordChange, UserProfile,
-    UserUpdate, EmailVerification
-)
-from auth.email_handler import EmailHandler
+from auth import get_current_active_user
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -102,7 +91,7 @@ marketing_engine = EnhancedMarketingAutomationEngine()
 revenue_engine = RevenueAttributionEngine()
 performance_engine = PerformanceGuaranteeEngine()
 template_engine = IndustryTemplateEngine()
-competitor_analyzer = CompetitorAnalyzer()
+competitor_analyzer = CompetitorAnalysisEngine()
 viral_engine = ViralContentEngine()
 
 # Initialize service layer
@@ -118,6 +107,10 @@ app.include_router(auth_router)
 # Include Meta integration routes
 from auth.meta_routes import router as meta_router
 app.include_router(meta_router)
+
+# Include payment routes
+from payment_routes import router as payment_router
+app.include_router(payment_router)
 
 # Pydantic models for API requests/responses
 class CampaignCreateRequest(BaseModel):

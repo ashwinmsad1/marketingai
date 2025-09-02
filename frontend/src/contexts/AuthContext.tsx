@@ -133,9 +133,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response = await authService.login(email, password);
       const { user, tokens } = response.data;
       
-      // Store tokens
-      localStorage.setItem('auth_token', tokens.access_token);
-      localStorage.setItem('refresh_token', tokens.refresh_token);
+      // Store tokens securely
+      setAuthTokens({
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token
+      });
       
       // Set token in API service
       authService.setAuthToken(tokens.access_token);
@@ -167,9 +169,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response = await authService.register(userData);
       const { user, tokens } = response.data;
       
-      // Store tokens
-      localStorage.setItem('auth_token', tokens.access_token);
-      localStorage.setItem('refresh_token', tokens.refresh_token);
+      // Store tokens securely
+      setAuthTokens({
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token
+      });
       
       // Set token in API service
       authService.setAuthToken(tokens.access_token);
@@ -196,7 +200,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshTokens = async (): Promise<void> => {
     try {
-      const refreshToken = localStorage.getItem('refresh_token');
+      const refreshToken = getRefreshToken();
       if (!refreshToken) {
         throw new Error('No refresh token available');
       }
@@ -204,9 +208,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response = await authService.refreshToken(refreshToken);
       const { access_token, refresh_token: newRefreshToken } = response.data;
       
-      // Update stored tokens
-      localStorage.setItem('auth_token', access_token);
-      localStorage.setItem('refresh_token', newRefreshToken);
+      // Update stored tokens securely
+      setAuthTokens({
+        access_token,
+        refresh_token: newRefreshToken
+      });
       
       // Set new token in API service
       authService.setAuthToken(access_token);
@@ -229,9 +235,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = (): void => {
-    // Clear storage
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('refresh_token');
+    // Clear storage securely
+    removeAuthTokens();
     
     // Clear API service token
     authService.setAuthToken(null);

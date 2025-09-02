@@ -5,7 +5,6 @@ import {
   Wand2, 
   Download, 
   RefreshCw, 
-  Palette, 
   Sparkles,
   Eye,
   Copy,

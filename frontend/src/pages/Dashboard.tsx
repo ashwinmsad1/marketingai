@@ -1,18 +1,27 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   TrendingUp,
   DollarSign,
   Target,
   Zap,
-  Calendar,
   ArrowUp,
-  ArrowDown,
   Play,
   Pause,
   MoreVertical,
-  Eye
+  Eye,
+  CreditCard
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import {
+  Card,
+  CardHeader,
+  CardContent,
+  CardTitle,
+  CardDescription,
+  Button,
+  IconButton,
+} from '../design-system';
 
 interface DashboardProps {
   user: {
@@ -23,6 +32,7 @@ interface DashboardProps {
 
 const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   const [selectedPeriod, setSelectedPeriod] = useState('30d');
+  const navigate = useNavigate();
 
   // Mock data - would come from API
   const dashboardData = {
@@ -101,55 +111,57 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="mb-8"
+    <div className="space-y-6">
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+      >
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">
+              Welcome back, {user.name}! 👋
+            </h1>
+            <p className="text-gray-600 mt-2">
+              Here's how your AI marketing campaigns are performing
+            </p>
+          </div>
+          <div className="flex items-center space-x-4">
+            <select 
+              value={selectedPeriod}
+              onChange={(e) => setSelectedPeriod(e.target.value)}
+              className="h-10 px-4 text-sm border border-gray-300 bg-white focus:border-blue-500 focus:ring-blue-500 rounded-md w-32"
+            >
+              <option value="7d">Last 7 days</option>
+              <option value="30d">Last 30 days</option>
+              <option value="90d">Last 90 days</option>
+            </select>
+            <Button leftIcon={<Zap className="w-4 h-4" />}>
+              New Campaign
+            </Button>
+          </div>
+        </div>
+        
+        {/* Subscription Tier Badge */}
+        <button
+          onClick={() => navigate('/subscription')}
+          className="inline-flex items-center bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-4 py-2 rounded-full transition-all duration-200 hover:shadow-lg"
         >
-          <div className="flex justify-between items-start mb-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                Welcome back, {user.name}! 👋
-              </h1>
-              <p className="text-gray-600 mt-2">
-                Here's how your AI marketing campaigns are performing
-              </p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <select 
-                value={selectedPeriod}
-                onChange={(e) => setSelectedPeriod(e.target.value)}
-                className="input-field w-32"
-              >
-                <option value="7d">Last 7 days</option>
-                <option value="30d">Last 30 days</option>
-                <option value="90d">Last 90 days</option>
-              </select>
-              <button className="btn-primary">
-                <Zap className="w-4 h-4 mr-2" />
-                New Campaign
-              </button>
-            </div>
-          </div>
-          
-          {/* Subscription Tier Badge */}
-          <div className="inline-flex items-center bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-full">
-            <span className="text-sm font-medium capitalize">{user.subscription_tier} Plan</span>
-          </div>
-        </motion.div>
+          <CreditCard className="w-4 h-4 mr-2" />
+          <span className="text-sm font-medium capitalize">{user.subscription_tier} Plan</span>
+        </button>
+      </motion.div>
 
-        {/* Key Metrics Cards */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.1 }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
-        >
-          <div className="card">
+      {/* Key Metrics Cards */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.1 }}
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+      >
+        <Card>
+          <CardContent>
             <div className="flex items-center justify-between mb-4">
               <div className="bg-green-100 p-3 rounded-lg">
                 <DollarSign className="w-6 h-6 text-green-600" />
@@ -165,9 +177,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                 ${dashboardData.success_summary.total_revenue.toLocaleString()}
               </p>
             </div>
-          </div>
+          </CardContent>
+        </Card>
 
-          <div className="card">
+        <Card>
+          <CardContent>
             <div className="flex items-center justify-between mb-4">
               <div className="bg-blue-100 p-3 rounded-lg">
                 <TrendingUp className="w-6 h-6 text-blue-600" />
@@ -183,9 +197,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                 {dashboardData.success_summary.overall_roi.toFixed(1)}%
               </p>
             </div>
-          </div>
+          </CardContent>
+        </Card>
 
-          <div className="card">
+        <Card>
+          <CardContent>
             <div className="flex items-center justify-between mb-4">
               <div className="bg-purple-100 p-3 rounded-lg">
                 <Target className="w-6 h-6 text-purple-600" />
@@ -201,9 +217,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                 {dashboardData.success_summary.total_campaigns}
               </p>
             </div>
-          </div>
+          </CardContent>
+        </Card>
 
-          <div className="card">
+        <Card>
+          <CardContent>
             <div className="flex items-center justify-between mb-4">
               <div className="bg-orange-100 p-3 rounded-lg">
                 <Zap className="w-6 h-6 text-orange-600" />
@@ -219,32 +237,36 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                 {dashboardData.success_summary.guarantee_success_rate.toFixed(1)}%
               </p>
             </div>
-          </div>
-        </motion.div>
+          </CardContent>
+        </Card>
+      </motion.div>
 
-        {/* Recent Campaigns */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="card"
-        >
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-gray-900">Recent Campaigns</h2>
-            <button className="text-blue-600 hover:text-blue-700 font-medium">
-              View All
-            </button>
-          </div>
+      {/* Recent Campaigns */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.2 }}
+      >
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Recent Campaigns</CardTitle>
+              <Button variant="ghost" className="text-blue-600 hover:text-blue-700">
+                View All
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
 
-          <div className="space-y-4">
-            {dashboardData.recent_campaigns.map((campaign, index) => (
-              <motion.div
-                key={campaign.campaign_id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.4, delay: index * 0.1 }}
-                className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-              >
+            <div className="space-y-4">
+              {dashboardData.recent_campaigns.map((campaign, index) => (
+                <motion.div
+                  key={campaign.campaign_id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.4, delay: index * 0.1 }}
+                  className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                >
                 <div className="flex items-center space-x-4">
                   <div className="text-2xl">
                     {getCampaignTypeIcon(campaign.type)}
@@ -285,71 +307,96 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 
                   <div className="flex items-center space-x-2">
                     {campaign.status === 'active' ? (
-                      <button className="p-2 text-gray-400 hover:text-orange-600 transition-colors">
-                        <Pause className="w-4 h-4" />
-                      </button>
+                      <IconButton
+                        icon={<Pause className="w-4 h-4" />}
+                        aria-label="Pause campaign"
+                        variant="ghost"
+                        size="sm"
+                        className="text-gray-400 hover:text-orange-600"
+                      />
                     ) : (
-                      <button className="p-2 text-gray-400 hover:text-green-600 transition-colors">
-                        <Play className="w-4 h-4" />
-                      </button>
+                      <IconButton
+                        icon={<Play className="w-4 h-4" />}
+                        aria-label="Resume campaign"
+                        variant="ghost"
+                        size="sm"
+                        className="text-gray-400 hover:text-green-600"
+                      />
                     )}
-                    <button className="p-2 text-gray-400 hover:text-blue-600 transition-colors">
-                      <Eye className="w-4 h-4" />
-                    </button>
-                    <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
-                      <MoreVertical className="w-4 h-4" />
-                    </button>
+                    <IconButton
+                      icon={<Eye className="w-4 h-4" />}
+                      aria-label="View campaign details"
+                      variant="ghost"
+                      size="sm"
+                      className="text-gray-400 hover:text-blue-600"
+                    />
+                    <IconButton
+                      icon={<MoreVertical className="w-4 h-4" />}
+                      aria-label="More actions"
+                      variant="ghost"
+                      size="sm"
+                      className="text-gray-400 hover:text-gray-600"
+                    />
                   </div>
                 </div>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
+                </motion.div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
 
-        {/* Quick Actions */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-8"
-        >
-          <div className="card-hover text-center">
+      {/* Quick Actions */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.3 }}
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+      >
+        <Card hoverable className="text-center">
+          <CardContent>
             <div className="bg-blue-100 w-16 h-16 rounded-xl flex items-center justify-center mx-auto mb-4">
               <Zap className="w-8 h-8 text-blue-600" />
             </div>
-            <h3 className="font-semibold mb-2">Quick Campaign</h3>
-            <p className="text-sm text-gray-600 mb-4">Create campaign in 60 seconds</p>
-            <button className="btn-primary w-full">Start Now</button>
-          </div>
+            <CardTitle as="h3" className="text-base mb-2">Quick Campaign</CardTitle>
+            <CardDescription className="mb-4">Create campaign in 60 seconds</CardDescription>
+            <Button width="full">Start Now</Button>
+          </CardContent>
+        </Card>
 
-          <div className="card-hover text-center">
+        <Card hoverable className="text-center">
+          <CardContent>
             <div className="bg-purple-100 w-16 h-16 rounded-xl flex items-center justify-center mx-auto mb-4">
               <TrendingUp className="w-8 h-8 text-purple-600" />
             </div>
-            <h3 className="font-semibold mb-2">Viral Trends</h3>
-            <p className="text-sm text-gray-600 mb-4">Create from trending topics</p>
-            <button className="btn-secondary w-full">Explore Trends</button>
-          </div>
+            <CardTitle as="h3" className="text-base mb-2">Viral Trends</CardTitle>
+            <CardDescription className="mb-4">Create from trending topics</CardDescription>
+            <Button variant="secondary" width="full">Explore Trends</Button>
+          </CardContent>
+        </Card>
 
-          <div className="card-hover text-center">
+        <Card hoverable className="text-center">
+          <CardContent>
             <div className="bg-red-100 w-16 h-16 rounded-xl flex items-center justify-center mx-auto mb-4">
               <Target className="w-8 h-8 text-red-600" />
             </div>
-            <h3 className="font-semibold mb-2">Beat Competitors</h3>
-            <p className="text-sm text-gray-600 mb-4">Analyze & outperform rivals</p>
-            <button className="btn-secondary w-full">Analyze Now</button>
-          </div>
+            <CardTitle as="h3" className="text-base mb-2">Beat Competitors</CardTitle>
+            <CardDescription className="mb-4">Analyze & outperform rivals</CardDescription>
+            <Button variant="secondary" width="full">Analyze Now</Button>
+          </CardContent>
+        </Card>
 
-          <div className="card-hover text-center">
+        <Card hoverable className="text-center">
+          <CardContent>
             <div className="bg-green-100 w-16 h-16 rounded-xl flex items-center justify-center mx-auto mb-4">
               <DollarSign className="w-8 h-8 text-green-600" />
             </div>
-            <h3 className="font-semibold mb-2">ROI Report</h3>
-            <p className="text-sm text-gray-600 mb-4">Detailed success analytics</p>
-            <button className="btn-secondary w-full">View Report</button>
-          </div>
-        </motion.div>
-      </div>
+            <CardTitle as="h3" className="text-base mb-2">ROI Report</CardTitle>
+            <CardDescription className="mb-4">Detailed success analytics</CardDescription>
+            <Button variant="secondary" width="full">View Report</Button>
+          </CardContent>
+        </Card>
+      </motion.div>
     </div>
   );
 };

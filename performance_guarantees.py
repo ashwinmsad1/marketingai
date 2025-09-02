@@ -412,6 +412,38 @@ class PerformanceGuaranteeEngine:
             guarantee_threshold_met=False
         )
 
+async def monitor_campaign(campaign_id: str, user_id: str) -> Dict[str, Any]:
+    """
+    Monitor campaign performance and return status
+    This is a utility function for compatibility with marketing automation
+    """
+    try:
+        engine = PerformanceGuaranteeEngine()
+        
+        # Monitor campaign performance
+        metrics = await engine.monitor_campaign_performance(campaign_id)
+        
+        # Return performance data
+        return {
+            "campaign_id": campaign_id,
+            "user_id": user_id,
+            "performance_status": metrics.performance_status.value,
+            "metrics": asdict(metrics),
+            "needs_optimization": metrics.needs_optimization,
+            "guarantee_met": metrics.guarantee_threshold_met,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Error monitoring campaign {campaign_id}: {e}")
+        return {
+            "campaign_id": campaign_id,
+            "user_id": user_id,
+            "performance_status": "error",
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
+
 # Test function
 async def test_performance_engine():
     """Test performance guarantee engine functionality"""

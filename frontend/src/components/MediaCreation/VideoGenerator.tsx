@@ -8,8 +8,6 @@ import {
   RefreshCw, 
   Film, 
   Clock,
-  Palette,
-  Music,
   Type,
   Wand2,
   Eye,
@@ -39,7 +37,7 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
   const videoRefs = useRef<{[key: string]: HTMLVideoElement}>({});
 
   // Advanced settings
-  const [motion, setMotion] = useState('dynamic');
+  const [motionStyle, setMotionStyle] = useState('dynamic');
   const [musicStyle, setMusicStyle] = useState('upbeat');
   const [textOverlay, setTextOverlay] = useState(true);
   const [brandColors, setBrandColors] = useState('#3B82F6');
@@ -116,7 +114,7 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
         style: videoStyle,
         duration: parseInt(duration),
         aspect_ratio: aspectRatio,
-        motion,
+        motion: motionStyle,
         music_style: musicStyle,
         text_overlay: textOverlay,
         brand_colors: brandColors
@@ -312,8 +310,8 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
                   <div>
                     <label className="label">Camera Motion</label>
                     <select
-                      value={motion}
-                      onChange={(e) => setMotion(e.target.value)}
+                      value={motionStyle}
+                      onChange={(e) => setMotionStyle(e.target.value)}
                       className="input-field"
                     >
                       {motionStyles.map(style => (

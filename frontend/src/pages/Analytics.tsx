@@ -4,23 +4,14 @@ import {
   DollarSign,
   Target,
   Users,
-  Calendar,
   Download,
-  Filter,
   BarChart3,
   PieChart,
   LineChart
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-interface AnalyticsProps {
-  user: {
-    name: string;
-    subscription_tier: string;
-  };
-}
-
-const Analytics: React.FC<AnalyticsProps> = ({ user }) => {
+const Analytics: React.FC = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('30d');
   const [selectedMetric, setSelectedMetric] = useState('revenue');
 

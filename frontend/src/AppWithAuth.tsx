@@ -1,5 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -13,7 +15,20 @@ import Analytics from './pages/Analytics';
 import MediaCreation from './pages/MediaCreation';
 import ConnectMeta from './pages/ConnectMeta';
 import MetaAccounts from './pages/MetaAccounts';
+import Subscription from './pages/Subscription';
+import BillingHistory from './pages/BillingHistory';
 import DemoNavigation from './components/DemoNavigation';
+import { AppLayout } from './design-system';
+
+// Create a client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime in v5)
+    },
+  },
+});
 
 const AppWithAuth: React.FC = () => {
   const handleMediaCreated = (url: string, type: 'image' | 'video', prompt: string) => {
@@ -21,106 +36,143 @@ const AppWithAuth: React.FC = () => {
   };
 
   return (
-    <Router>
-      <AuthProvider>
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          
-          {/* Protected Routes */}
-          <Route 
-            path="/dashboard" 
-            element={
-              <ProtectedRoute>
-                <Dashboard user={{ name: 'Demo User', subscription_tier: 'free' }} />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/create-campaign" 
-            element={
-              <ProtectedRoute>
-                <CreateCampaign />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/campaigns" 
-            element={
-              <ProtectedRoute>
-                <CampaignsList 
-                  campaigns={[]}
-                  onViewCampaign={() => {}}
-                  onEditCampaign={() => {}}
-                  onToggleCampaign={() => {}}
-                  onDeleteCampaign={() => {}}
-                />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/analytics" 
-            element={
-              <ProtectedRoute>
-                <Analytics user={{ name: 'Demo User', subscription_tier: 'free' }} />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/media-creation" 
-            element={
-              <ProtectedRoute>
-                <MediaCreation onMediaCreated={handleMediaCreated} />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/meta/connect" 
-            element={
-              <ProtectedRoute>
-                <ConnectMeta />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/meta/callback" 
-            element={
-              <ProtectedRoute>
-                <ConnectMeta />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/meta/accounts" 
-            element={
-              <ProtectedRoute>
-                <MetaAccounts />
-              </ProtectedRoute>
-            } 
-          />
-          
-          {/* Redirect unknown routes to dashboard */}
-          <Route path="*" element={<Navigate to="/dashboard" />} />
-        </Routes>
+    <QueryClientProvider client={queryClient}>
+      <Router>
+        <AuthProvider>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            
+            {/* Protected Routes - wrapped in AppLayout */}
+            <Route 
+              path="/dashboard" 
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <Dashboard user={{ name: 'Demo User', subscription_tier: 'free' }} />
+                  </AppLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/create-campaign" 
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <CreateCampaign />
+                  </AppLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/campaigns" 
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <CampaignsList 
+                      campaigns={[]}
+                      onViewCampaign={() => {}}
+                      onEditCampaign={() => {}}
+                      onToggleCampaign={() => {}}
+                      onDeleteCampaign={() => {}}
+                    />
+                  </AppLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/analytics" 
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <Analytics />
+                  </AppLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/media-creation" 
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <MediaCreation onMediaCreated={handleMediaCreated} />
+                  </AppLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/meta/connect" 
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <ConnectMeta />
+                  </AppLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/meta/callback" 
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <ConnectMeta />
+                  </AppLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/meta/accounts" 
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <MetaAccounts />
+                  </AppLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/subscription" 
+              element={
+                <ProtectedRoute>
+                  <Subscription />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/billing/history" 
+              element={
+                <ProtectedRoute>
+                  <BillingHistory />
+                </ProtectedRoute>
+              } 
+            />
+            
+            {/* Redirect unknown routes to dashboard */}
+            <Route path="*" element={<Navigate to="/dashboard" />} />
+          </Routes>
 
-        {/* Demo Navigation - only show in development */}
-        {import.meta.env.DEV && <DemoNavigation />}
+          {/* Demo Navigation - only show in development */}
+          {import.meta.env.DEV && <DemoNavigation />}
 
-        {/* Toast notifications */}
-        <Toaster 
-          position="top-right"
-          toastOptions={{
-            duration: 4000,
-            style: {
-              background: '#363636',
-              color: '#fff',
-            },
-          }}
-        />
-      </AuthProvider>
-    </Router>
+          {/* Toast notifications */}
+          <Toaster 
+            position="top-right"
+            toastOptions={{
+              duration: 4000,
+              style: {
+                background: '#363636',
+                color: '#fff',
+              },
+            }}
+          />
+        </AuthProvider>
+      </Router>
+      
+      {/* React Query Devtools - only in development */}
+      {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
+    </QueryClientProvider>
   );
 };
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { 
   Zap, 
   Target, 
@@ -15,7 +15,6 @@ import {
 import { motion } from 'framer-motion';
 
 const LandingPage: React.FC = () => {
-  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
 
   return (
     <div className="min-h-screen bg-white">
@@ -55,7 +54,7 @@ const LandingPage: React.FC = () => {
               </motion.button>
               
               <button 
-                onClick={() => setIsVideoPlaying(true)}
+                onClick={() => {}}
                 className="bg-white/20 backdrop-blur-sm px-8 py-4 rounded-lg font-semibold text-lg hover:bg-white/30 transition-colors flex items-center"
               >
                 <Play className="mr-2 w-5 h-5" />
