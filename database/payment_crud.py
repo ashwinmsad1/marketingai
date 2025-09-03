@@ -39,23 +39,23 @@ class BillingSubscriptionCRUD:
         trial_start = datetime.utcnow()
         trial_end = trial_start + timedelta(days=trial_days)
         
-        # Set subscription limits based on tier
+        # Set subscription limits based on tier - Updated for simplified business plans
         limits = {
-            SubscriptionTier.STARTER: {
-                'max_campaigns': 5,
-                'max_ai_generations': 100,
-                'max_api_calls': 1000,
+            SubscriptionTier.STARTER: {  # Essential Plan
+                'max_campaigns': 10,
+                'max_ai_generations': -1,  # Unlimited basic AI content
+                'max_api_calls': 2000,
                 'analytics_retention_days': 30
             },
-            SubscriptionTier.PROFESSIONAL: {
-                'max_campaigns': 25,
-                'max_ai_generations': 500,
-                'max_api_calls': 5000,
+            SubscriptionTier.PROFESSIONAL: {  # Growth Plan
+                'max_campaigns': 50,
+                'max_ai_generations': -1,  # Unlimited advanced AI content
+                'max_api_calls': 10000,
                 'analytics_retention_days': 90
             },
-            SubscriptionTier.ENTERPRISE: {
+            SubscriptionTier.ENTERPRISE: {  # Professional Plan
                 'max_campaigns': -1,  # Unlimited
-                'max_ai_generations': -1,
+                'max_ai_generations': -1,  # Unlimited premium AI content
                 'max_api_calls': -1,
                 'analytics_retention_days': 365
             }
@@ -115,10 +115,7 @@ class BillingSubscriptionCRUD:
         subscription.updated_at = datetime.utcnow()
         
         if provider_subscription_id:
-            if subscription.provider == PaymentProvider.GOOGLE_PAY:
-                subscription.google_pay_subscription_id = provider_subscription_id
-            else:
-                subscription.stripe_subscription_id = provider_subscription_id
+            subscription.provider_subscription_id = provider_subscription_id
         
         # If activating from trial, update billing dates with idempotency check
         if status == SubscriptionStatus.ACTIVE and subscription.is_trial:

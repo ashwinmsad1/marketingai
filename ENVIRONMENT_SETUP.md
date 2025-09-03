@@ -13,9 +13,8 @@ This document covers all required environment variables for the **AI Marketing A
 - ✅ **Email Service** - User verification & notifications
 
 ### Required for Payments
-- ✅ **Stripe** - International payments & subscriptions  
-- ✅ **UPI Gateway** - Indian market payments (Razorpay/PayU)
-- ✅ **Google Pay** - Seamless payment integration
+- ✅ **Razorpay** - UPI payments & subscriptions for Indian market
+- ✅ **UPI Configuration** - Direct UPI payments via QR codes
 
 ### Required for Meta Integration
 - ✅ **Facebook App** - Meta API access
@@ -79,47 +78,38 @@ DB_SSL_MODE=prefer
 
 ## 💳 Payment Processing
 
-### Stripe (International Payments)
+### Razorpay (UPI Payments)
 ```bash
-# Stripe API keys (REQUIRED for payments)
-STRIPE_PUBLISHABLE_KEY=pk_live_your_publishable_key_here
-STRIPE_SECRET_KEY=sk_live_your_secret_key_here
-STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret_here
+# Razorpay API keys (REQUIRED for payments)
+RAZORPAY_KEY_ID=rzp_live_your_key_id_here
+RAZORPAY_KEY_SECRET=your_secret_key_here
+RAZORPAY_WEBHOOK_SECRET=your_webhook_secret_here
 
-# Stripe Price IDs for each tier
-STRIPE_STARTER_PRICE_ID=price_starter_id_here
-STRIPE_PROFESSIONAL_PRICE_ID=price_professional_id_here  
-STRIPE_ENTERPRISE_PRICE_ID=price_enterprise_id_here
+# Razorpay Plan IDs for each tier
+RAZORPAY_STARTER_PLAN_ID=plan_starter_id_here
+RAZORPAY_PROFESSIONAL_PLAN_ID=plan_professional_id_here  
+RAZORPAY_ENTERPRISE_PLAN_ID=plan_enterprise_id_here
 ```
 
-### UPI Payment Gateway (Indian Market)
+### UPI Configuration (Direct Payments)
 ```bash
-# UPI Configuration (REQUIRED for Indian users)
-UPI_ENVIRONMENT=production  # sandbox or production
-UPI_GATEWAY=razorpay        # razorpay, payu, or cashfree
-UPI_GATEWAY_KEY=your_razorpay_key_here
-UPI_GATEWAY_SECRET=your_razorpay_secret_here
-UPI_WEBHOOK_SECRET=your_upi_webhook_secret
-
-# Merchant Details
-UPI_MERCHANT_ID=MERCHANT001
+# UPI Configuration (REQUIRED for QR code payments)
 UPI_MERCHANT_NAME=AI Marketing Automation
+UPI_MERCHANT_ID=your_merchant_id_here
 UPI_MERCHANT_VPA=merchant@paytm
 ```
 
-### Google Pay Integration
+### UPI Apps Support
 ```bash
-# Google Pay Configuration (REQUIRED for seamless payments)
-GOOGLE_PAY_ENVIRONMENT=PRODUCTION    # TEST or PRODUCTION
-GOOGLE_PAY_GATEWAY=stripe           # Payment processor
-GOOGLE_PAY_GATEWAY_MERCHANT_ID=your_merchant_id
-GOOGLE_PAY_MERCHANT_NAME=AI Marketing Automation
+# Supported UPI Apps (automatically configured)
+# Google Pay, PhonePe, Paytm, BHIM, Amazon Pay,
+# MobiKwik, Freecharge, PayZapp, SBI Pay, ICICI Pockets
 ```
 
 **Payment Setup Instructions:**
-1. **Stripe**: Create account at https://stripe.com
-2. **Razorpay**: Create account at https://razorpay.com (for UPI)
-3. **Google Pay**: Configure in Stripe dashboard or payment processor
+1. **Razorpay**: Create account at https://razorpay.com
+2. **UPI Configuration**: Set up merchant VPA and details
+3. **Testing**: Use Razorpay test keys for development
 
 ---
 
@@ -266,7 +256,7 @@ Create these files in your project root:
 # In your docker-compose.yml or Dockerfile
 ENV API_KEY=${API_KEY}
 ENV DATABASE_URL=${DATABASE_URL}
-ENV STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+ENV RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET}
 ENV FACEBOOK_APP_SECRET=${FACEBOOK_APP_SECRET}
 # ... add all required variables
 ```
@@ -284,7 +274,7 @@ required = [
 
 # Production-specific requirements
 production = [
-    'STRIPE_SECRET_KEY', 'SENDGRID_API_KEY'
+    'RAZORPAY_KEY_SECRET', 'SENDGRID_API_KEY', 'UPI_MERCHANT_VPA'
 ]
 
 # Check core requirements
@@ -366,13 +356,11 @@ credentials.json
 ```bash
 # Development
 DEBUG=True
-STRIPE_SECRET_KEY=sk_test_...
-GOOGLE_PAY_ENVIRONMENT=TEST
+RAZORPAY_KEY_SECRET=rzp_test_...
 
 # Production  
 DEBUG=False
-STRIPE_SECRET_KEY=sk_live_...
-GOOGLE_PAY_ENVIRONMENT=PRODUCTION
+RAZORPAY_KEY_SECRET=rzp_live_...
 ```
 
 ---
@@ -446,6 +434,5 @@ For environment setup issues:
 
 **Service Documentation:**
 - Google AI: https://ai.google.dev/docs
-- Stripe: https://docs.stripe.com
-- Meta API: https://developers.facebook.com/docs
 - Razorpay: https://razorpay.com/docs
+- Meta API: https://developers.facebook.com/docs

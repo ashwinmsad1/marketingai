@@ -7,7 +7,6 @@ import { PaymentStatusPoller } from '../../utils/paymentPolling';
 import { 
   UPIPaymentData, 
   PaymentSuccessData, 
-  PaymentConfig,
   PaymentError
 } from '../../types/payment';
 

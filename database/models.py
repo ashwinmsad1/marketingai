@@ -3,7 +3,7 @@ SQLAlchemy models for AI Marketing Automation Platform
 Multi-tenant SaaS architecture with comprehensive user management
 """
 
-from sqlalchemy import Column, Integer, String, DateTime, Float, Boolean, Text, ForeignKey, Enum, JSON
+from sqlalchemy import Column, Integer, String, DateTime, Float, Boolean, Text, ForeignKey, Enum, JSON, Index, UniqueConstraint, CheckConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -68,6 +68,15 @@ class User(Base):
     ai_content = relationship("AIContent", back_populates="user")
     usage_tracking = relationship("UsageTracking", back_populates="user")
     conversions = relationship("Conversion", back_populates="user")
+    
+    # Performance optimization indexes
+    __table_args__ = (
+        Index('idx_users_created_at', 'created_at'),
+        Index('idx_users_is_active', 'is_active'),
+        Index('idx_users_is_verified', 'is_verified'),
+        Index('idx_users_company_name', 'company_name'),
+        Index('idx_users_last_login', 'last_login')
+    )
 
 class Subscription(Base):
     __tablename__ = "subscriptions"
@@ -83,9 +92,8 @@ class Subscription(Base):
     monthly_price = Column(Float)
     currency = Column(String, default="INR")
     
-    # Billing
-    stripe_subscription_id = Column(String)  # For Stripe integration
-    stripe_customer_id = Column(String)
+    # UPI Billing
+    provider_subscription_id = Column(String)  # For UPI/Razorpay integration
     
     # Trial
     trial_end = Column(DateTime)
@@ -222,6 +230,21 @@ class Campaign(Base):
     ai_content = relationship("AIContent", back_populates="campaign")
     conversions = relationship("Conversion", back_populates="campaign")
     analytics = relationship("Analytics", back_populates="campaign")
+    
+    # Performance optimization indexes and constraints
+    __table_args__ = (
+        Index('idx_campaigns_user_id', 'user_id'),
+        Index('idx_campaigns_status', 'status'),
+        Index('idx_campaigns_created_at', 'created_at'),
+        Index('idx_campaigns_user_status', 'user_id', 'status'),
+        Index('idx_campaigns_user_created', 'user_id', 'created_at'),
+        CheckConstraint('budget_daily >= 0', name='chk_campaigns_budget_daily_positive'),
+        CheckConstraint('budget_total >= 0', name='chk_campaigns_budget_total_positive'),
+        CheckConstraint('impressions >= 0', name='chk_campaigns_impressions_positive'),
+        CheckConstraint('clicks >= 0', name='chk_campaigns_clicks_positive'),
+        CheckConstraint('spend >= 0', name='chk_campaigns_spend_positive'),
+        CheckConstraint('conversions >= 0', name='chk_campaigns_conversions_positive')
+    )
 
 # AI Content Management
 class AIContent(Base):
@@ -344,6 +367,21 @@ class Analytics(Base):
     
     # Relationships
     campaign = relationship("Campaign", back_populates="analytics")
+    
+    # Performance optimization indexes and constraints
+    __table_args__ = (
+        Index('idx_analytics_campaign_date', 'campaign_id', 'date'),
+        Index('idx_analytics_user_date', 'user_id', 'date'),
+        Index('idx_analytics_date', 'date'),
+        Index('idx_analytics_campaign_id', 'campaign_id'),
+        Index('idx_analytics_user_id', 'user_id'),
+        UniqueConstraint('campaign_id', 'date', name='uq_analytics_campaign_date'),
+        CheckConstraint('impressions >= 0', name='chk_analytics_impressions_positive'),
+        CheckConstraint('clicks >= 0', name='chk_analytics_clicks_positive'),
+        CheckConstraint('spend >= 0', name='chk_analytics_spend_positive'),
+        CheckConstraint('conversions >= 0', name='chk_analytics_conversions_positive'),
+        CheckConstraint('revenue >= 0', name='chk_analytics_revenue_positive')
+    )
 
 # Additional Models for Enhanced Features
 
@@ -466,9 +504,8 @@ class BillingSubscription(Base):
     next_billing_date = Column(DateTime)
     
     # Payment Provider Integration
-    provider = Column(Enum(PaymentProvider), default=PaymentProvider.GOOGLE_PAY)
-    google_pay_subscription_id = Column(String)  # Google Pay subscription ID
-    stripe_subscription_id = Column(String)  # Stripe subscription ID (fallback)
+    provider = Column(Enum(PaymentProvider), default=PaymentProvider.UPI)
+    provider_subscription_id = Column(String)  # UPI/Razorpay subscription ID
     
     # Usage Limits
     max_campaigns = Column(Integer)
@@ -491,6 +528,20 @@ class BillingSubscription(Base):
     user = relationship("User", back_populates="billing_subscriptions")
     payments = relationship("Payment", back_populates="subscription")
     invoices = relationship("Invoice", back_populates="subscription")
+    
+    # Performance optimization indexes and constraints
+    __table_args__ = (
+        Index('idx_billing_subscriptions_user_id', 'user_id'),
+        Index('idx_billing_subscriptions_status', 'status'),
+        Index('idx_billing_subscriptions_tier', 'tier'),
+        Index('idx_billing_subscriptions_user_status', 'user_id', 'status'),
+        Index('idx_billing_subscriptions_next_billing_date', 'next_billing_date'),
+        Index('idx_billing_subscriptions_expires_at', 'expires_at'),
+        CheckConstraint('monthly_price > 0', name='chk_billing_subscriptions_monthly_price_positive'),
+        CheckConstraint('max_campaigns >= 0', name='chk_billing_subscriptions_max_campaigns_positive'),
+        CheckConstraint('max_ai_generations >= 0', name='chk_billing_subscriptions_max_ai_generations_positive'),
+        CheckConstraint('max_api_calls >= 0', name='chk_billing_subscriptions_max_api_calls_positive')
+    )
 
 class Payment(Base):
     __tablename__ = "payments"
@@ -506,12 +557,12 @@ class Payment(Base):
     
     # Payment Provider Information
     provider = Column(Enum(PaymentProvider), nullable=False)
-    provider_payment_id = Column(String)  # Google Pay/Stripe payment ID
+    provider_payment_id = Column(String)  # UPI/Razorpay payment ID
     provider_transaction_id = Column(String)
     
-    # Google Pay specific fields
-    google_pay_token = Column(String)
-    google_pay_gateway_merchant_id = Column(String)
+    # UPI specific fields
+    upi_transaction_id = Column(String)
+    upi_vpa = Column(String)  # Virtual Payment Address
     
     # Status and Processing
     status = Column(Enum(PaymentStatus), default=PaymentStatus.PENDING)
@@ -533,6 +584,17 @@ class Payment(Base):
     # Relationships
     user = relationship("User", back_populates="payments")
     subscription = relationship("BillingSubscription", back_populates="payments")
+    
+    # Performance optimization indexes and constraints
+    __table_args__ = (
+        Index('idx_payments_user_id', 'user_id'),
+        Index('idx_payments_status', 'status'),
+        Index('idx_payments_user_status', 'user_id', 'status'),
+        Index('idx_payments_created_at', 'created_at'),
+        Index('idx_payments_provider', 'provider'),
+        Index('idx_payments_provider_payment_id', 'provider_payment_id'),
+        CheckConstraint('amount > 0', name='chk_payments_amount_positive')
+    )
 
 class Invoice(Base):
     __tablename__ = "invoices"
@@ -635,3 +697,97 @@ class WebhookEvent(Base):
     user_id = Column(String, ForeignKey("users.id"))
     payment_id = Column(String, ForeignKey("payments.id"))
     subscription_id = Column(String, ForeignKey("billing_subscriptions.id"))
+
+# Extended Competitor Analysis Models for competitor_analyzer.py functionality
+
+class CompetitorContent(Base):
+    __tablename__ = "competitor_content"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    content_id = Column(String, unique=True, nullable=False)  # Original content ID from competitor_analyzer
+    user_id = Column(String, ForeignKey("users.id"))
+    
+    # Competitor Info
+    competitor_name = Column(String, nullable=False)
+    platform = Column(String)  # facebook, instagram, etc.
+    content_type = Column(String)  # image, video, text
+    content_url = Column(String)
+    caption = Column(Text)
+    
+    # Engagement Metrics
+    likes = Column(Integer, default=0)
+    comments = Column(Integer, default=0)
+    shares = Column(Integer, default=0)
+    
+    # Analysis Results
+    performance_score = Column(Float)
+    analyzed_elements = Column(JSON)  # JSON with analyzed elements
+    
+    # Timestamps
+    discovered_at = Column(DateTime, default=func.now())
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Performance optimization indexes and constraints
+    __table_args__ = (
+        Index('idx_competitor_content_competitor_name', 'competitor_name'),
+        Index('idx_competitor_content_platform', 'platform'),
+        Index('idx_competitor_content_content_type', 'content_type'),
+        Index('idx_competitor_content_user_id', 'user_id'),
+        Index('idx_competitor_content_discovered_at', 'discovered_at'),
+        Index('idx_competitor_content_performance_score', 'performance_score'),
+        UniqueConstraint('competitor_name', 'content_url', name='uq_competitor_content_name_url'),
+        CheckConstraint('likes >= 0', name='chk_competitor_content_likes_positive'),
+        CheckConstraint('comments >= 0', name='chk_competitor_content_comments_positive'),
+        CheckConstraint('shares >= 0', name='chk_competitor_content_shares_positive'),
+        CheckConstraint('performance_score >= 0', name='chk_competitor_content_performance_score_positive')
+    )
+
+class CompetitiveInsights(Base):
+    __tablename__ = "competitive_insights"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.id"))
+    
+    # Competitor Info
+    competitor_name = Column(String, nullable=False)
+    analysis_date = Column(DateTime, default=func.now())
+    
+    # Insights Data
+    content_themes = Column(JSON)  # List of content themes
+    top_content_ids = Column(JSON)  # List of top performing content IDs
+    engagement_patterns = Column(JSON)  # Engagement pattern analysis
+    recommended_actions = Column(JSON)  # List of recommended actions
+    content_gaps = Column(JSON)  # List of identified content gaps
+    
+    # Timestamps
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+class ImprovedContent(Base):
+    __tablename__ = "improved_content"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    improvement_id = Column(String, unique=True, nullable=False)  # Original improvement ID
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    
+    # Source Content
+    original_content_id = Column(String, ForeignKey("competitor_content.content_id"), nullable=False)
+    
+    # Improvement Details
+    improvement_type = Column(String)  # ai_enhanced, etc.
+    new_prompt = Column(Text)
+    new_caption = Column(Text)
+    generated_asset = Column(String)  # Path to generated content
+    
+    # Performance Predictions
+    estimated_lift = Column(Float)  # Estimated performance improvement
+    actual_performance = Column(Float)  # Actual performance if tracked
+    competitive_advantages = Column(JSON)  # List of competitive advantages
+    
+    # Timestamps
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    competitor_content = relationship("CompetitorContent", foreign_keys=[original_content_id])

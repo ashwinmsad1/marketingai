@@ -130,7 +130,7 @@ class SecureConfigManager:
             "DATABASE_URL",
             ConfigValidator(
                 required=False,
-                default="sqlite:///app.db",
+                default="postgresql://postgres:password@localhost:5432/ai_marketing_platform",
                 validator_func=self._validate_database_url,
                 description="Database connection URL",
                 sensitive=True

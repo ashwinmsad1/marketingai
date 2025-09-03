@@ -1,5 +1,5 @@
 """
-Payment Processing API Routes for Google Pay Integration
+Payment Processing API Routes for UPI Integration
 """
 
 from fastapi import APIRouter, HTTPException, Depends, Request, BackgroundTasks
@@ -17,7 +17,7 @@ from database.payment_crud import (
 )
 from upi_payment_service import upi_payment_service
 from subscription_management import PlatformSubscriptionManager
-from google_pay_service import google_pay_service
+# Removed google_pay_service import - using UPI only
 from auth import get_current_active_user
 from auth.jwt_handler import get_current_active_verified_user
 
@@ -135,11 +135,12 @@ async def create_payment_order(
             raise HTTPException(status_code=403, detail="Access denied")
         
         # Create payment order
-        order_result = await upi_payment_service.create_payment_order(
+        order_result = await upi_payment_service.create_upi_payment_order(
             amount=subscription.monthly_price,
             customer_id=current_user.id,
             subscription_id=subscription.id,
-            metadata={
+            user_email=current_user.email,
+            notes={
                 "user_id": current_user.id,
                 "subscription_id": subscription.id,
                 "tier": subscription.tier.value,
@@ -157,11 +158,11 @@ async def create_payment_order(
             "success": True,
             "data": {
                 "order": order_result["order"],
-                "payment_url": order_result.get("payment_url"),
-                "upi_deep_link": upi_payment_service.generate_upi_deep_link(
+                "key_id": order_result["key_id"],
+                "upi_qr_code": upi_payment_service.generate_upi_qr_code(
                     amount=subscription.monthly_price,
-                    note=f"Subscription - {subscription.tier.value.title()} Plan",
-                    transaction_ref=order_result["order"]["receipt"]
+                    transaction_ref=order_result["order"]["id"],
+                    note=f"Subscription - {subscription.tier.value.title()} Plan"
                 )
             },
             "message": "Payment order created successfully"
@@ -191,10 +192,10 @@ async def activate_subscription_with_upi(
             raise HTTPException(status_code=403, detail="Access denied")
         
         # Verify payment
-        payment_result = await upi_payment_service.verify_payment(
-            payment_id=request.payment_id,
-            order_id=request.order_id,
-            signature=request.signature
+        payment_result = await upi_payment_service.verify_upi_payment(
+            razorpay_order_id=request.order_id,
+            razorpay_payment_id=request.payment_id,
+            razorpay_signature=request.signature
         )
         
         if not payment_result.get("success"):
@@ -356,14 +357,11 @@ async def cancel_subscription(
         if subscription.user_id != current_user.id:
             raise HTTPException(status_code=403, detail="Access denied")
         
-        # Cancel Stripe subscription if exists
-        if subscription.stripe_subscription_id:
-            stripe_result = await google_pay_service.cancel_subscription(
-                subscription.stripe_subscription_id
-            )
-            
-            if not stripe_result.get("success"):
-                logger.warning(f"Failed to cancel Stripe subscription: {stripe_result.get('error')}")
+        # Cancel UPI subscription if exists (most UPI subscriptions are manual)
+        # Note: UPI subscriptions are typically handled through manual payments
+        # For recurring subscriptions, we would cancel through Razorpay
+        if subscription.provider_subscription_id:
+            logger.info(f"Subscription {subscription.id} has provider_subscription_id: {subscription.provider_subscription_id}")
         
         # Update database subscription
         success = BillingSubscriptionCRUD.cancel_subscription(db, subscription.id)
@@ -462,7 +460,7 @@ async def update_payment_method(
             method_type="upi",
             upi_details={
                 "upi_id": request.upi_id,
-                "gateway": upi_payment_service.gateway
+                "provider": "razorpay"
             },
             is_default=request.is_default
         )
@@ -566,11 +564,10 @@ async def handle_payment_webhook(
             logger.warning(f"Invalid signature format: {signature_value}")
             raise HTTPException(status_code=400, detail="Invalid signature format")
         
-        # Verify webhook signature with enhanced validation
+        # Verify webhook signature
         verification_result = upi_payment_service.verify_webhook_signature(
             payload.decode(), 
-            signature_value, 
-            signature_header
+            signature_value
         )
         
         if not verification_result:

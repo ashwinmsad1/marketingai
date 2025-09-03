@@ -21,7 +21,7 @@ export class PaymentStatusPoller {
   private maxDelay: number;
   private timeout: number;
   private abortController: AbortController;
-  private pollTimer: NodeJS.Timeout | null = null;
+  private pollTimer: number | null = null;
 
   constructor(orderId: string, options: {
     maxAttempts?: number;

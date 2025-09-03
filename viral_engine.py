@@ -467,7 +467,7 @@ class ViralContentEngine:
                 id=content.content_id,
                 prompt=content.viral_prompt,
                 content_type=content.content_type,
-                platform_optimized=['facebook', 'instagram', 'tiktok'],
+                platform_optimized=['facebook', 'instagram'],
                 virality_score=content.virality_score,
                 optimal_posting_time=content.optimal_posting_time,
                 viral_elements=content.engagement_hooks

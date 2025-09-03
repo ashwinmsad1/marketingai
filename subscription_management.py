@@ -14,7 +14,6 @@ import uuid
 from upi_payment_service import upi_payment_service
 from database.payment_crud import BillingSubscriptionCRUD, PaymentCRUD
 from database.models import SubscriptionTier, SubscriptionStatus, PaymentProvider
-from google_pay_service import google_pay_service
 
 load_dotenv()
 
@@ -26,69 +25,66 @@ class PlatformSubscriptionManager:
     Users pay Meta directly for ads, platform charges for automation services
     """
     
-    # Subscription Pricing (Monthly INR) - Optimized Indian Market Pricing
+    # Subscription Pricing (Monthly INR) - Simplified Business Consultant Recommended Plans
     PRICING = {
         SubscriptionTier.STARTER: {
-            'monthly_price': 799.00,  # ₹799 (Reduced from ₹999)
-            'campaigns_limit': 5,
+            'monthly_price': 599.00,  # ₹599 - Essential Plan
+            'campaigns_limit': 10,
             'ad_accounts_limit': 1,
-            'ai_generations_limit': 100,
+            'ai_generations_limit': -1,  # Unlimited basic AI content
             'analytics_retention_days': 30,
+            'platforms': ['Facebook', 'Instagram'],  # Facebook/Instagram only
             'features': [
-                'Basic AI content generation',
-                'Campaign automation',
-                'Performance analytics',
-                'Email support',
-                '30-day free trial'
+                '10 Facebook/Instagram campaigns per month',
+                'Basic AI content generation (text + image)',
+                'Facebook & Instagram posting',
+                'Basic analytics (last 30 days)',
+                'Email support'
             ]
         },
         SubscriptionTier.PROFESSIONAL: {
-            'monthly_price': 1599.00,  # ₹1,599 (Reduced from ₹1,999)
-            'campaigns_limit': 25,
+            'monthly_price': 1299.00,  # ₹1,299 - Growth Plan
+            'campaigns_limit': 50,
             'ad_accounts_limit': 3,
-            'ai_generations_limit': 500,
+            'ai_generations_limit': -1,  # Unlimited advanced AI content
             'analytics_retention_days': 90,
+            'platforms': ['Facebook', 'Instagram'],  # Facebook/Instagram only
             'features': [
-                'Advanced AI content generation',
-                'Multi-platform automation',
-                'Advanced analytics & reporting',
-                'A/B testing tools',
-                'Priority support',
-                'Custom audiences',
-                'Usage analytics',
-                '30-day free trial'
+                '50 Facebook/Instagram campaigns per month',
+                'Advanced AI content generation (text + image + video thumbnails)',
+                'Advanced Facebook & Instagram automation',
+                'Performance analytics (90 days + basic insights)',
+                'Phone + email support',
+                'Campaign templates library'
             ]
         },
         SubscriptionTier.ENTERPRISE: {
-            'monthly_price': 2999.00,  # ₹2,999 (Unchanged)
+            'monthly_price': 2499.00,  # ₹2,499 - Professional Plan
             'campaigns_limit': -1,  # Unlimited
             'ad_accounts_limit': -1,  # Unlimited
-            'ai_generations_limit': -1,  # Unlimited
+            'ai_generations_limit': -1,  # Unlimited premium AI content
             'analytics_retention_days': 365,
+            'platforms': ['Facebook', 'Instagram'],  # Facebook/Instagram only
             'features': [
-                'Unlimited AI content generation',
-                'White-label platform access',
-                'Advanced automation rules',
-                'Custom integrations',
+                'Unlimited Facebook/Instagram campaigns',
+                'Premium AI content generation (all formats + brand customization)',
+                'Full Facebook & Instagram automation suite',
+                'Advanced analytics + reporting (12 months + competitor insights)',
+                'White-label capabilities',
                 'Dedicated account manager',
-                'API access',
-                'Team collaboration tools',
-                'Custom billing terms',
-                '30-day free trial'
+                'Priority support (2-hour response)'
             ]
         }
     }
     
     def __init__(self):
-        self.stripe_secret_key = os.getenv("STRIPE_SECRET_KEY")
-        self.webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
-        self.google_pay_service = google_pay_service
+        self.upi_payment_service = upi_payment_service
         
-        # Initialize Stripe prices if not already created
-        self.stripe_price_ids = {
-            'starter': os.getenv('STRIPE_STARTER_PRICE_ID'),
-            'professional': os.getenv('STRIPE_PROFESSIONAL_PRICE_ID'), 
-            'enterprise': os.getenv('STRIPE_ENTERPRISE_PRICE_ID')
+        # Initialize Razorpay plan IDs if not already created
+        self.razorpay_plan_ids = {
+            'starter': os.getenv('RAZORPAY_STARTER_PLAN_ID'),
+            'professional': os.getenv('RAZORPAY_PROFESSIONAL_PLAN_ID'), 
+            'enterprise': os.getenv('RAZORPAY_ENTERPRISE_PLAN_ID')
         }
         
     async def create_subscription_with_upi(
@@ -159,47 +155,54 @@ class PlatformSubscriptionManager:
         self, 
         db_session,
         subscription_id: str,
-        google_pay_token: Dict[str, Any],
-        stripe_customer_id: str
+        razorpay_payment_id: str,
+        razorpay_order_id: str,
+        razorpay_signature: str
     ) -> Dict[str, Any]:
-        """Activate subscription after successful Google Pay payment"""
+        """Activate subscription after successful UPI payment"""
         try:
+            # Verify payment first
+            payment_verification = await self.upi_payment_service.verify_upi_payment(
+                razorpay_order_id=razorpay_order_id,
+                razorpay_payment_id=razorpay_payment_id,
+                razorpay_signature=razorpay_signature
+            )
+            
+            if not payment_verification.get("success"):
+                return {
+                    "success": False,
+                    "error": f"Payment verification failed: {payment_verification.get('error')}"
+                }
+            
             # Get subscription from database
             subscription = BillingSubscriptionCRUD.get_user_subscription(db_session, subscription_id)
             if not subscription:
                 return {"success": False, "error": "Subscription not found"}
             
-            # Get price ID for the subscription tier
-            price_id = self.stripe_price_ids.get(subscription.tier.value)
-            if not price_id:
-                return {"success": False, "error": "Price ID not found for tier"}
-            
-            # Create Stripe subscription
-            stripe_result = await self.google_pay_service.create_subscription(
-                customer_id=stripe_customer_id,
-                price_id=price_id,
-                trial_period_days=0,  # Already handled trial in database
-                metadata={"subscription_id": subscription_id}
-            )
-            
-            if not stripe_result.get("success"):
-                return {
-                    "success": False,
-                    "error": f"Failed to create Stripe subscription: {stripe_result.get('error')}"
-                }
-            
-            # Update database subscription with Stripe subscription ID
+            # Update database subscription status to active
             BillingSubscriptionCRUD.update_subscription_status(
                 db=db_session,
                 subscription_id=subscription_id,
                 status=SubscriptionStatus.ACTIVE,
-                provider_subscription_id=stripe_result["subscription"]["id"]
+                provider_subscription_id=razorpay_payment_id  # Store payment ID as reference
+            )
+            
+            # Record payment in database
+            PaymentCRUD.create_payment(
+                db=db_session,
+                user_id=subscription.user_id,
+                subscription_id=subscription_id,
+                amount=payment_verification["payment"]["amount"] / 100,  # Convert from paise to rupees
+                currency="INR",
+                provider=PaymentProvider.UPI,
+                provider_payment_id=razorpay_payment_id,
+                status="completed"
             )
             
             return {
                 "success": True,
                 "subscription_id": subscription_id,
-                "stripe_subscription_id": stripe_result["subscription"]["id"],
+                "payment_id": razorpay_payment_id,
                 "status": "active"
             }
             
@@ -376,14 +379,22 @@ class PlatformSubscriptionManager:
         """Get pricing comparison table for frontend display"""
         comparison = {}
         
+        # Map tier names to display names
+        tier_names = {
+            'starter': 'Essential',
+            'professional': 'Growth', 
+            'enterprise': 'Professional'
+        }
+        
         for tier, details in self.PRICING.items():
             comparison[tier.value] = {
-                'name': tier.value.title(),
-                'price': f"${details['monthly_price']}/month",
-                'campaigns': 'Unlimited' if details['campaigns_limit'] == -1 else f"{details['campaigns_limit']} campaigns",
+                'name': tier_names.get(tier.value, tier.value.title()),
+                'price': f"₹{details['monthly_price']}/month",
+                'campaigns': 'Unlimited' if details['campaigns_limit'] == -1 else f"{details['campaigns_limit']} campaigns/month",
                 'ai_generations': 'Unlimited' if details['ai_generations_limit'] == -1 else f"{details['ai_generations_limit']}/month",
                 'ad_accounts': 'Unlimited' if details['ad_accounts_limit'] == -1 else f"{details['ad_accounts_limit']} accounts",
                 'analytics': f"{details['analytics_retention_days']} days retention",
+                'platforms': details.get('platforms', []),
                 'features': details['features']
             }
         

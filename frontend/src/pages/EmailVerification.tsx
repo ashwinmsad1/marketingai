@@ -13,7 +13,7 @@ const EmailVerification: React.FC = () => {
   const [isResending, setIsResending] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState<'pending' | 'success' | 'error'>('pending');
   const [countdown, setCountdown] = useState(0);
-  const [verificationDetails, setVerificationDetails] = useState({
+  const [, setVerificationDetails] = useState({
     is_verified: false,
     email: '',
     requires_verification: true

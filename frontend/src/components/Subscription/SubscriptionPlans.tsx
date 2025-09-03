@@ -8,58 +8,51 @@ import { SubscriptionPlan } from '../../types/payment';
 const plans: SubscriptionPlan[] = [
   {
     id: 'starter',
-    name: 'Starter',
-    price: 799,
-    description: 'Perfect for small businesses getting started',
+    name: 'Essential',
+    price: 599,
+    description: 'Perfect for small businesses getting started with AI marketing',
     tier: 'starter',
     icon: <Star className="w-6 h-6" />,
     features: [
-      'Basic AI content generation',
-      '5 active campaigns',
-      '100 AI generations/month',
-      '1,000 API calls/month',
-      '30-day analytics retention',
-      'Email support',
-      '30-day free trial'
+      '10 Facebook/Instagram campaigns per month',
+      'Basic AI content generation (text + image)',
+      'Facebook & Instagram posting',
+      'Basic analytics (last 30 days)',
+      'Email support'
     ]
   },
   {
     id: 'professional',
-    name: 'Professional',
-    price: 1599,
-    description: 'Advanced features for growing businesses',
+    name: 'Growth',
+    price: 1299,
+    description: 'Advanced features for growing businesses ready to scale',
     tier: 'professional',
     icon: <Zap className="w-6 h-6" />,
     popular: true,
     features: [
-      'Advanced AI content generation',
-      '25 active campaigns',
-      '500 AI generations/month',
-      '5,000 API calls/month',
-      '90-day analytics retention',
-      'Multi-platform automation',
-      'A/B testing tools',
-      'Priority support',
-      '30-day free trial'
+      '50 Facebook/Instagram campaigns per month',
+      'Advanced AI content generation (text + image + video thumbnails)',
+      'Advanced Facebook & Instagram automation',
+      'Performance analytics (90 days + basic insights)',
+      'Phone + email support',
+      'Campaign templates library'
     ]
   },
   {
     id: 'enterprise',
-    name: 'Enterprise',
-    price: 2999,
-    description: 'Full-scale solution for large organizations',
+    name: 'Professional',
+    price: 2499,
+    description: 'Complete automation solution for serious marketers',
     tier: 'enterprise',
     icon: <Crown className="w-6 h-6" />,
     features: [
-      'Unlimited AI content generation',
-      'Unlimited campaigns',
-      'Unlimited API calls',
-      '365-day analytics retention',
-      'White-label platform access',
-      'Custom integrations',
+      'Unlimited Facebook/Instagram campaigns',
+      'Premium AI content generation (all formats + brand customization)',
+      'Full Facebook & Instagram automation suite',
+      'Advanced analytics + reporting (12 months + competitor insights)',
+      'White-label capabilities',
       'Dedicated account manager',
-      'Team collaboration tools',
-      '30-day free trial'
+      'Priority support (2-hour response)'
     ]
   }
 ];
@@ -152,7 +145,7 @@ const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onPlanSelect }) =
           Choose Your Plan
         </h2>
         <p className="text-lg text-gray-600">
-          Start with a 30-day free trial. No payment required during trial.
+          Simplified pricing designed for your success. Choose the plan that fits your needs.
         </p>
       </div>
 
@@ -222,12 +215,12 @@ const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onPlanSelect }) =
                         : 'bg-gray-100 hover:bg-gray-200 text-gray-900'
                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
-                    {loading && selectedPlan?.id === plan.id ? 'Creating Subscription...' : 'Start Free Trial'}
+                    {loading && selectedPlan?.id === plan.id ? 'Creating Subscription...' : 'Get Started'}
                   </button>
                 )}
                 
                 <p className="text-xs text-gray-500 text-center">
-                  30-day free trial, then ₹{plan.price.toLocaleString('en-IN')}/month. Cancel anytime.
+                  ₹{plan.price.toLocaleString('en-IN')}/month. Cancel anytime.
                 </p>
               </div>
             </div>
@@ -242,11 +235,11 @@ const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onPlanSelect }) =
               <div className="flex items-center space-x-2">
                 <AlertCircle className="w-5 h-5 text-blue-600" />
                 <span className="text-sm text-blue-800 font-medium">
-                  Sign up or log in to start your free trial
+                  Sign up or log in to get started
                 </span>
               </div>
               <p className="text-xs text-blue-600 mt-1">
-                Create an account to access all features with a 30-day free trial
+                Create an account to access all features and start your subscription
               </p>
             </div>
           )}
@@ -260,8 +253,8 @@ const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onPlanSelect }) =
               <p>State-of-the-art AI models for content generation and optimization</p>
             </div>
             <div>
-              <div className="font-medium text-gray-900 mb-2">Multi-Platform Support</div>
-              <p>Seamless integration with Facebook, Instagram, and other major platforms</p>
+              <div className="font-medium text-gray-900 mb-2">Facebook & Instagram Focus</div>
+              <p>Specialized integration with Facebook and Instagram for optimal performance</p>
             </div>
             <div>
               <div className="font-medium text-gray-900 mb-2">24/7 Support</div>

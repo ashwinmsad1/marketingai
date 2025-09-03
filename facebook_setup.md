@@ -3,7 +3,7 @@
 ## 🎯 Platform Overview
 This is an **AI-powered marketing automation SaaS platform** with:
 - **Subscription Model**: Users pay ₹999-₹2,999/month for automation services (INR-based pricing)
-- **Payment Processing**: Stripe + UPI integration for Indian market
+- **Payment Processing**: UPI + Razorpay integration for Indian market
 - **Usage Enforcement**: Tier-based limits on campaigns and AI generations
 - **Meta Integration**: Creates and optimizes campaigns in users' Meta ad accounts
 - **AI Content Generation**: Google Gemini + Veo for images and videos
@@ -23,7 +23,7 @@ This is an **AI-powered marketing automation SaaS platform** with:
 2. **Media Hosting**: AWS S3 or Google Cloud Storage (Instagram requires publicly accessible URLs)
 3. **Database**: PostgreSQL with encrypted Meta tokens and subscription data
 4. **Payment Processing**: 
-   - Stripe account for international payments
+   - Razorpay account for UPI payments
    - UPI payment gateway (Razorpay/PayU) for Indian market
    - Google Pay integration for seamless payments
 5. **AI Services**: Google AI API key for Gemini + Veo content generation
@@ -32,7 +32,7 @@ This is an **AI-powered marketing automation SaaS platform** with:
 
 ### **Backend (FastAPI + Python 3.13)**
 - ✅ **Usage Enforcement**: Campaign and AI generation limits per subscription tier
-- ✅ **Payment System**: Full Stripe + UPI integration with subscription management
+- ✅ **Payment System**: Full UPI + Razorpay integration with subscription management
 - ✅ **Database**: PostgreSQL with proper schema and migrations
 - ✅ **AI Integration**: Google Gemini 2.5 Flash + Veo 3.0 working
 - ✅ **Meta Integration**: Complete campaign automation and OAuth flow

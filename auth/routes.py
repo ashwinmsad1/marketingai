@@ -61,14 +61,14 @@ async def register_user(
             is_verified=False  # Email verification required
         )
         
-        # Create default starter subscription (14-day trial)
+        # Create default starter subscription (Essential plan)
         subscription = SubscriptionCRUD.create_subscription(
             db=db,
             user_id=user.id,
             tier=SubscriptionTier.STARTER,
-            monthly_price=29.99,
-            max_campaigns=5,
-            max_ai_generations=100,
+            monthly_price=599.00,  # Essential Plan pricing
+            max_campaigns=10,
+            max_ai_generations=-1,  # Unlimited basic AI content
             is_trial=True
         )
         

@@ -2,7 +2,7 @@
 
 ## 🎯 Complete Integration Overview
 
-This AI Marketing Automation Platform integrates with **8 major third-party services** to provide comprehensive marketing automation, payment processing, and content generation capabilities.
+This AI Marketing Automation Platform integrates with **8 major third-party services** to provide comprehensive Facebook & Instagram marketing automation, payment processing, and content generation capabilities.
 
 ---
 
@@ -33,61 +33,59 @@ This AI Marketing Automation Platform integrates with **8 major third-party serv
 
 ## 💳 Payment Processing Services
 
-### 2. Stripe - **REQUIRED**
+### 2. Razorpay UPI Payments - **REQUIRED**
 
-**Purpose**: International payments, subscriptions, Google Pay processing
+**Purpose**: UPI payments, subscriptions, mobile payment processing for Indian market
 **Status**: ✅ **PRODUCTION READY**
 
 **Setup Steps:**
-1. Create account at https://stripe.com
-2. Complete business verification
+1. Create account at https://razorpay.com
+2. Complete KYC verification
 3. Get API keys from dashboard
 4. Create webhook endpoints
-5. Set up products and prices
+5. Set up subscription plans
 
 **Required Configuration:**
 ```bash
-STRIPE_PUBLISHABLE_KEY=pk_live_...
-STRIPE_SECRET_KEY=sk_live_...  
-STRIPE_WEBHOOK_SECRET=whsec_...
-STRIPE_STARTER_PRICE_ID=price_...
-STRIPE_PROFESSIONAL_PRICE_ID=price_...
-STRIPE_ENTERPRISE_PRICE_ID=price_...
+RAZORPAY_KEY_ID=rzp_live_...
+RAZORPAY_KEY_SECRET=your_secret_key
+RAZORPAY_WEBHOOK_SECRET=your_webhook_secret
+RAZORPAY_STARTER_PLAN_ID=plan_...
+RAZORPAY_PROFESSIONAL_PLAN_ID=plan_...
+RAZORPAY_ENTERPRISE_PLAN_ID=plan_...
 ```
 
 **Features Implemented:**
-- ✅ Subscription billing (₹999, ₹1999, ₹2999)
-- ✅ Google Pay integration
+- ✅ Subscription billing (₹599, ₹1299, ₹2499)
+- ✅ UPI payment integration
+- ✅ QR code generation for payments
 - ✅ Webhook handling
 - ✅ Usage tracking and enforcement
 - ✅ Automatic invoice generation
 
-### 3. UPI Payment Gateway (Razorpay/PayU) - **REQUIRED for Indian Market**
+### 3. UPI Configuration - **REQUIRED for QR Code Payments**
 
-**Purpose**: UPI payments for Indian users
+**Purpose**: Direct UPI payments via QR codes and deep links
 **Status**: ✅ **PRODUCTION READY**
 
-**Recommended Provider**: Razorpay
 **Setup Steps:**
-1. Create account at https://razorpay.com
-2. Complete KYC verification
-3. Enable UPI payment methods
-4. Configure webhooks
+1. Configure UPI merchant details
+2. Set up UPI VPA (Virtual Payment Address)
+3. Enable QR code generation
+4. Test with UPI apps
 
 **Required Configuration:**
 ```bash
-UPI_GATEWAY=razorpay
-UPI_GATEWAY_KEY=rzp_live_...
-UPI_GATEWAY_SECRET=your_secret_key
-UPI_WEBHOOK_SECRET=webhook_secret
+UPI_MERCHANT_NAME=AI Marketing Automation
 UPI_MERCHANT_ID=your_merchant_id
+UPI_MERCHANT_VPA=merchant@paytm
 ```
 
 **Features Implemented:**
 - ✅ UPI QR code generation
-- ✅ Real-time payment status
-- ✅ Payment polling system
-- ✅ Subscription activation
+- ✅ UPI deep links for mobile apps
+- ✅ Support for all major UPI apps
+- ✅ Direct bank transfer integration
 
 ---
 
@@ -293,10 +291,10 @@ NEWS_API_KEY=your_news_api_key
 - ✅ Test content generation pipeline
 
 **Payment Processing:**
-- ✅ Stripe account verified and live
-- ✅ UPI gateway approved and configured
+- ✅ Razorpay account verified and live
+- ✅ UPI payments approved and configured
 - ✅ Webhook endpoints tested
-- ✅ All price tiers configured
+- ✅ All subscription plans configured
 
 **Email Services:**
 - ✅ **Email verification system implemented**
@@ -330,7 +328,6 @@ NEWS_API_KEY=your_news_api_key
 
 ### Development/Testing
 - **Google AI**: $0-50 (free tier + testing)
-- **Stripe**: $0 (no transaction fees in test mode)
 - **Razorpay**: $0 (no fees in test mode)
 - **SendGrid**: $0 (free tier: 100 emails/day)
 - **PostgreSQL**: $20-50 (managed database)
@@ -339,13 +336,12 @@ NEWS_API_KEY=your_news_api_key
 
 ### Production (1000 users)
 - **Google AI**: $200-500 (content generation)
-- **Stripe**: 2.9% + $0.30 per transaction
-- **Razorpay**: 2% of UPI transactions
+- **Razorpay**: 2% of UPI transactions (much lower than international cards)
 - **SendGrid**: $15-30 (40,000-100,000 emails/month)
 - **PostgreSQL**: $100-200 (scaled database)
 - **Hosting**: $50-100 (application servers)
 - **CDN/Storage**: $20-50 (media hosting)
-- **Total**: **~$520-1580/month** (scales with usage)
+- **Total**: **~$385-880/month** (lower costs with UPI-only payments)
 
 ---
 
@@ -368,8 +364,8 @@ alembic upgrade head
 # 3. Test AI generation
 python photo_agent.py
 
-# 4. Test payments (use Stripe test keys)
-python -c "from subscription_management import PlatformSubscriptionManager; print('Payments configured')"
+# 4. Test payments (use Razorpay test keys)
+python -c "from subscription_management import PlatformSubscriptionManager; print('UPI payments configured')"
 
 # 5. Start development server
 python api_server.py
@@ -384,10 +380,11 @@ import os
 services = {
     'Google AI': os.getenv('API_KEY'),
     'Database': os.getenv('DATABASE_URL'), 
-    'Stripe': os.getenv('STRIPE_SECRET_KEY'),
+    'Razorpay': os.getenv('RAZORPAY_KEY_ID'),
     'SendGrid Email': os.getenv('SENDGRID_API_KEY'),
     'Meta': os.getenv('FACEBOOK_APP_ID'),
-    'Email Security': os.getenv('EMAIL_SECRET_KEY')
+    'Email Security': os.getenv('EMAIL_SECRET_KEY'),
+    'UPI Config': os.getenv('UPI_MERCHANT_VPA')
 }
 for name, key in services.items():
     status = '✅' if key else '❌'
@@ -422,12 +419,12 @@ for feature, status in email_features.items():
 
 ### App Review Timeline
 - **Meta App Review**: 7-14 days (required for production)
-- **Stripe Account Review**: 1-3 days (for live payments)
+- **Razorpay Account Review**: 1-3 days (for live payments)
 - **UPI Gateway Approval**: 2-7 days (KYC dependent)
 
 ### Compliance Requirements
 - **GDPR**: Privacy policy, data handling procedures
-- **PCI DSS**: Payment data security (handled by Stripe/Razorpay)
+- **PCI DSS**: Payment data security (handled by Razorpay/UPI)
 - **Meta Policies**: Ad content guidelines, user data usage
 
 ### Scaling Considerations
@@ -442,12 +439,11 @@ for feature, status in email_features.items():
 
 **Technical Support:**
 - Google AI: https://ai.google.dev/support
-- Stripe: https://support.stripe.com  
 - Razorpay: https://razorpay.com/support
 - Meta: https://developers.facebook.com/support
 
 **Community Resources:**
-- Stack Overflow tags: `stripe-api`, `facebook-graph-api`, `google-ai`
+- Stack Overflow tags: `razorpay-api`, `facebook-graph-api`, `google-ai`, `upi-payments`
 - GitHub issues for open source dependencies
 - API-specific Discord/Slack communities
 

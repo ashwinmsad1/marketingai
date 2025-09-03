@@ -63,8 +63,8 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
   ];
 
   const aspectRatios = [
-    { id: '16:9', name: 'Landscape (16:9)', description: 'YouTube, Facebook' },
-    { id: '9:16', name: 'Vertical (9:16)', description: 'TikTok, Instagram' },
+    { id: '16:9', name: 'Landscape (16:9)', description: 'Facebook posts' },
+    { id: '9:16', name: 'Vertical (9:16)', description: 'Instagram Stories' },
     { id: '1:1', name: 'Square (1:1)', description: 'Instagram posts' },
     { id: '4:5', name: 'Portrait (4:5)', description: 'Instagram feed' }
   ];

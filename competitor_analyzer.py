@@ -5,7 +5,6 @@ Analyzes competitor content and creates better versions using AI
 
 import asyncio
 import json
-import sqlite3
 import requests
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List, Tuple
@@ -13,6 +12,13 @@ from dataclasses import dataclass
 import re
 import hashlib
 from urllib.parse import urlparse, urljoin
+from contextlib import contextmanager
+
+# Database imports
+from database.connection import get_db, SessionLocal
+from database.models import CompetitorContent as CompetitorContentModel, CompetitiveInsights as CompetitiveInsightsModel, ImprovedContent as ImprovedContentModel
+from database.competitor_crud import CompetitorContentCRUD, CompetitiveInsightsCRUD, ImprovedContentCRUD, CompetitorAnalysisUtils
+from sqlalchemy.orm import Session
 
 # Import our AI agents
 from photo_agent import image_creator
@@ -55,12 +61,11 @@ class ImprovedContent:
 class CompetitorAnalysisEngine:
     """
     AI-powered system for analyzing competitors and creating superior content
+    Now using PostgreSQL with SQLAlchemy ORM
     """
     
-    def __init__(self, db_path: str = "competitor_analysis.db"):
-        self.db_path = db_path
-        self.init_database()
-        
+    def __init__(self):
+        # No longer need database initialization - handled by SQLAlchemy
         # Content analysis patterns
         self.engagement_indicators = [
             'limited time', 'exclusive', 'new', 'sale', 'free', 'discount',
@@ -78,61 +83,15 @@ class CompetitorAnalysisEngine:
             'clear_value_prop': 1.3
         }
     
-    def init_database(self):
-        """Initialize competitor analysis database"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        # Competitor content table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS competitor_content (
-                content_id TEXT PRIMARY KEY,
-                competitor_name TEXT NOT NULL,
-                platform TEXT,
-                content_type TEXT,
-                content_url TEXT,
-                caption TEXT,
-                likes INTEGER DEFAULT 0,
-                comments INTEGER DEFAULT 0,
-                shares INTEGER DEFAULT 0,
-                performance_score REAL,
-                analyzed_elements TEXT,
-                discovered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-        
-        # Competitive intelligence table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS competitive_insights (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                competitor_name TEXT NOT NULL,
-                analysis_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                content_themes TEXT,
-                top_content_ids TEXT,
-                engagement_patterns TEXT,
-                recommended_actions TEXT
-            )
-        ''')
-        
-        # Improved content tracking table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS improved_content (
-                improvement_id TEXT PRIMARY KEY,
-                original_content_id TEXT,
-                user_id TEXT,
-                improvement_type TEXT,
-                new_prompt TEXT,
-                new_caption TEXT,
-                generated_asset TEXT,
-                estimated_lift REAL,
-                actual_performance REAL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (original_content_id) REFERENCES competitor_content (content_id)
-            )
-        ''')
-        
-        conn.commit()
-        conn.close()
+    @contextmanager
+    def get_db_session(self):
+        """Get database session with proper cleanup"""
+        db = SessionLocal()
+        try:
+            yield db
+        finally:
+            db.close()
+    
     
     async def analyze_competitor_url(self, competitor_url: str, competitor_name: str) -> Dict[str, Any]:
         """Analyze competitor content from URL"""
@@ -188,20 +147,14 @@ class CompetitorAnalysisEngine:
             return {'success': False, 'error': str(e)}
     
     def _detect_platform(self, url: str) -> str:
-        """Detect social media platform from URL"""
+        """Detect social media platform from URL (Facebook/Instagram only)"""
         domain = urlparse(url).netloc.lower()
         if 'facebook' in domain:
             return 'facebook'
         elif 'instagram' in domain:
             return 'instagram'
-        elif 'twitter' in domain or 'x.com' in domain:
-            return 'twitter'
-        elif 'linkedin' in domain:
-            return 'linkedin'
-        elif 'tiktok' in domain:
-            return 'tiktok'
         else:
-            return 'unknown'
+            return 'unsupported_platform'
     
     async def _analyze_content_elements(self, caption: str) -> Dict[str, Any]:
         """Analyze content elements for performance indicators"""
@@ -308,27 +261,44 @@ class CompetitorAnalysisEngine:
         return min(100, engagement_score * multiplier)
     
     async def _store_competitor_content(self, content: CompetitorContent):
-        """Store competitor content in database"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            INSERT OR REPLACE INTO competitor_content
-            (content_id, competitor_name, platform, content_type, content_url,
-             caption, likes, comments, shares, performance_score, analyzed_elements)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            content.content_id, content.competitor_name, content.platform,
-            content.content_type, content.content_url, content.caption,
-            content.engagement_metrics.get('likes', 0),
-            content.engagement_metrics.get('comments', 0),
-            content.engagement_metrics.get('shares', 0),
-            content.performance_score,
-            json.dumps(content.analyzed_elements)
-        ))
-        
-        conn.commit()
-        conn.close()
+        """Store competitor content in PostgreSQL database"""
+        with self.get_db_session() as db:
+            # Check if content already exists
+            existing = CompetitorContentCRUD.get_competitor_content(db, content.content_id)
+            
+            if existing:
+                # Update existing content
+                CompetitorContentCRUD.update_competitor_content(
+                    db=db,
+                    content_id=content.content_id,
+                    competitor_name=content.competitor_name,
+                    platform=content.platform,
+                    content_type=content.content_type,
+                    content_url=content.content_url,
+                    caption=content.caption,
+                    likes=content.engagement_metrics.get('likes', 0),
+                    comments=content.engagement_metrics.get('comments', 0),
+                    shares=content.engagement_metrics.get('shares', 0),
+                    performance_score=content.performance_score,
+                    analyzed_elements=content.analyzed_elements
+                )
+            else:
+                # Create new content
+                CompetitorContentCRUD.create_competitor_content(
+                    db=db,
+                    content_id=content.content_id,
+                    competitor_name=content.competitor_name,
+                    platform=content.platform,
+                    content_type=content.content_type,
+                    content_url=content.content_url,
+                    caption=content.caption,
+                    likes=content.engagement_metrics.get('likes', 0),
+                    comments=content.engagement_metrics.get('comments', 0),
+                    shares=content.engagement_metrics.get('shares', 0),
+                    performance_score=content.performance_score,
+                    analyzed_elements=content.analyzed_elements,
+                    discovered_at=content.discovered_at
+                )
     
     async def _generate_insights_from_content(self, content: CompetitorContent) -> Dict[str, Any]:
         """Generate competitive insights from single content piece"""
@@ -392,23 +362,19 @@ class CompetitorAnalysisEngine:
     async def create_improved_version(self, competitor_content_id: str, user_id: str) -> ImprovedContent:
         """Create AI-improved version of competitor content"""
         try:
-            # Get competitor content
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            
-            cursor.execute('''
-                SELECT competitor_name, caption, analyzed_elements, performance_score
-                FROM competitor_content WHERE content_id = ?
-            ''', (competitor_content_id,))
-            
-            result = cursor.fetchone()
-            conn.close()
-            
-            if not result:
-                raise ValueError("Competitor content not found")
-            
-            competitor_name, original_caption, elements_json, original_score = result
-            elements = json.loads(elements_json)
+            # Get competitor content from PostgreSQL
+            with self.get_db_session() as db:
+                competitor_content_db = CompetitorContentCRUD.get_competitor_content(
+                    db, competitor_content_id
+                )
+                
+                if not competitor_content_db:
+                    raise ValueError("Competitor content not found")
+                
+                competitor_name = competitor_content_db.competitor_name
+                original_caption = competitor_content_db.caption
+                elements = competitor_content_db.analyzed_elements
+                original_score = competitor_content_db.performance_score
             
             # Generate improved version
             improvements = self._identify_improvements({'analyzed_elements': elements})
@@ -523,23 +489,19 @@ class CompetitorAnalysisEngine:
         return min(100.0, base_lift)
     
     async def _store_improved_content(self, improvement_id: str, content: ImprovedContent, user_id: str):
-        """Store improved content in database"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            INSERT INTO improved_content
-            (improvement_id, original_content_id, user_id, improvement_type,
-             new_prompt, new_caption, estimated_lift)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            improvement_id, content.original_content_id, user_id,
-            content.improvement_type, content.new_prompt, content.new_caption,
-            content.estimated_performance_lift
-        ))
-        
-        conn.commit()
-        conn.close()
+        """Store improved content in PostgreSQL database"""
+        with self.get_db_session() as db:
+            ImprovedContentCRUD.create_improved_content(
+                db=db,
+                improvement_id=improvement_id,
+                user_id=user_id,
+                original_content_id=content.original_content_id,
+                improvement_type=content.improvement_type,
+                new_prompt=content.new_prompt,
+                new_caption=content.new_caption,
+                estimated_lift=content.estimated_performance_lift,
+                competitive_advantages=content.competitive_advantages
+            )
     
     async def generate_competitive_campaign(self, competitor_content_id: str, user_id: str) -> Dict[str, Any]:
         """Generate complete campaign that outperforms competitor"""
@@ -554,15 +516,19 @@ class CompetitorAnalysisEngine:
             if not generated_image:
                 return {'success': False, 'error': 'Failed to generate AI content'}
             
-            # Store generated asset
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            cursor.execute('''
-                UPDATE improved_content SET generated_asset = ?
-                WHERE original_content_id = ? AND user_id = ?
-            ''', (generated_image, competitor_content_id, user_id))
-            conn.commit()
-            conn.close()
+            # Store generated asset in PostgreSQL
+            with self.get_db_session() as db:
+                # Find the most recent improvement for this content and user
+                improvements = ImprovedContentCRUD.get_improved_content_by_original(
+                    db, competitor_content_id
+                )
+                
+                # Update the latest improvement with the generated asset
+                if improvements:
+                    latest_improvement = improvements[0]  # Most recent first
+                    ImprovedContentCRUD.update_improved_content(
+                        db, latest_improvement.improvement_id, generated_asset=generated_image
+                    )
             
             return {
                 'success': True,
@@ -582,50 +548,50 @@ class CompetitorAnalysisEngine:
             return {'success': False, 'error': str(e)}
     
     async def analyze_competitor_strategy(self, competitor_name: str) -> CompetitiveIntelligence:
-        """Analyze overall competitor strategy"""
+        """Analyze overall competitor strategy using PostgreSQL"""
         try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
+            with self.get_db_session() as db:
+                # Get all competitor content
+                content_list = CompetitorContentCRUD.get_competitor_content_by_competitor(
+                    db, competitor_name
+                )
+                
+                if not content_list:
+                    return CompetitiveIntelligence(competitor_name, [], [], {}, [], [])
             
-            # Get all competitor content
-            cursor.execute('''
-                SELECT content_id, caption, performance_score, analyzed_elements
-                FROM competitor_content 
-                WHERE competitor_name = ?
-                ORDER BY performance_score DESC
-            ''', (competitor_name,))
-            
-            results = cursor.fetchall()
-            conn.close()
-            
-            if not results:
-                return CompetitiveIntelligence(competitor_name, [], [], {}, [], [])
-            
-            # Analyze patterns
+            # Convert to CompetitorContent dataclass format for compatibility
             top_performing = [
                 CompetitorContent(
-                    content_id=row[0],
-                    competitor_name=competitor_name,
-                    platform="",
-                    content_type="",
-                    content_url="",
-                    caption=row[1],
-                    engagement_metrics={},
-                    analyzed_elements=json.loads(row[3]),
-                    performance_score=row[2],
-                    discovered_at=datetime.now()
-                ) for row in results[:5]
+                    content_id=content.content_id,
+                    competitor_name=content.competitor_name,
+                    platform=content.platform or "",
+                    content_type=content.content_type or "",
+                    content_url=content.content_url or "",
+                    caption=content.caption or "",
+                    engagement_metrics={
+                        'likes': content.likes,
+                        'comments': content.comments,
+                        'shares': content.shares
+                    },
+                    analyzed_elements=content.analyzed_elements or {},
+                    performance_score=content.performance_score or 0.0,
+                    discovered_at=content.discovered_at or datetime.now()
+                ) for content in content_list[:5]
             ]
             
             # Extract themes
-            all_captions = [row[1] for row in results]
+            all_captions = [content.caption for content in content_list if content.caption]
             content_themes = self._analyze_content_themes(all_captions)
             
-            # Analyze engagement patterns
-            engagement_patterns = self._analyze_engagement_patterns(results)
+            # Analyze engagement patterns - convert to tuple format for compatibility
+            results_tuples = [
+                (content.content_id, content.caption, content.performance_score, content.analyzed_elements)
+                for content in content_list
+            ]
+            engagement_patterns = self._analyze_engagement_patterns(results_tuples)
             
             # Identify content gaps
-            content_gaps = self._identify_content_gaps(results)
+            content_gaps = self._identify_content_gaps(results_tuples)
             
             # Generate recommendations
             recommendations = self._generate_strategic_recommendations(
@@ -680,8 +646,16 @@ class CompetitorAnalysisEngine:
         # Analyze what's missing
         all_elements = []
         for row in results:
-            elements = json.loads(row[3])
+            # Handle both JSON string and dict formats
+            elements = row[3]
+            if isinstance(elements, str):
+                elements = json.loads(elements)
+            elif elements is None:
+                elements = {}
             all_elements.append(elements)
+        
+        if not all_elements:
+            return gaps
         
         # Check for missing elements across content
         cta_count = sum(1 for elem in all_elements if elem.get('has_call_to_action'))
@@ -741,9 +715,9 @@ async def main():
     
     engine = CompetitorAnalysisEngine()
     
-    # Demo: Analyze competitor content
+    # Demo: Analyze competitor content (Facebook/Instagram only)
     competitor_url = "https://facebook.com/competitor-post"
-    competitor_name = "Local Restaurant Competitor"
+    competitor_name = "Local Facebook/Instagram Competitor"
     
     print(f"🔍 Analyzing competitor content from {competitor_name}...")
     analysis_result = await engine.analyze_competitor_url(competitor_url, competitor_name)
