@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Zap,
   TrendingUp,
@@ -10,9 +11,18 @@ import {
   Loader2,
   Sparkles,
   Factory,
-  Flame
+  Flame,
+  Brain,
+  Users,
+  BarChart3,
+  Star,
+  Eye,
+  Lightbulb
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import toast from 'react-hot-toast';
+import { personalizationService, campaignService } from '../services/api';
+import { MetaUserProfile, CampaignRecommendation, CampaignStrategy } from '../types';
 
 interface CampaignType {
   id: string;
@@ -27,9 +37,15 @@ interface CampaignType {
 
 
 const CreateCampaign: React.FC = () => {
+  const location = useLocation();
   const [step, setStep] = useState(1);
   const [selectedType, setSelectedType] = useState<string>('');
   const [isCreating, setIsCreating] = useState(false);
+  const [userProfile, setUserProfile] = useState<MetaUserProfile | null>(null);
+  const [aiRecommendations, setAiRecommendations] = useState<CampaignRecommendation[]>([]);
+  const [selectedStrategy, setSelectedStrategy] = useState<CampaignStrategy | null>(null);
+  const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
+  const [showPersonalizationOptions, setShowPersonalizationOptions] = useState(false);
   const [formData, setFormData] = useState({
     type: '',
     prompt: '',
@@ -61,7 +77,55 @@ const CreateCampaign: React.FC = () => {
   });
 
 
+  // Load data from navigation state (from strategy wizard or templates)
+  useEffect(() => {
+    if (location.state) {
+      const { strategy, generatedContent } = location.state as any;
+      if (strategy) {
+        setSelectedStrategy(strategy);
+        setSelectedType('personalized');
+        setStep(2);
+      }
+      if (generatedContent) {
+        // Handle content from templates
+        setFormData(prev => ({
+          ...prev,
+          prompt: generatedContent.headline || '',
+          caption: generatedContent.description || ''
+        }));
+        setSelectedType('personalized');
+        setStep(2);
+      }
+    }
+    
+    loadPersonalizationData();
+  }, [location.state]);
+
+  const loadPersonalizationData = async () => {
+    try {
+      const [profile, recommendations] = await Promise.all([
+        personalizationService.getProfile().catch(() => null),
+        personalizationService.getRecommendations().catch(() => [])
+      ]);
+      
+      setUserProfile(profile);
+      setAiRecommendations(recommendations || []);
+    } catch (error) {
+      console.error('Error loading personalization data:', error);
+    }
+  };
+
   const campaignTypes: CampaignType[] = [
+    {
+      id: 'personalized',
+      name: 'AI Personalized',
+      description: 'Campaigns tailored to your business profile and audience',
+      icon: <Brain className="w-8 h-8" />,
+      color: 'bg-indigo-100 text-indigo-600',
+      features: ['Profile-based targeting', 'AI recommendations', 'Performance optimization'],
+      estimatedTime: '90 seconds',
+      estimatedROI: '500-900%'
+    },
     {
       id: 'quick',
       name: 'Quick Campaign',
@@ -116,14 +180,56 @@ const CreateCampaign: React.FC = () => {
     setStep(2);
   };
 
+  const loadAIRecommendations = async () => {
+    if (!userProfile) return;
+    
+    setIsLoadingRecommendations(true);
+    try {
+      const recommendations = await personalizationService.getRecommendations(userProfile.user_id);
+      setAiRecommendations(recommendations.filter((r: any) => r.type === 'new_campaign').slice(0, 3));
+    } catch (error) {
+      console.error('Error loading AI recommendations:', error);
+    } finally {
+      setIsLoadingRecommendations(false);
+    }
+  };
+
+  const applyRecommendation = (recommendation: CampaignRecommendation) => {
+    setFormData(prev => ({
+      ...prev,
+      type: 'personalized',
+      prompt: recommendation.title,
+      caption: recommendation.description,
+      ...recommendation.campaign_config
+    }));
+    setSelectedType('personalized');
+    setStep(2);
+  };
+
   const handleCreateCampaign = async () => {
     setIsCreating(true);
     
-    // Simulate campaign creation
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    
-    setIsCreating(false);
-    setStep(4); // Success step
+    try {
+      const campaignData = {
+        ...formData,
+        user_id: userProfile?.user_id,
+        strategy_id: selectedStrategy?.strategy_id
+      };
+      
+      if (selectedType === 'personalized') {
+        await personalizationService.createPersonalizedCampaign(campaignData);
+      } else {
+        await campaignService.createCampaign(campaignData);
+      }
+      
+      toast.success('Campaign created successfully!');
+      setStep(4);
+    } catch (error: any) {
+      console.error('Error creating campaign:', error);
+      toast.error(error.response?.data?.detail || 'Failed to create campaign');
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   return (
@@ -173,47 +279,111 @@ const CreateCampaign: React.FC = () => {
                 <p className="text-gray-600">Select the type of campaign that best fits your goals</p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {campaignTypes.map((type) => (
-                  <motion.div
-                    key={type.id}
-                    whileHover={{ scale: 1.02, y: -4 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => handleTypeSelect(type.id)}
-                    className="card-hover cursor-pointer"
-                  >
-                    <div className={`w-16 h-16 ${type.color} rounded-xl flex items-center justify-center mb-6`}>
-                      {type.icon}
+              <div className="space-y-6">
+                {/* AI Recommendations Section */}
+                {aiRecommendations.length > 0 && (
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-200">
+                    <div className="flex items-center space-x-2 mb-4">
+                      <Brain className="w-6 h-6 text-blue-600" />
+                      <h3 className="text-lg font-semibold text-blue-900">AI Recommendations</h3>
+                      <span className="px-2 py-1 bg-blue-200 text-blue-800 text-xs rounded-full font-medium">
+                        Personalized for you
+                      </span>
                     </div>
+                    <p className="text-blue-700 text-sm mb-4">
+                      Based on your profile and performance data, here are campaigns we recommend:
+                    </p>
                     
-                    <h3 className="text-xl font-bold mb-2">{type.name}</h3>
-                    <p className="text-gray-600 mb-4">{type.description}</p>
-                    
-                    <div className="space-y-2 mb-6">
-                      {type.features.map((feature, index) => (
-                        <div key={index} className="flex items-center text-sm text-gray-700">
-                          <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
-                          {feature}
-                        </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {aiRecommendations.slice(0, 3).map((rec) => (
+                        <motion.div
+                          key={rec.recommendation_id}
+                          whileHover={{ scale: 1.02 }}
+                          className="bg-white p-4 rounded-lg border border-blue-200 cursor-pointer"
+                          onClick={() => applyRecommendation(rec)}
+                        >
+                          <div className="flex items-center space-x-2 mb-2">
+                            <Star className="w-4 h-4 text-yellow-500" />
+                            <span className={`px-2 py-1 text-xs rounded ${
+                              rec.priority === 'high' ? 'bg-red-100 text-red-800' :
+                              rec.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-green-100 text-green-800'
+                            }`}>
+                              {rec.priority.toUpperCase()}
+                            </span>
+                          </div>
+                          <h4 className="font-medium text-gray-900 mb-1 text-sm">{rec.title}</h4>
+                          <p className="text-gray-600 text-xs mb-3 line-clamp-2">{rec.description}</p>
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-green-600 font-medium">
+                              +{rec.predicted_impact.estimated_change}% {rec.predicted_impact.metric}
+                            </span>
+                            <span className="text-blue-600">
+                              {rec.predicted_impact.confidence}% confidence
+                            </span>
+                          </div>
+                        </motion.div>
                       ))}
                     </div>
-                    
-                    <div className="flex justify-between items-center text-sm text-gray-600 mb-4">
-                      <div className="flex items-center">
-                        <Clock className="w-4 h-4 mr-1" />
-                        {type.estimatedTime}
-                      </div>
-                      <div className="flex items-center">
-                        <TrendingUp className="w-4 h-4 mr-1" />
-                        {type.estimatedROI} ROI
-                      </div>
-                    </div>
-                    
-                    <button className="btn-primary w-full">
-                      Select {type.name}
-                    </button>
-                  </motion.div>
-                ))}
+                  </div>
+                )}
+
+                {/* Campaign Types Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {campaignTypes.map((type) => {
+                    const isRecommended = type.id === 'personalized' && userProfile;
+                    return (
+                      <motion.div
+                        key={type.id}
+                        whileHover={{ scale: 1.02, y: -4 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => handleTypeSelect(type.id)}
+                        className={`card-hover cursor-pointer relative ${
+                          isRecommended ? 'ring-2 ring-indigo-300' : ''
+                        }`}
+                      >
+                        {isRecommended && (
+                          <div className="absolute -top-2 -right-2 bg-indigo-600 text-white px-2 py-1 rounded-full text-xs font-medium">
+                            Recommended
+                          </div>
+                        )}
+                        
+                        <div className={`w-16 h-16 ${type.color} rounded-xl flex items-center justify-center mb-6`}>
+                          {type.icon}
+                        </div>
+                        
+                        <h3 className="text-xl font-bold mb-2">{type.name}</h3>
+                        <p className="text-gray-600 mb-4">{type.description}</p>
+                        
+                        <div className="space-y-2 mb-6">
+                          {type.features.map((feature, index) => (
+                            <div key={index} className="flex items-center text-sm text-gray-700">
+                              <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
+                              {feature}
+                            </div>
+                          ))}
+                        </div>
+                        
+                        <div className="flex justify-between items-center text-sm text-gray-600 mb-4">
+                          <div className="flex items-center">
+                            <Clock className="w-4 h-4 mr-1" />
+                            {type.estimatedTime}
+                          </div>
+                          <div className="flex items-center">
+                            <TrendingUp className="w-4 h-4 mr-1" />
+                            {type.estimatedROI} ROI
+                          </div>
+                        </div>
+                        
+                        <button className={`btn-primary w-full ${
+                          isRecommended ? 'bg-indigo-600 hover:bg-indigo-700' : ''
+                        }`}>
+                          Select {type.name}
+                        </button>
+                      </motion.div>
+                    );
+                  })}
+                </div>
               </div>
             </motion.div>
           )}
@@ -234,6 +404,98 @@ const CreateCampaign: React.FC = () => {
                 </div>
 
                 <div className="space-y-6">
+                  {/* Profile-based Pre-fill for Personalized Campaigns */}
+                  {selectedType === 'personalized' && userProfile && (
+                    <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-200">
+                      <div className="flex items-center space-x-2 mb-3">
+                        <Users className="w-5 h-5 text-indigo-600" />
+                        <h3 className="font-semibold text-indigo-900">Using Your Business Profile</h3>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-indigo-700 font-medium">Business:</span>
+                          <span className="text-indigo-600 ml-2">{userProfile.business_name}</span>
+                        </div>
+                        <div>
+                          <span className="text-indigo-700 font-medium">Industry:</span>
+                          <span className="text-indigo-600 ml-2">{userProfile.industry}</span>
+                        </div>
+                        <div className="md:col-span-2">
+                          <span className="text-indigo-700 font-medium">Target Audience:</span>
+                          <span className="text-indigo-600 ml-2">{userProfile.target_audience.slice(0, 100)}...</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowPersonalizationOptions(!showPersonalizationOptions)}
+                        className="mt-3 text-indigo-600 text-sm hover:text-indigo-800 flex items-center space-x-1"
+                      >
+                        <Eye className="w-4 h-4" />
+                        <span>{showPersonalizationOptions ? 'Hide' : 'Show'} Personalization Options</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Strategy Preview */}
+                  {selectedStrategy && (
+                    <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                      <div className="flex items-center space-x-2 mb-3">
+                        <BarChart3 className="w-5 h-5 text-green-600" />
+                        <h3 className="font-semibold text-green-900">Using Strategy: {selectedStrategy.strategy_type}</h3>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-green-700">
+                        <div>Expected CTR: {(selectedStrategy.expected_performance.expected_ctr * 100).toFixed(2)}%</div>
+                        <div>Estimated Reach: {selectedStrategy.expected_performance.estimated_reach.toLocaleString()}</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Personalization Options (expandable) */}
+                  {selectedType === 'personalized' && showPersonalizationOptions && userProfile && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className="border border-indigo-200 rounded-lg p-4 bg-indigo-50"
+                    >
+                      <h4 className="font-semibold text-indigo-900 mb-4">Personalization Settings</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-indigo-700 mb-1">Brand Voice</label>
+                          <select className="w-full px-3 py-2 border border-indigo-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                            <option value={userProfile.brand_voice}>{userProfile.brand_voice} (from profile)</option>
+                            <option value="professional">Professional</option>
+                            <option value="friendly">Friendly</option>
+                            <option value="bold">Bold</option>
+                            <option value="playful">Playful</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-indigo-700 mb-1">Primary Goal</label>
+                          <select className="w-full px-3 py-2 border border-indigo-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                            {userProfile.primary_goals.map(goal => (
+                              <option key={goal} value={goal}>{goal}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-indigo-700 mb-1">Content Type Preference</label>
+                          <select className="w-full px-3 py-2 border border-indigo-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                            {userProfile.preferred_content_types?.map(type => (
+                              <option key={type} value={type}>{type}</option>
+                            )) || <option value="image">Image</option>}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-indigo-700 mb-1">Performance Priority</label>
+                          <select className="w-full px-3 py-2 border border-indigo-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                            {userProfile.performance_priorities?.map(priority => (
+                              <option key={priority} value={priority}>{priority}</option>
+                            )) || <option value="conversions">Conversions</option>}
+                          </select>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
                   {/* Industry Selection (for industry_optimized type) */}
                   {selectedType === 'industry_optimized' && (
                     <div>
@@ -337,25 +599,60 @@ const CreateCampaign: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Campaign Prompt (for quick and viral) */}
-                  {(selectedType === 'quick' || selectedType === 'viral') && (
+                  {/* Campaign Prompt (for quick, viral, and personalized) */}
+                  {(selectedType === 'quick' || selectedType === 'viral' || selectedType === 'personalized') && (
                     <div>
-                      <label className="label">Campaign Prompt</label>
+                      <label className="label">
+                        Campaign Prompt
+                        {selectedType === 'personalized' && userProfile && (
+                          <span className="text-indigo-600 text-sm font-normal ml-2">
+                            (AI will personalize based on your profile)
+                          </span>
+                        )}
+                      </label>
                       <textarea
                         className="input-field h-24"
-                        placeholder="Describe what you want to promote..."
+                        placeholder={selectedType === 'personalized' && userProfile 
+                          ? `Describe your campaign. AI will personalize for ${userProfile.business_name} in ${userProfile.industry}...`
+                          : "Describe what you want to promote..."
+                        }
                         value={formData.prompt}
                         onChange={(e) => setFormData({...formData, prompt: e.target.value})}
                       />
+                      {selectedType === 'personalized' && (
+                        <button
+                          type="button"
+                          onClick={loadAIRecommendations}
+                          disabled={isLoadingRecommendations}
+                          className="mt-2 flex items-center space-x-2 text-indigo-600 hover:text-indigo-800 text-sm"
+                        >
+                          {isLoadingRecommendations ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Lightbulb className="w-4 h-4" />
+                          )}
+                          <span>Get AI Suggestions</span>
+                        </button>
+                      )}
                     </div>
                   )}
 
                   {/* Caption */}
                   <div>
-                    <label className="label">Caption (optional)</label>
+                    <label className="label">
+                      Caption (optional)
+                      {selectedType === 'personalized' && userProfile && (
+                        <span className="text-indigo-600 text-sm font-normal ml-2">
+                          (Will match your brand voice: {userProfile.brand_voice})
+                        </span>
+                      )}
+                    </label>
                     <textarea
                       className="input-field h-20"
-                      placeholder="Social media caption (AI will optimize if left blank)"
+                      placeholder={selectedType === 'personalized' && userProfile
+                        ? `AI will create a ${userProfile.brand_voice.toLowerCase()} caption for ${userProfile.business_name}...`
+                        : "Social media caption (AI will optimize if left blank)"
+                      }
                       value={formData.caption}
                       onChange={(e) => setFormData({...formData, caption: e.target.value})}
                     />
@@ -406,10 +703,10 @@ const CreateCampaign: React.FC = () => {
                       <h3 className="font-semibold mb-2">Industry</h3>
                       <p className="text-gray-600 capitalize">{formData.industry || 'General'}</p>
                     </div>
-                    {formData.businessDetails.business_name && (
+                    {(formData.businessDetails.business_name || userProfile?.business_name) && (
                       <div>
                         <h3 className="font-semibold mb-2">Business</h3>
-                        <p className="text-gray-600">{formData.businessDetails.business_name}</p>
+                        <p className="text-gray-600">{formData.businessDetails.business_name || userProfile?.business_name}</p>
                       </div>
                     )}
                     {formData.prompt && (
@@ -418,17 +715,34 @@ const CreateCampaign: React.FC = () => {
                         <p className="text-gray-600">{formData.prompt}</p>
                       </div>
                     )}
+                    {selectedType === 'personalized' && userProfile && (
+                      <div className="md:col-span-2">
+                        <h3 className="font-semibold mb-2">Personalization Features</h3>
+                        <div className="flex flex-wrap gap-2">
+                          <span className="px-2 py-1 bg-indigo-100 text-indigo-800 text-xs rounded">Profile-based targeting</span>
+                          <span className="px-2 py-1 bg-indigo-100 text-indigo-800 text-xs rounded">Brand voice: {userProfile.brand_voice}</span>
+                          <span className="px-2 py-1 bg-indigo-100 text-indigo-800 text-xs rounded">Industry: {userProfile.industry}</span>
+                          {selectedStrategy && (
+                            <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">AI Strategy Applied</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                <div className="bg-blue-50 rounded-lg p-6 mb-8">
+                <div className={`${selectedType === 'personalized' ? 'bg-indigo-50 border-indigo-200' : 'bg-blue-50 border-blue-200'} rounded-lg p-6 mb-8 border`}>
                   <div className="flex items-start">
-                    <AlertCircle className="w-5 h-5 text-blue-600 mt-1 mr-3" />
+                    <AlertCircle className={`w-5 h-5 ${selectedType === 'personalized' ? 'text-indigo-600' : 'text-blue-600'} mt-1 mr-3`} />
                     <div>
-                      <h3 className="font-semibold text-blue-900 mb-2">Performance Guarantee</h3>
-                      <p className="text-blue-800 text-sm">
-                        This campaign is backed by our performance guarantee. If it doesn't meet our 
-                        performance standards, we'll optimize it automatically or provide a refund.
+                      <h3 className={`font-semibold ${selectedType === 'personalized' ? 'text-indigo-900' : 'text-blue-900'} mb-2`}>
+                        {selectedType === 'personalized' ? 'AI Personalization Guarantee' : 'Performance Guarantee'}
+                      </h3>
+                      <p className={`${selectedType === 'personalized' ? 'text-indigo-800' : 'text-blue-800'} text-sm`}>
+                        {selectedType === 'personalized' 
+                          ? 'This personalized campaign uses AI to optimize for your specific business profile and goals. Expected performance improvement of 40-60% over standard campaigns.'
+                          : 'This campaign is backed by our performance guarantee. If it doesn\'t meet our performance standards, we\'ll optimize it automatically or provide a refund.'
+                        }
                       </p>
                     </div>
                   </div>
@@ -449,12 +763,12 @@ const CreateCampaign: React.FC = () => {
                     {isCreating ? (
                       <>
                         <Loader2 className="mr-2 w-4 h-4 animate-spin" />
-                        Creating Campaign...
+                        {selectedType === 'personalized' ? 'Creating Personalized Campaign...' : 'Creating Campaign...'}
                       </>
                     ) : (
                       <>
-                        <Sparkles className="mr-2 w-4 h-4" />
-                        Create Campaign
+                        {selectedType === 'personalized' ? <Brain className="mr-2 w-4 h-4" /> : <Sparkles className="mr-2 w-4 h-4" />}
+                        {selectedType === 'personalized' ? 'Create Personalized Campaign' : 'Create Campaign'}
                       </>
                     )}
                   </button>

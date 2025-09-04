@@ -24,6 +24,22 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Navigation handler for redirects (can be overridden by app)
+let navigationHandler: ((path: string) => void) | null = null;
+
+export const setNavigationHandler = (handler: (path: string) => void) => {
+  navigationHandler = handler;
+};
+
+const handleRedirect = (path: string) => {
+  if (navigationHandler) {
+    navigationHandler(path);
+  } else {
+    // Fallback to direct navigation if no handler is set
+    window.location.href = path;
+  }
+};
+
 // Response interceptor for handling errors
 api.interceptors.response.use(
   (response) => response,
@@ -32,13 +48,13 @@ api.interceptors.response.use(
       // Handle unauthorized access
       localStorage.removeItem('auth_token');
       localStorage.removeItem('refresh_token');
-      window.location.href = '/login';
+      handleRedirect('/login');
     } else if (error.response?.status === 403) {
       // Check if this is an email verification error
       const errorDetail = error.response?.data?.detail;
       if (typeof errorDetail === 'object' && errorDetail?.error_code === 'EMAIL_NOT_VERIFIED') {
         // Redirect to email verification page with context
-        window.location.href = '/verify-email';
+        handleRedirect('/verify-email');
       }
     }
     return Promise.reject(error);
@@ -198,9 +214,9 @@ export const campaignService = {
     return response.data;
   },
 
-  getCampaigns: async (userId: string = 'default_user', limit: number = 50) => {
+  getCampaigns: async (limit: number = 50) => {
     const response = await api.get('/api/campaigns', {
-      params: { user_id: userId, limit }
+      params: { limit }
     });
     return response.data;
   },
@@ -249,9 +265,9 @@ export const mediaService = {
     return response.data;
   },
 
-  getMedia: async (userId: string = 'default_user', mediaType?: string) => {
+  getMedia: async (mediaType?: string) => {
     const response = await api.get('/api/media', {
-      params: { user_id: userId, media_type: mediaType }
+      params: { media_type: mediaType }
     });
     return response.data;
   },
@@ -334,10 +350,9 @@ export const viralService = {
     return response.data;
   },
 
-  createViralCampaign: async (topicId: string, userId: string, industry?: string) => {
+  createViralCampaign: async (topicId: string, industry?: string) => {
     const response = await api.post('/api/viral/create', {
       topic_id: topicId,
-      user_id: userId,
       industry
     });
     return response.data;
@@ -354,11 +369,273 @@ export const competitorService = {
     return response.data;
   },
 
-  generateCompetitiveCampaign: async (competitorContentId: string, userId: string) => {
+  generateCompetitiveCampaign: async (competitorContentId: string) => {
     const response = await api.post('/api/competitors/generate-campaign', {
-      competitor_content_id: competitorContentId,
-      user_id: userId
+      competitor_content_id: competitorContentId
     });
+    return response.data;
+  },
+};
+
+// Personalization Services
+export const personalizationService = {
+  // User Profile Management
+  createProfile: async (profileData: any) => {
+    const response = await api.post('/api/personalization/profile', profileData);
+    return response.data;
+  },
+
+  getProfile: async (userId?: string) => {
+    const url = userId 
+      ? `/api/personalization/profile/${userId}`
+      : '/api/personalization/profile';
+    const response = await api.get(url);
+    return response.data;
+  },
+
+  updateProfile: async (profileData: any, userId?: string) => {
+    const url = userId 
+      ? `/api/personalization/profile/${userId}`
+      : '/api/personalization/profile';
+    const response = await api.put(url, profileData);
+    return response.data;
+  },
+
+  deleteProfile: async (userId?: string) => {
+    const url = userId 
+      ? `/api/personalization/profile/${userId}`
+      : '/api/personalization/profile';
+    const response = await api.delete(url);
+    return response.data;
+  },
+
+  // Campaign Strategy
+  generateCampaignStrategy: async (strategyRequest: any) => {
+    const response = await api.post('/api/personalization/campaign-strategy', strategyRequest);
+    return response.data;
+  },
+
+  getCampaignStrategies: async (userId?: string) => {
+    const params = userId ? { user_id: userId } : {};
+    const response = await api.get('/api/personalization/campaign-strategy', { params });
+    return response.data;
+  },
+
+  getCampaignStrategy: async (strategyId: string) => {
+    const response = await api.get(`/api/personalization/campaign-strategy/${strategyId}`);
+    return response.data;
+  },
+
+  updateCampaignStrategy: async (strategyId: string, updates: any) => {
+    const response = await api.put(`/api/personalization/campaign-strategy/${strategyId}`, updates);
+    return response.data;
+  },
+
+  deleteCampaignStrategy: async (strategyId: string) => {
+    const response = await api.delete(`/api/personalization/campaign-strategy/${strategyId}`);
+    return response.data;
+  },
+
+  // A/B Testing
+  createABTest: async (testRequest: any) => {
+    const response = await api.post('/api/personalization/ab-tests', testRequest);
+    return response.data;
+  },
+
+  getABTests: async (userId?: string, status?: string) => {
+    const params: any = {};
+    if (userId) params.user_id = userId;
+    if (status) params.status = status;
+    const response = await api.get('/api/personalization/ab-tests', { params });
+    return response.data;
+  },
+
+  getABTest: async (testId: string) => {
+    const response = await api.get(`/api/personalization/ab-tests/${testId}`);
+    return response.data;
+  },
+
+  updateABTest: async (testId: string, updates: any) => {
+    const response = await api.put(`/api/personalization/ab-tests/${testId}`, updates);
+    return response.data;
+  },
+
+  startABTest: async (testId: string) => {
+    const response = await api.post(`/api/personalization/ab-tests/${testId}/start`);
+    return response.data;
+  },
+
+  pauseABTest: async (testId: string) => {
+    const response = await api.post(`/api/personalization/ab-tests/${testId}/pause`);
+    return response.data;
+  },
+
+  completeABTest: async (testId: string) => {
+    const response = await api.post(`/api/personalization/ab-tests/${testId}/complete`);
+    return response.data;
+  },
+
+  deleteABTest: async (testId: string) => {
+    const response = await api.delete(`/api/personalization/ab-tests/${testId}`);
+    return response.data;
+  },
+
+  getABTestResults: async (testId: string) => {
+    const response = await api.get(`/api/personalization/ab-tests/${testId}/results`);
+    return response.data;
+  },
+
+  // Personalization Ask (AI Assistant)
+  askPersonalizationQuestion: async (question: string, context?: any) => {
+    const requestData = { question, context };
+    const response = await api.post('/api/personalization/ask', requestData);
+    return response.data;
+  },
+
+  // Campaign Recommendations
+  getRecommendations: async (userId?: string, campaignId?: string) => {
+    const params: any = {};
+    if (userId) params.user_id = userId;
+    if (campaignId) params.campaign_id = campaignId;
+    const response = await api.get('/api/personalization/recommendations', { params });
+    return response.data;
+  },
+
+  getRecommendation: async (recommendationId: string) => {
+    const response = await api.get(`/api/personalization/recommendations/${recommendationId}`);
+    return response.data;
+  },
+
+  applyRecommendation: async (recommendationId: string) => {
+    const response = await api.post(`/api/personalization/recommendations/${recommendationId}/apply`);
+    return response.data;
+  },
+
+  dismissRecommendation: async (recommendationId: string) => {
+    const response = await api.post(`/api/personalization/recommendations/${recommendationId}/dismiss`);
+    return response.data;
+  },
+
+  // Personalization Insights
+  getInsights: async (userId?: string, timeframe?: string) => {
+    const params: any = {};
+    if (userId) params.user_id = userId;
+    if (timeframe) params.timeframe = timeframe;
+    const response = await api.get('/api/personalization/insights', { params });
+    return response.data;
+  },
+
+  getAudienceInsights: async (userId?: string) => {
+    const params = userId ? { user_id: userId } : {};
+    const response = await api.get('/api/personalization/audience-insights', { params });
+    return response.data;
+  },
+
+  getContentInsights: async (userId?: string) => {
+    const params = userId ? { user_id: userId } : {};
+    const response = await api.get('/api/personalization/content-insights', { params });
+    return response.data;
+  },
+
+  getPerformancePredictions: async (userId?: string, scenario?: any) => {
+    const params = userId ? { user_id: userId } : {};
+    const requestData = scenario ? { scenario } : {};
+    const response = await api.post('/api/personalization/predictions', requestData, { params });
+    return response.data;
+  },
+
+  // Content Templates
+  getContentTemplates: async (category?: string, industry?: string) => {
+    const params: any = {};
+    if (category) params.category = category;
+    if (industry) params.industry = industry;
+    const response = await api.get('/api/personalization/content-templates', { params });
+    return response.data;
+  },
+
+  getContentTemplate: async (templateId: string) => {
+    const response = await api.get(`/api/personalization/content-templates/${templateId}`);
+    return response.data;
+  },
+
+  generateContentFromTemplate: async (templateId: string, personalizationData: any) => {
+    const response = await api.post(`/api/personalization/content-templates/${templateId}/generate`, personalizationData);
+    return response.data;
+  },
+
+  customizeTemplate: async (templateId: string, customizations: any) => {
+    const response = await api.post(`/api/personalization/content-templates/${templateId}/customize`, customizations);
+    return response.data;
+  },
+
+  // Learning Analytics
+  getLearningInsights: async (userId?: string) => {
+    const params = userId ? { user_id: userId } : {};
+    const response = await api.get('/api/personalization/learning-insights', { params });
+    return response.data;
+  },
+
+  getPerformancePatterns: async (userId?: string, patternType?: string) => {
+    const params: any = {};
+    if (userId) params.user_id = userId;
+    if (patternType) params.pattern_type = patternType;
+    const response = await api.get('/api/personalization/performance-patterns', { params });
+    return response.data;
+  },
+
+  getOptimizationOpportunities: async (userId?: string) => {
+    const params = userId ? { user_id: userId } : {};
+    const response = await api.get('/api/personalization/optimization-opportunities', { params });
+    return response.data;
+  },
+
+  // Personalized Campaign Creation
+  createPersonalizedCampaign: async (campaignData: any) => {
+    const response = await api.post('/api/personalization/campaigns/create', campaignData);
+    return response.data;
+  },
+
+  optimizeExistingCampaign: async (campaignId: string, optimizationPreferences?: any) => {
+    const response = await api.post(`/api/personalization/campaigns/${campaignId}/optimize`, optimizationPreferences);
+    return response.data;
+  },
+
+  // Audience Segmentation
+  getAudienceSegments: async (userId?: string) => {
+    const params = userId ? { user_id: userId } : {};
+    const response = await api.get('/api/personalization/audience-segments', { params });
+    return response.data;
+  },
+
+  createAudienceSegment: async (segmentData: any) => {
+    const response = await api.post('/api/personalization/audience-segments', segmentData);
+    return response.data;
+  },
+
+  updateAudienceSegment: async (segmentId: string, updates: any) => {
+    const response = await api.put(`/api/personalization/audience-segments/${segmentId}`, updates);
+    return response.data;
+  },
+
+  deleteAudienceSegment: async (segmentId: string) => {
+    const response = await api.delete(`/api/personalization/audience-segments/${segmentId}`);
+    return response.data;
+  },
+
+  // Performance Analytics
+  getPersonalizationPerformance: async (userId?: string, timeframe?: string) => {
+    const params: any = {};
+    if (userId) params.user_id = userId;
+    if (timeframe) params.timeframe = timeframe;
+    const response = await api.get('/api/personalization/performance', { params });
+    return response.data;
+  },
+
+  comparePersonalizationImpact: async (userId?: string, campaignIds?: string[]) => {
+    const params: any = {};
+    if (userId) params.user_id = userId;
+    if (campaignIds?.length) params.campaign_ids = campaignIds.join(',');
+    const response = await api.get('/api/personalization/performance/comparison', { params });
     return response.data;
   },
 };

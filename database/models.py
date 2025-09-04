@@ -791,3 +791,655 @@ class ImprovedContent(Base):
     
     # Relationships
     competitor_content = relationship("CompetitorContent", foreign_keys=[original_content_id])
+
+# Enhanced Personalization Models
+
+class BusinessSizeEnum(PyEnum):
+    STARTUP = "startup"
+    SMB = "smb" 
+    ENTERPRISE = "enterprise"
+
+class BudgetRangeEnum(PyEnum):
+    MICRO = "micro"      # $0-500/month
+    SMALL = "small"      # $500-2000/month  
+    MEDIUM = "medium"    # $2000-10000/month
+    LARGE = "large"      # $10000-50000/month
+    ENTERPRISE = "enterprise"  # $50000+/month
+
+class AgeGroupEnum(PyEnum):
+    GEN_Z = "gen_z"           # 16-26
+    MILLENNIAL = "millennial"  # 27-42
+    GEN_X = "gen_x"           # 43-58
+    BOOMER = "boomer"         # 59-77
+
+class BrandVoiceEnum(PyEnum):
+    PROFESSIONAL = "professional"
+    CASUAL = "casual"
+    PLAYFUL = "playful"
+    LUXURY = "luxury"
+    AUTHENTIC = "authentic"
+    BOLD = "bold"
+
+class CampaignObjectiveEnum(PyEnum):
+    BRAND_AWARENESS = "brand_awareness"
+    LEAD_GENERATION = "lead_generation"
+    SALES = "sales"
+    ENGAGEMENT = "engagement"
+    TRAFFIC = "traffic"
+    APP_INSTALLS = "app_installs"
+
+class ContentPreferenceEnum(PyEnum):
+    VIDEO_FIRST = "video_first"
+    IMAGE_HEAVY = "image_heavy"
+    TEXT_FOCUSED = "text_focused"
+    MIXED = "mixed"
+
+class PlatformPriorityEnum(PyEnum):
+    INSTAGRAM = "instagram"
+    FACEBOOK = "facebook"
+    TIKTOK = "tiktok"
+    LINKEDIN = "linkedin"
+    YOUTUBE = "youtube"
+
+class MetaUserProfile(Base):
+    """Enhanced user profile for deep personalization"""
+    __tablename__ = "meta_user_profiles"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, unique=True)
+    
+    # Business Information
+    business_size = Column(Enum(BusinessSizeEnum))
+    industry = Column(String, nullable=False)
+    business_name = Column(String)
+    website_url = Column(String)
+    years_in_business = Column(Integer)
+    
+    # Marketing Budget & Goals
+    monthly_budget = Column(Enum(BudgetRangeEnum))
+    primary_objective = Column(Enum(CampaignObjectiveEnum))
+    secondary_objectives = Column(JSON)  # List of secondary objectives
+    
+    # Target Demographics
+    target_age_groups = Column(JSON)  # List of age groups
+    target_locations = Column(JSON)  # Geographic targeting
+    target_interests = Column(JSON)  # List of interests
+    target_behaviors = Column(JSON)  # List of behaviors
+    
+    # Brand & Content Preferences
+    brand_voice = Column(Enum(BrandVoiceEnum), default=BrandVoiceEnum.PROFESSIONAL)
+    content_preference = Column(Enum(ContentPreferenceEnum), default=ContentPreferenceEnum.MIXED)
+    platform_priorities = Column(JSON)  # List of platform priorities
+    brand_colors = Column(JSON)  # Hex color codes
+    competitor_urls = Column(JSON)  # List of competitor URLs
+    
+    # Performance Preferences
+    roi_focus = Column(Boolean, default=True)
+    risk_tolerance = Column(String, default="medium")  # conservative, medium, aggressive
+    automation_level = Column(String, default="medium")  # low, medium, high
+    
+    # Learning Data
+    campaign_history = Column(JSON)
+    performance_patterns = Column(JSON)
+    learned_preferences = Column(JSON)
+    
+    # Timestamps
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    last_campaign = Column(DateTime)
+    
+    # Relationships
+    user = relationship("User", backref="meta_profile")
+    campaign_recommendations = relationship("CampaignRecommendation", back_populates="user_profile")
+    ab_tests = relationship("ABTest", back_populates="user_profile")
+    learning_insights = relationship("LearningInsight", back_populates="user_profile")
+    
+    # Performance optimization indexes
+    __table_args__ = (
+        Index('idx_meta_user_profiles_user_id', 'user_id'),
+        Index('idx_meta_user_profiles_industry', 'industry'),
+        Index('idx_meta_user_profiles_business_size', 'business_size'),
+        Index('idx_meta_user_profiles_monthly_budget', 'monthly_budget'),
+        Index('idx_meta_user_profiles_primary_objective', 'primary_objective'),
+        Index('idx_meta_user_profiles_updated_at', 'updated_at'),
+    )
+
+class CampaignRecommendation(Base):
+    """Personalized campaign recommendations"""
+    __tablename__ = "campaign_recommendations"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    recommendation_id = Column(String, unique=True, nullable=False)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    user_profile_id = Column(String, ForeignKey("meta_user_profiles.id"))
+    
+    # Campaign Details
+    recommended_type = Column(String, nullable=False)
+    campaign_name = Column(String, nullable=False)
+    description = Column(Text)
+    reasoning = Column(Text)
+    
+    # Content Specifications
+    content_prompts = Column(JSON)  # List of content prompts
+    caption_templates = Column(JSON)  # List of caption templates
+    visual_style = Column(String)
+    content_type = Column(String)  # image, video, carousel
+    
+    # Targeting & Budget
+    recommended_budget = Column(Float)
+    target_audience = Column(JSON)
+    platform_allocation = Column(JSON)  # Platform -> budget percentage
+    
+    # Performance Predictions
+    predicted_ctr = Column(Float)
+    predicted_engagement_rate = Column(Float)
+    predicted_conversion_rate = Column(Float)
+    predicted_roi = Column(Float)
+    confidence_score = Column(Float)  # 0-1
+    
+    # A/B Testing Variants
+    ab_variants = Column(JSON)
+    
+    # Status and Usage
+    is_implemented = Column(Boolean, default=False)
+    implementation_date = Column(DateTime)
+    actual_performance = Column(JSON)  # Track actual vs predicted
+    
+    # Timestamps
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    expires_at = Column(DateTime)
+    
+    # Relationships
+    user_profile = relationship("MetaUserProfile", back_populates="campaign_recommendations")
+    
+    # Performance optimization
+    __table_args__ = (
+        Index('idx_campaign_recommendations_user_id', 'user_id'),
+        Index('idx_campaign_recommendations_recommended_type', 'recommended_type'),
+        Index('idx_campaign_recommendations_confidence_score', 'confidence_score'),
+        Index('idx_campaign_recommendations_created_at', 'created_at'),
+        Index('idx_campaign_recommendations_is_implemented', 'is_implemented'),
+        CheckConstraint('recommended_budget >= 0', name='chk_campaign_recommendations_budget_positive'),
+        CheckConstraint('confidence_score >= 0 AND confidence_score <= 1', name='chk_campaign_recommendations_confidence_range'),
+    )
+
+# A/B Testing Framework Models
+
+class TestStatusEnum(PyEnum):
+    DRAFT = "draft"
+    ACTIVE = "active"
+    PAUSED = "paused"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+
+class TestTypeEnum(PyEnum):
+    SIMPLE_AB = "simple_ab"
+    MULTIVARIATE = "multivariate"
+    SPLIT_URL = "split_url"
+    CONTENT_VARIATION = "content_variation"
+
+class StatisticalSignificanceEnum(PyEnum):
+    NOT_SIGNIFICANT = "not_significant"
+    APPROACHING = "approaching"
+    SIGNIFICANT = "significant"
+    HIGHLY_SIGNIFICANT = "highly_significant"
+
+class ABTest(Base):
+    """A/B test configuration and management"""
+    __tablename__ = "ab_tests"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    test_id = Column(String, unique=True, nullable=False)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    user_profile_id = Column(String, ForeignKey("meta_user_profiles.id"))
+    campaign_id = Column(String, ForeignKey("campaigns.id"))
+    
+    # Test Configuration
+    name = Column(String, nullable=False)
+    description = Column(Text)
+    test_type = Column(Enum(TestTypeEnum), default=TestTypeEnum.SIMPLE_AB)
+    hypothesis = Column(Text)
+    
+    # Test Parameters
+    confidence_threshold = Column(Float, default=0.95)  # 95% confidence
+    min_sample_size = Column(Integer, default=1000)
+    max_duration_days = Column(Integer, default=14)
+    traffic_split = Column(JSON)  # Traffic allocation per variant
+    
+    # Status and Timing
+    status = Column(Enum(TestStatusEnum), default=TestStatusEnum.DRAFT)
+    start_date = Column(DateTime)
+    end_date = Column(DateTime)
+    actual_end_date = Column(DateTime)
+    
+    # Results
+    winning_variant_id = Column(String)
+    confidence_level = Column(Float)
+    significance_status = Column(Enum(StatisticalSignificanceEnum), default=StatisticalSignificanceEnum.NOT_SIGNIFICANT)
+    p_value = Column(Float)
+    effect_size = Column(Float)
+    
+    # Business Impact
+    projected_lift = Column(Float)
+    estimated_revenue_impact = Column(Float)
+    actual_revenue_impact = Column(Float)
+    
+    # Recommendations
+    recommendation = Column(Text)
+    next_steps = Column(JSON)
+    
+    # Timestamps
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    user_profile = relationship("MetaUserProfile", back_populates="ab_tests")
+    campaign = relationship("Campaign")
+    test_variations = relationship("TestVariation", back_populates="ab_test", cascade="all, delete-orphan")
+    test_results = relationship("TestResult", back_populates="ab_test", cascade="all, delete-orphan")
+    
+    # Performance optimization
+    __table_args__ = (
+        Index('idx_ab_tests_user_id', 'user_id'),
+        Index('idx_ab_tests_status', 'status'),
+        Index('idx_ab_tests_test_type', 'test_type'),
+        Index('idx_ab_tests_start_date', 'start_date'),
+        Index('idx_ab_tests_significance_status', 'significance_status'),
+        Index('idx_ab_tests_user_status', 'user_id', 'status'),
+        CheckConstraint('confidence_threshold > 0 AND confidence_threshold < 1', name='chk_ab_tests_confidence_range'),
+        CheckConstraint('min_sample_size > 0', name='chk_ab_tests_sample_size_positive'),
+        CheckConstraint('max_duration_days > 0', name='chk_ab_tests_duration_positive'),
+    )
+
+class TestVariation(Base):
+    """Individual A/B test variations"""
+    __tablename__ = "test_variations"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    variation_id = Column(String, nullable=False)
+    ab_test_id = Column(String, ForeignKey("ab_tests.id"), nullable=False)
+    
+    # Variation Details
+    name = Column(String, nullable=False)
+    description = Column(Text)
+    traffic_percentage = Column(Float, nullable=False)
+    
+    # Content Configuration
+    content_config = Column(JSON)
+    
+    # Performance Metrics
+    impressions = Column(Integer, default=0)
+    clicks = Column(Integer, default=0)
+    conversions = Column(Integer, default=0)
+    revenue = Column(Float, default=0.0)
+    
+    # Calculated Metrics
+    ctr = Column(Float, default=0.0)
+    conversion_rate = Column(Float, default=0.0)
+    revenue_per_visitor = Column(Float, default=0.0)
+    
+    # Statistical Analysis
+    confidence_interval_lower = Column(Float, default=0.0)
+    confidence_interval_upper = Column(Float, default=0.0)
+    statistical_power = Column(Float, default=0.0)
+    
+    # Timestamps
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    ab_test = relationship("ABTest", back_populates="test_variations")
+    
+    # Performance optimization
+    __table_args__ = (
+        Index('idx_test_variations_ab_test_id', 'ab_test_id'),
+        Index('idx_test_variations_variation_id', 'variation_id'),
+        Index('idx_test_variations_conversion_rate', 'conversion_rate'),
+        Index('idx_test_variations_ctr', 'ctr'),
+        UniqueConstraint('ab_test_id', 'variation_id', name='uq_test_variations_test_variant'),
+        CheckConstraint('traffic_percentage >= 0 AND traffic_percentage <= 100', name='chk_test_variations_traffic_range'),
+        CheckConstraint('impressions >= 0', name='chk_test_variations_impressions_positive'),
+        CheckConstraint('clicks >= 0', name='chk_test_variations_clicks_positive'),
+        CheckConstraint('conversions >= 0', name='chk_test_variations_conversions_positive'),
+    )
+
+class TestResult(Base):
+    """A/B test statistical results"""
+    __tablename__ = "test_results"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    ab_test_id = Column(String, ForeignKey("ab_tests.id"), nullable=False)
+    
+    # Test Summary
+    total_impressions = Column(Integer)
+    total_conversions = Column(Integer)
+    test_duration_days = Column(Integer)
+    
+    # Statistical Results
+    p_value = Column(Float)
+    effect_size = Column(Float)
+    power_analysis = Column(JSON)
+    
+    # Winner Analysis
+    winning_variation_id = Column(String)
+    confidence_level = Column(Float)
+    significance_status = Column(Enum(StatisticalSignificanceEnum))
+    
+    # Business Impact
+    projected_lift = Column(Float)
+    estimated_revenue_impact = Column(Float)
+    
+    # Detailed Analysis
+    variation_comparisons = Column(JSON)  # Detailed comparison data
+    statistical_details = Column(JSON)   # Additional statistical metrics
+    
+    # Recommendations
+    recommendation = Column(Text)
+    next_steps = Column(JSON)
+    
+    # Timestamps
+    calculated_at = Column(DateTime, default=func.now())
+    
+    # Relationships
+    ab_test = relationship("ABTest", back_populates="test_results")
+    
+    # Performance optimization
+    __table_args__ = (
+        Index('idx_test_results_ab_test_id', 'ab_test_id'),
+        Index('idx_test_results_significance_status', 'significance_status'),
+        Index('idx_test_results_calculated_at', 'calculated_at'),
+        Index('idx_test_results_confidence_level', 'confidence_level'),
+    )
+
+# Adaptive Learning System Models
+
+class LearningInsight(Base):
+    """Adaptive learning insights and patterns"""
+    __tablename__ = "learning_insights"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    insight_id = Column(String, unique=True, nullable=False)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    user_profile_id = Column(String, ForeignKey("meta_user_profiles.id"))
+    campaign_id = Column(String, ForeignKey("campaigns.id"))
+    
+    # Insight Details
+    insight_type = Column(String, nullable=False)  # performance, audience, content, timing
+    category = Column(String)
+    title = Column(String, nullable=False)
+    description = Column(Text)
+    
+    # Performance Data
+    baseline_metric = Column(Float)
+    improved_metric = Column(Float)
+    improvement_percentage = Column(Float)
+    confidence_score = Column(Float)
+    
+    # Pattern Analysis
+    identified_patterns = Column(JSON)
+    contributing_factors = Column(JSON)
+    correlation_data = Column(JSON)
+    
+    # Recommendations
+    optimization_recommendations = Column(JSON)
+    implementation_priority = Column(String)  # high, medium, low
+    expected_impact = Column(String)  # high, medium, low
+    
+    # Learning Context
+    sample_size = Column(Integer)
+    time_period_days = Column(Integer)
+    data_quality_score = Column(Float)
+    
+    # Status
+    is_implemented = Column(Boolean, default=False)
+    implementation_date = Column(DateTime)
+    actual_results = Column(JSON)
+    
+    # Timestamps
+    discovered_at = Column(DateTime, default=func.now())
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    user_profile = relationship("MetaUserProfile", back_populates="learning_insights")
+    campaign = relationship("Campaign")
+    
+    # Performance optimization
+    __table_args__ = (
+        Index('idx_learning_insights_user_id', 'user_id'),
+        Index('idx_learning_insights_insight_type', 'insight_type'),
+        Index('idx_learning_insights_confidence_score', 'confidence_score'),
+        Index('idx_learning_insights_improvement_percentage', 'improvement_percentage'),
+        Index('idx_learning_insights_is_implemented', 'is_implemented'),
+        Index('idx_learning_insights_discovered_at', 'discovered_at'),
+        CheckConstraint('confidence_score >= 0 AND confidence_score <= 1', name='chk_learning_insights_confidence_range'),
+        CheckConstraint('sample_size >= 0', name='chk_learning_insights_sample_size_positive'),
+    )
+
+class PerformancePattern(Base):
+    """Detected performance patterns for adaptive learning"""
+    __tablename__ = "performance_patterns"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    pattern_id = Column(String, unique=True, nullable=False)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    
+    # Pattern Details
+    pattern_type = Column(String, nullable=False)  # temporal, audience, content, budget
+    pattern_name = Column(String, nullable=False)
+    description = Column(Text)
+    
+    # Pattern Data
+    pattern_conditions = Column(JSON)  # Conditions that trigger this pattern
+    performance_impact = Column(JSON)  # Impact on various metrics
+    frequency_observed = Column(Integer)  # How often this pattern occurs
+    
+    # Statistical Significance
+    confidence_level = Column(Float)
+    p_value = Column(Float)
+    effect_size = Column(Float)
+    
+    # Learning Context
+    campaigns_analyzed = Column(Integer)
+    time_period_analyzed = Column(Integer)  # Days
+    first_observed = Column(DateTime)
+    last_observed = Column(DateTime)
+    
+    # Actionability
+    actionable_insights = Column(JSON)
+    automation_potential = Column(String)  # high, medium, low, none
+    
+    # Timestamps
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Performance optimization
+    __table_args__ = (
+        Index('idx_performance_patterns_user_id', 'user_id'),
+        Index('idx_performance_patterns_pattern_type', 'pattern_type'),
+        Index('idx_performance_patterns_confidence_level', 'confidence_level'),
+        Index('idx_performance_patterns_frequency_observed', 'frequency_observed'),
+        Index('idx_performance_patterns_last_observed', 'last_observed'),
+        CheckConstraint('confidence_level >= 0 AND confidence_level <= 1', name='chk_performance_patterns_confidence_range'),
+        CheckConstraint('frequency_observed >= 0', name='chk_performance_patterns_frequency_positive'),
+    )
+
+# Dynamic Content Generation Models
+
+class ContentTemplate(Base):
+    """Dynamic content templates for personalization"""
+    __tablename__ = "content_templates"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    template_id = Column(String, unique=True, nullable=False)
+    user_id = Column(String, ForeignKey("users.id"))
+    
+    # Template Details
+    name = Column(String, nullable=False)
+    description = Column(Text)
+    template_type = Column(String, nullable=False)  # image, video, text, carousel
+    category = Column(String)  # industry, objective, style
+    
+    # Template Configuration
+    base_prompt = Column(Text, nullable=False)
+    personalization_variables = Column(JSON)  # Variables that can be personalized
+    style_parameters = Column(JSON)
+    content_structure = Column(JSON)
+    
+    # Performance Tracking
+    usage_count = Column(Integer, default=0)
+    avg_performance_score = Column(Float)
+    success_rate = Column(Float)  # Percentage of successful generations
+    
+    # Personalization Context
+    target_industries = Column(JSON)
+    target_objectives = Column(JSON)
+    target_demographics = Column(JSON)
+    
+    # Template Metadata
+    is_active = Column(Boolean, default=True)
+    is_public = Column(Boolean, default=False)  # Available to all users
+    created_by = Column(String)  # user_id or 'system'
+    
+    # Timestamps
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    last_used = Column(DateTime)
+    
+    # Performance optimization
+    __table_args__ = (
+        Index('idx_content_templates_user_id', 'user_id'),
+        Index('idx_content_templates_template_type', 'template_type'),
+        Index('idx_content_templates_category', 'category'),
+        Index('idx_content_templates_avg_performance_score', 'avg_performance_score'),
+        Index('idx_content_templates_usage_count', 'usage_count'),
+        Index('idx_content_templates_is_active', 'is_active'),
+        Index('idx_content_templates_is_public', 'is_public'),
+        CheckConstraint('usage_count >= 0', name='chk_content_templates_usage_count_positive'),
+        CheckConstraint('success_rate >= 0 AND success_rate <= 100', name='chk_content_templates_success_rate_range'),
+    )
+
+class PersonalizedContent(Base):
+    """Generated personalized content instances"""
+    __tablename__ = "personalized_content"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    content_id = Column(String, unique=True, nullable=False)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    campaign_id = Column(String, ForeignKey("campaigns.id"))
+    template_id = Column(String, ForeignKey("content_templates.id"))
+    
+    # Content Details
+    content_type = Column(String, nullable=False)
+    personalized_prompt = Column(Text, nullable=False)
+    personalization_context = Column(JSON)  # Context used for personalization
+    
+    # Generated Content
+    file_path = Column(String)
+    file_url = Column(String)
+    file_size = Column(Integer)
+    content_metadata = Column(JSON)
+    
+    # Personalization Applied
+    personalization_variables_used = Column(JSON)
+    demographic_targeting = Column(JSON)
+    behavioral_targeting = Column(JSON)
+    contextual_targeting = Column(JSON)
+    
+    # Performance Tracking
+    impressions = Column(Integer, default=0)
+    clicks = Column(Integer, default=0)
+    conversions = Column(Integer, default=0)
+    engagement_score = Column(Float)
+    performance_vs_template = Column(Float)  # Performance compared to template average
+    
+    # Generation Details
+    model_used = Column(String)
+    generation_time = Column(Float)
+    generation_cost = Column(Float)
+    quality_score = Column(Float)
+    
+    # Usage Status
+    is_active = Column(Boolean, default=True)
+    usage_count = Column(Integer, default=0)
+    
+    # Timestamps
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    last_used = Column(DateTime)
+    
+    # Relationships
+    campaign = relationship("Campaign")
+    template = relationship("ContentTemplate")
+    
+    # Performance optimization
+    __table_args__ = (
+        Index('idx_personalized_content_user_id', 'user_id'),
+        Index('idx_personalized_content_campaign_id', 'campaign_id'),
+        Index('idx_personalized_content_template_id', 'template_id'),
+        Index('idx_personalized_content_content_type', 'content_type'),
+        Index('idx_personalized_content_engagement_score', 'engagement_score'),
+        Index('idx_personalized_content_performance_vs_template', 'performance_vs_template'),
+        Index('idx_personalized_content_created_at', 'created_at'),
+        CheckConstraint('impressions >= 0', name='chk_personalized_content_impressions_positive'),
+        CheckConstraint('clicks >= 0', name='chk_personalized_content_clicks_positive'),
+        CheckConstraint('conversions >= 0', name='chk_personalized_content_conversions_positive'),
+        CheckConstraint('usage_count >= 0', name='chk_personalized_content_usage_count_positive'),
+    )
+
+# Enhanced Campaign Personalization Models
+
+class CampaignPersonalizationSettings(Base):
+    """Detailed personalization settings for campaigns"""
+    __tablename__ = "campaign_personalization_settings"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    campaign_id = Column(String, ForeignKey("campaigns.id"), nullable=False, unique=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    
+    # Personalization Configuration
+    personalization_level = Column(String, default="medium")  # low, medium, high, maximum
+    auto_optimization_enabled = Column(Boolean, default=True)
+    dynamic_content_enabled = Column(Boolean, default=True)
+    adaptive_bidding_enabled = Column(Boolean, default=True)
+    
+    # Targeting Personalization
+    audience_personalization = Column(JSON)  # Personalized audience settings
+    demographic_weights = Column(JSON)  # Weights for different demographics
+    behavioral_triggers = Column(JSON)  # Behavioral targeting triggers
+    
+    # Content Personalization
+    content_rotation_strategy = Column(String, default="performance_based")
+    personalized_templates = Column(JSON)  # Template IDs for this campaign
+    dynamic_elements = Column(JSON)  # Elements that change based on user data
+    
+    # Budget & Bidding Personalization
+    budget_allocation_strategy = Column(JSON)
+    bid_adjustments = Column(JSON)  # Personalized bid adjustments
+    performance_targets = Column(JSON)  # Personalized performance targets
+    
+    # Learning & Optimization
+    learning_priority = Column(String, default="medium")  # high, medium, low
+    optimization_frequency = Column(String, default="daily")  # hourly, daily, weekly
+    performance_thresholds = Column(JSON)  # Thresholds for automatic actions
+    
+    # Advanced Features
+    ab_testing_enabled = Column(Boolean, default=True)
+    predictive_scaling_enabled = Column(Boolean, default=False)
+    real_time_optimization = Column(Boolean, default=True)
+    
+    # Timestamps
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    campaign = relationship("Campaign", backref="personalization_settings")
+    
+    # Performance optimization
+    __table_args__ = (
+        Index('idx_campaign_personalization_campaign_id', 'campaign_id'),
+        Index('idx_campaign_personalization_user_id', 'user_id'),
+        Index('idx_campaign_personalization_personalization_level', 'personalization_level'),
+        Index('idx_campaign_personalization_auto_optimization_enabled', 'auto_optimization_enabled'),
+    )

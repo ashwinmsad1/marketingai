@@ -14,6 +14,7 @@ from .models import (
     PasswordReset, PasswordResetConfirm, PasswordChange, UserProfile,
     UserUpdate, EmailVerification
 )
+from pydantic import BaseModel
 from .jwt_handler import JWTHandler, get_current_user, get_current_active_user
 from .password import PasswordHandler
 from .email_handler import EmailHandler
@@ -85,18 +86,24 @@ async def register_user(
         # Generate JWT tokens
         tokens = JWTHandler.create_tokens(user.id)
         
-        # Prepare response
-        user_profile = UserProfile(
-            id=user.id,
-            email=user.email,
-            first_name=user.first_name,
-            last_name=user.last_name,
-            company_name=user.company_name,
-            phone=user.phone,
-            is_active=user.is_active,
-            is_verified=user.is_verified,
-            created_at=user.created_at.isoformat()
-        )
+        # Prepare response with compatibility
+        user_dict = {
+            "id": user.id,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "company_name": user.company_name,
+            "phone": user.phone,
+            "is_active": user.is_active,
+            "is_verified": user.is_verified,
+            "created_at": user.created_at.isoformat()
+        }
+        
+        # Add computed name field for frontend compatibility
+        if user.first_name and user.last_name:
+            user_dict["name"] = f"{user.first_name} {user.last_name}".strip()
+        
+        user_profile = UserProfile(**user_dict)
         
         logger.info(f"New user registered: {user.email}")
         
@@ -147,18 +154,24 @@ async def login_user(
     # Generate JWT tokens
     tokens = JWTHandler.create_tokens(user.id)
     
-    # Prepare response
-    user_profile = UserProfile(
-        id=user.id,
-        email=user.email,
-        first_name=user.first_name,
-        last_name=user.last_name,
-        company_name=user.company_name,
-        phone=user.phone,
-        is_active=user.is_active,
-        is_verified=user.is_verified,
-        created_at=user.created_at.isoformat()
-    )
+    # Prepare response with compatibility
+    user_dict = {
+        "id": user.id,
+        "email": user.email,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "company_name": user.company_name,
+        "phone": user.phone,
+        "is_active": user.is_active,
+        "is_verified": user.is_verified,
+        "created_at": user.created_at.isoformat()
+    }
+    
+    # Add computed name field for frontend compatibility
+    if user.first_name and user.last_name:
+        user_dict["name"] = f"{user.first_name} {user.last_name}".strip()
+    
+    user_profile = UserProfile(**user_dict)
     
     logger.info(f"User logged in: {user.email}")
     
@@ -168,14 +181,17 @@ async def login_user(
         message="Login successful!"
     )
 
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
+
 @router.post("/refresh", response_model=Token)
 async def refresh_token(
-    refresh_token: str,
+    request: RefreshTokenRequest,
     db: Session = Depends(get_db)
 ):
     """Refresh JWT access token"""
     # Verify refresh token
-    token_data = JWTHandler.verify_token(refresh_token, token_type="refresh")
+    token_data = JWTHandler.verify_token(request.refresh_token, token_type="refresh")
     if not token_data:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -200,17 +216,24 @@ async def get_current_user_profile(
     current_user: User = Depends(get_current_active_user)
 ):
     """Get current user profile"""
-    return UserProfile(
-        id=current_user.id,
-        email=current_user.email,
-        first_name=current_user.first_name,
-        last_name=current_user.last_name,
-        company_name=current_user.company_name,
-        phone=current_user.phone,
-        is_active=current_user.is_active,
-        is_verified=current_user.is_verified,
-        created_at=current_user.created_at.isoformat()
-    )
+    # Prepare response with compatibility
+    user_dict = {
+        "id": current_user.id,
+        "email": current_user.email,
+        "first_name": current_user.first_name,
+        "last_name": current_user.last_name,
+        "company_name": current_user.company_name,
+        "phone": current_user.phone,
+        "is_active": current_user.is_active,
+        "is_verified": current_user.is_verified,
+        "created_at": current_user.created_at.isoformat()
+    }
+    
+    # Add computed name field for frontend compatibility
+    if current_user.first_name and current_user.last_name:
+        user_dict["name"] = f"{current_user.first_name} {current_user.last_name}".strip()
+    
+    return UserProfile(**user_dict)
 
 @router.put("/me", response_model=UserProfile)
 async def update_user_profile(

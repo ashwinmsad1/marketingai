@@ -79,32 +79,93 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Token management utility functions
+// Secure token management utility functions
+// Using httpOnly cookies would be ideal, but for SPA we implement secure localStorage with additional protection
+const TOKEN_KEY = 'auth_token';
+const REFRESH_TOKEN_KEY = 'refresh_token';
+
+// Basic token encryption/obfuscation (in production, use proper encryption)
+const encodeToken = (token: string): string => {
+  return btoa(token);
+};
+
+const decodeToken = (encodedToken: string): string => {
+  try {
+    return atob(encodedToken);
+  } catch {
+    return '';
+  }
+};
+
 const setAuthTokens = (tokens: { access_token: string; refresh_token: string }) => {
-  localStorage.setItem('auth_token', tokens.access_token);
-  localStorage.setItem('refresh_token', tokens.refresh_token);
+  try {
+    // Basic encoding to prevent casual inspection
+    localStorage.setItem(TOKEN_KEY, encodeToken(tokens.access_token));
+    localStorage.setItem(REFRESH_TOKEN_KEY, encodeToken(tokens.refresh_token));
+    
+    // Set token expiry for automatic cleanup
+    const expiryTime = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
+    localStorage.setItem('token_expiry', expiryTime.toString());
+  } catch (error) {
+    console.error('Failed to store auth tokens:', error);
+  }
+};
+
+const getAuthToken = (): string | null => {
+  try {
+    const tokenExpiry = localStorage.getItem('token_expiry');
+    if (tokenExpiry && Date.now() > parseInt(tokenExpiry)) {
+      // Token expired, clean up
+      removeAuthTokens();
+      return null;
+    }
+    
+    const encodedToken = localStorage.getItem(TOKEN_KEY);
+    return encodedToken ? decodeToken(encodedToken) : null;
+  } catch {
+    return null;
+  }
 };
 
 const getRefreshToken = (): string | null => {
-  return localStorage.getItem('refresh_token');
+  try {
+    const tokenExpiry = localStorage.getItem('token_expiry');
+    if (tokenExpiry && Date.now() > parseInt(tokenExpiry)) {
+      // Token expired, clean up
+      removeAuthTokens();
+      return null;
+    }
+    
+    const encodedToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+    return encodedToken ? decodeToken(encodedToken) : null;
+  } catch {
+    return null;
+  }
 };
 
 const removeAuthTokens = () => {
-  localStorage.removeItem('auth_token');
-  localStorage.removeItem('refresh_token');
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    localStorage.removeItem('token_expiry');
+  } catch (error) {
+    console.error('Failed to remove auth tokens:', error);
+  }
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
-  // Initialize auth state from localStorage on mount
+  // Initialize auth state from secure storage on mount
   useEffect(() => {
+    let isMounted = true; // Flag to prevent state updates if component unmounts
+
     const initializeAuth = async () => {
       try {
-        const token = localStorage.getItem('auth_token');
-        const refreshToken = localStorage.getItem('refresh_token');
+        const token = getAuthToken();
+        const refreshToken = getRefreshToken();
         
-        if (token && refreshToken) {
+        if (token && refreshToken && isMounted) {
           // Set token in API service
           authService.setAuthToken(token);
           
@@ -112,33 +173,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // Get current user profile
             const userResponse = await authService.getCurrentUser();
             
-            dispatch({
-              type: 'AUTH_SUCCESS',
-              payload: {
-                user: userResponse.data,
-                token: token
-              }
-            });
+            if (isMounted) {
+              dispatch({
+                type: 'AUTH_SUCCESS',
+                payload: {
+                  user: userResponse.data,
+                  token: token
+                }
+              });
+            }
           } catch (error) {
             // Token might be expired, try refresh
-            try {
-              await refreshTokens();
-            } catch (refreshError) {
-              // Both tokens invalid, clear storage
-              localStorage.removeItem('auth_token');
-              localStorage.removeItem('refresh_token');
-              authService.setAuthToken(null);
+            if (isMounted) {
+              try {
+                await refreshTokens();
+              } catch (refreshError) {
+                // Both tokens invalid, clear storage securely
+                removeAuthTokens();
+                authService.setAuthToken(null);
+              }
             }
           }
         }
       } catch (error) {
         console.error('Auth initialization failed:', error);
       } finally {
-        dispatch({ type: 'SET_INITIALIZED' });
+        if (isMounted) {
+          dispatch({ type: 'SET_INITIALIZED' });
+        }
       }
     };
 
     initializeAuth();
+
+    // Cleanup function
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const login = async (email: string, password: string): Promise<void> => {

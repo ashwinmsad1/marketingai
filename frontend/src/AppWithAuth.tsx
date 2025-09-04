@@ -1,10 +1,12 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './contexts/AuthContext';
+import { setNavigationHandler } from './services/api';
 import ProtectedRoute from './components/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
 import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -21,6 +23,13 @@ import EmailVerification from './pages/EmailVerification';
 import DemoNavigation from './components/DemoNavigation';
 import { AppLayout } from './design-system';
 
+// Personalization Pages
+import ProfileSetup from './pages/ProfileSetup';
+import PersonalizationDashboard from './pages/PersonalizationDashboard';
+import CampaignStrategyWizard from './pages/CampaignStrategyWizard';
+import ABTestingDashboard from './pages/ABTestingDashboard';
+import ContentTemplatesManager from './pages/ContentTemplatesManager';
+
 // Create a client
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -31,16 +40,30 @@ const queryClient = new QueryClient({
   },
 });
 
-const AppWithAuth: React.FC = () => {
+// Inner component to access useNavigate
+const AppContent: React.FC = () => {
+  const navigate = useNavigate();
+
+  // Set up navigation handler for API service
+  useEffect(() => {
+    setNavigationHandler((path: string) => {
+      navigate(path);
+    });
+
+    // Cleanup function to remove navigation handler
+    return () => {
+      setNavigationHandler(() => {});
+    };
+  }, [navigate]);
+
   const handleMediaCreated = (url: string, type: 'image' | 'video', prompt: string) => {
     console.log('Media created:', { url, type, prompt });
   };
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <Router>
-        <AuthProvider>
-          <Routes>
+    <ErrorBoundary showDetails={true}>
+      <AuthProvider>
+        <Routes>
             {/* Public Routes */}
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<Login />} />
@@ -62,9 +85,11 @@ const AppWithAuth: React.FC = () => {
               path="/create-campaign" 
               element={
                 <ProtectedRoute requiresVerification={true}>
-                  <AppLayout>
-                    <CreateCampaign />
-                  </AppLayout>
+                  <ErrorBoundary>
+                    <AppLayout>
+                      <CreateCampaign />
+                    </AppLayout>
+                  </ErrorBoundary>
                 </ProtectedRoute>
               } 
             />
@@ -151,6 +176,58 @@ const AppWithAuth: React.FC = () => {
               } 
             />
             
+            {/* Personalization Routes */}
+            <Route 
+              path="/personalization/profile" 
+              element={
+                <ProtectedRoute requiresVerification={true}>
+                  <AppLayout>
+                    <ProfileSetup />
+                  </AppLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/personalization/dashboard" 
+              element={
+                <ProtectedRoute requiresVerification={true}>
+                  <AppLayout>
+                    <PersonalizationDashboard />
+                  </AppLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/personalization/strategy-wizard" 
+              element={
+                <ProtectedRoute requiresVerification={true}>
+                  <AppLayout>
+                    <CampaignStrategyWizard />
+                  </AppLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/personalization/ab-testing" 
+              element={
+                <ProtectedRoute requiresVerification={true}>
+                  <AppLayout>
+                    <ABTestingDashboard />
+                  </AppLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/personalization/templates" 
+              element={
+                <ProtectedRoute requiresVerification={true}>
+                  <AppLayout>
+                    <ContentTemplatesManager />
+                  </AppLayout>
+                </ProtectedRoute>
+              } 
+            />
+            
             {/* Redirect unknown routes to dashboard */}
             <Route path="*" element={<Navigate to="/dashboard" />} />
           </Routes>
@@ -170,10 +247,19 @@ const AppWithAuth: React.FC = () => {
             }}
           />
         </AuthProvider>
+      </ErrorBoundary>
+  );
+};
+
+const AppWithAuth: React.FC = () => {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <Router>
+        <AppContent />
+        
+        {/* React Query Devtools - only in development */}
+        {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
       </Router>
-      
-      {/* React Query Devtools - only in development */}
-      {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
     </QueryClientProvider>
   );
 };

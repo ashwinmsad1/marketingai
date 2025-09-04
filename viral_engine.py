@@ -1,15 +1,31 @@
 """
-Viral Content & Trending Engine
-Detects trending topics and creates viral-optimized content automatically
+Enhanced Viral Content & Trending Engine
+Detects trending topics from real data sources and creates viral-optimized content automatically
+Integrates Reddit API, YouTube Data API, Google Trends, web scraping, and Claude LLM for content curation
 """
 
 import asyncio
+import aiohttp
 import logging
 import os
-from datetime import datetime
-from typing import Optional, Dict, Any, List
-from dataclasses import dataclass
+import json
+import time
+import hashlib
+from datetime import datetime, timedelta
+from typing import Optional, Dict, Any, List, Union
+from dataclasses import dataclass, asdict
 import random
+import re
+from urllib.parse import urlencode, quote_plus
+
+# Real data source imports
+import praw  # Reddit API
+from pytrends.request import TrendReq  # Google Trends
+from bs4 import BeautifulSoup  # Web scraping
+
+# Rate limiting and caching
+from functools import wraps
+import pickle
 
 # Database imports
 from sqlalchemy.orm import Session
@@ -19,9 +35,43 @@ from database.models import ViralTrend, Campaign, AIContent
 # Import our AI agents
 from photo_agent import image_creator
 
+# Rate limiting decorator
+def rate_limit(max_calls: int, time_window: int):
+    """Rate limiting decorator to prevent API abuse"""
+    def decorator(func):
+        calls = []
+        
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            now = time.time()
+            # Remove old calls outside the time window
+            while calls and calls[0] <= now - time_window:
+                calls.pop(0)
+            
+            if len(calls) >= max_calls:
+                sleep_time = time_window - (now - calls[0])
+                if sleep_time > 0:
+                    await asyncio.sleep(sleep_time)
+                    return await wrapper(*args, **kwargs)
+            
+            calls.append(now)
+            return await func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+# Data source classes
+@dataclass
+class TrendSource:
+    """Base class for trend sources"""
+    name: str
+    reliability_score: float
+    last_updated: datetime
+    rate_limit_remaining: int
+    data: Dict[str, Any]
+
 @dataclass
 class TrendingTopic:
-    """Trending topic data structure"""
+    """Enhanced trending topic data structure with real data sources"""
     topic_id: str
     topic_name: str
     trend_score: float
@@ -32,10 +82,17 @@ class TrendingTopic:
     detected_at: datetime
     peak_period: str
     engagement_potential: float
+    # Enhanced fields for real data
+    sources: List[str]  # Which APIs/sources detected this trend
+    geographic_data: Optional[Dict[str, Any]] = None
+    sentiment_score: Optional[float] = None
+    related_trends: Optional[List[str]] = None
+    content_examples: Optional[List[Dict[str, Any]]] = None
+    claude_analysis: Optional[Dict[str, Any]] = None
 
 @dataclass
 class ViralContent:
-    """Viral content template data structure"""
+    """Enhanced viral content template data structure with Claude analysis"""
     content_id: str
     topic_id: str
     content_type: str  # 'image', 'video', 'carousel'
@@ -45,10 +102,624 @@ class ViralContent:
     engagement_hooks: List[str]
     optimal_posting_time: str
     virality_score: float
+    # Enhanced fields
+    claude_refinement: Optional[Dict[str, Any]] = None
+    content_safety_score: Optional[float] = None
+    brand_alignment_score: Optional[float] = None
+    competitor_differentiation: Optional[List[str]] = None
+
+# Claude LLM Integration Classes
+class ClaudeContentCurator:
+    """Claude LLM integration for content curation and analysis"""
+    
+    def __init__(self, api_key: str = None):
+        self.api_key = api_key or os.getenv('ANTHROPIC_API_KEY')
+        self.base_url = "https://api.anthropic.com/v1"
+        self.model = "claude-3-5-sonnet-20241022"
+        self.session = None
+    
+    async def __aenter__(self):
+        self.session = aiohttp.ClientSession()
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if self.session:
+            await self.session.close()
+    
+    @rate_limit(max_calls=50, time_window=60)  # 50 calls per minute
+    async def analyze_trend_relevance(self, trend_data: Dict[str, Any], industry: str) -> Dict[str, Any]:
+        """Use Claude to analyze trend relevance and viral potential"""
+        if not self.session:
+            self.session = aiohttp.ClientSession()
+        
+        prompt = f"""
+        Analyze this trending topic for viral marketing potential in the {industry} industry:
+        
+        Topic: {trend_data.get('name', 'Unknown')}
+        Keywords: {', '.join(trend_data.get('keywords', []))}
+        Source Data: {json.dumps(trend_data, indent=2)}
+        
+        Please analyze and provide:
+        1. Relevance score (0-100) for {industry} industry
+        2. Viral potential assessment (0-100)
+        3. Content safety evaluation (0-100, where 100 is safest)
+        4. Recommended content frameworks
+        5. Potential risks or concerns
+        6. Suggested hashtags and keywords
+        7. Optimal content angles
+        
+        Provide response in JSON format with these exact keys:
+        {{
+            "relevance_score": <number>,
+            "viral_potential": <number>,
+            "safety_score": <number>,
+            "recommended_frameworks": [<strings>],
+            "risks": [<strings>],
+            "suggested_hashtags": [<strings>],
+            "content_angles": [<strings>],
+            "reasoning": "<explanation>"
+        }}
+        """
+        
+        try:
+            headers = {
+                'x-api-key': self.api_key,
+                'content-type': 'application/json',
+                'anthropic-version': '2023-06-01'
+            }
+            
+            payload = {
+                'model': self.model,
+                'max_tokens': 1000,
+                'messages': [{'role': 'user', 'content': prompt}]
+            }
+            
+            async with self.session.post(
+                f"{self.base_url}/messages",
+                headers=headers,
+                json=payload
+            ) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    content = result['content'][0]['text']
+                    
+                    # Parse JSON response
+                    try:
+                        return json.loads(content)
+                    except json.JSONDecodeError:
+                        # Fallback: extract JSON-like structure
+                        return self._parse_claude_response(content)
+                else:
+                    return self._fallback_analysis(trend_data, industry)
+        
+        except Exception as e:
+            logging.error(f"Claude API error: {e}")
+            return self._fallback_analysis(trend_data, industry)
+    
+    def _parse_claude_response(self, content: str) -> Dict[str, Any]:
+        """Parse Claude response when JSON parsing fails"""
+        # Simple fallback parsing
+        return {
+            "relevance_score": 75,
+            "viral_potential": 70,
+            "safety_score": 85,
+            "recommended_frameworks": ["challenge", "tutorial"],
+            "risks": ["none identified"],
+            "suggested_hashtags": ["#trending"],
+            "content_angles": ["educational", "entertaining"],
+            "reasoning": "Fallback analysis due to parsing error"
+        }
+    
+    def _fallback_analysis(self, trend_data: Dict[str, Any], industry: str) -> Dict[str, Any]:
+        """Fallback analysis when Claude API is unavailable"""
+        return {
+            "relevance_score": 65,
+            "viral_potential": 60,
+            "safety_score": 80,
+            "recommended_frameworks": ["general"],
+            "risks": ["API unavailable - manual review recommended"],
+            "suggested_hashtags": ["#trending", f"#{industry}"],
+            "content_angles": ["informational"],
+            "reasoning": "Fallback analysis - Claude API unavailable"
+        }
+    
+    @rate_limit(max_calls=30, time_window=60)  # 30 calls per minute  
+    async def curate_content_caption(self, trend: TrendingTopic, framework: str) -> Dict[str, str]:
+        """Use Claude to create and refine content captions"""
+        if not self.session:
+            self.session = aiohttp.ClientSession()
+        
+        prompt = f"""
+        Create an engaging, viral-optimized social media caption for:
+        
+        Trend: {trend.topic_name}
+        Industry: {trend.industry}
+        Framework: {framework}
+        Keywords: {', '.join(trend.keywords)}
+        
+        Requirements:
+        - Hook the audience in the first line
+        - Include trending keywords naturally
+        - Add a clear call-to-action
+        - Use appropriate emojis (but not excessive)
+        - Stay authentic and brand-safe
+        - Optimize for engagement
+        
+        Provide two versions: one for Instagram/Facebook and one for TikTok/short-form.
+        
+        Response format:
+        {{
+            "instagram_caption": "<caption>",
+            "tiktok_caption": "<caption>",
+            "key_hashtags": ["hashtag1", "hashtag2"],
+            "engagement_prediction": <score 0-100>
+        }}
+        """
+        
+        try:
+            headers = {
+                'x-api-key': self.api_key,
+                'content-type': 'application/json',
+                'anthropic-version': '2023-06-01'
+            }
+            
+            payload = {
+                'model': self.model,
+                'max_tokens': 800,
+                'messages': [{'role': 'user', 'content': prompt}]
+            }
+            
+            async with self.session.post(
+                f"{self.base_url}/messages",
+                headers=headers,
+                json=payload
+            ) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    content = result['content'][0]['text']
+                    
+                    try:
+                        return json.loads(content)
+                    except json.JSONDecodeError:
+                        return self._fallback_caption(trend, framework)
+                else:
+                    return self._fallback_caption(trend, framework)
+        
+        except Exception as e:
+            logging.error(f"Claude caption generation error: {e}")
+            return self._fallback_caption(trend, framework)
+    
+    def _fallback_caption(self, trend: TrendingTopic, framework: str) -> Dict[str, str]:
+        """Fallback caption generation"""
+        base_caption = f"🔥 {trend.topic_name} is trending right now! Here's my take on it. What do you think? 💭 #trending #{trend.industry}"
+        
+        return {
+            "instagram_caption": base_caption,
+            "tiktok_caption": base_caption,
+            "key_hashtags": trend.hashtags[:5],
+            "engagement_prediction": 65
+        }
+
+# Real Data Source Integration Classes
+
+class RedditTrendDetector:
+    """Reddit API integration for trending topic detection"""
+    
+    def __init__(self, client_id: str = None, client_secret: str = None, user_agent: str = None):
+        self.client_id = client_id or os.getenv('REDDIT_CLIENT_ID')
+        self.client_secret = client_secret or os.getenv('REDDIT_CLIENT_SECRET')
+        self.user_agent = user_agent or "ViralEngine:v1.0 (by /u/your_username)"
+        self.reddit = None
+        self._init_reddit()
+    
+    def _init_reddit(self):
+        """Initialize Reddit API connection"""
+        try:
+            if self.client_id and self.client_secret:
+                self.reddit = praw.Reddit(
+                    client_id=self.client_id,
+                    client_secret=self.client_secret,
+                    user_agent=self.user_agent
+                )
+        except Exception as e:
+            logging.error(f"Reddit initialization error: {e}")
+            self.reddit = None
+    
+    @rate_limit(max_calls=60, time_window=60)  # Reddit allows 60 requests per minute
+    async def get_trending_topics(self, industry: str = 'general', limit: int = 10) -> List[Dict[str, Any]]:
+        """Get trending topics from relevant subreddits"""
+        if not self.reddit:
+            return []
+        
+        # Industry-specific subreddit mapping
+        industry_subreddits = {
+            'general': ['trending', 'popular', 'news', 'todayilearned'],
+            'fitness': ['fitness', 'bodybuilding', 'yoga', 'running', 'weightlifting'],
+            'beauty': ['SkincareAddiction', 'MakeupAddiction', 'beauty', 'Hair'],
+            'restaurant': ['food', 'FoodPorn', 'recipes', 'Cooking', 'chefknives'],
+            'fashion': ['malefashionadvice', 'femalefashionadvice', 'streetwear', 'fashion'],
+            'tech': ['technology', 'gadgets', 'apple', 'android', 'programming']
+        }
+        
+        subreddits = industry_subreddits.get(industry, industry_subreddits['general'])
+        trending_topics = []
+        
+        try:
+            for subreddit_name in subreddits[:3]:  # Limit to 3 subreddits to avoid rate limits
+                try:
+                    subreddit = self.reddit.subreddit(subreddit_name)
+                    
+                    # Get hot posts from the subreddit
+                    for submission in subreddit.hot(limit=limit//len(subreddits[:3])):
+                        if not submission.stickied:  # Skip pinned posts
+                            # Extract keywords from title and content
+                            keywords = self._extract_keywords(submission.title)
+                            
+                            topic_data = {
+                                'name': submission.title,
+                                'url': f"https://reddit.com{submission.permalink}",
+                                'score': submission.score,
+                                'upvote_ratio': submission.upvote_ratio,
+                                'num_comments': submission.num_comments,
+                                'created_utc': datetime.fromtimestamp(submission.created_utc),
+                                'subreddit': subreddit_name,
+                                'keywords': keywords,
+                                'content': submission.selftext[:500] if submission.selftext else '',
+                                'source': 'reddit'
+                            }
+                            
+                            trending_topics.append(topic_data)
+                
+                except Exception as e:
+                    logging.error(f"Error fetching from r/{subreddit_name}: {e}")
+                    continue
+            
+            # Sort by engagement score (combination of upvotes and comments)
+            trending_topics.sort(key=lambda x: x['score'] * (x['num_comments'] + 1), reverse=True)
+            return trending_topics[:limit]
+        
+        except Exception as e:
+            logging.error(f"Reddit trending topics error: {e}")
+            return []
+    
+    def _extract_keywords(self, text: str) -> List[str]:
+        """Extract keywords from Reddit post titles"""
+        # Remove common words and extract meaningful terms
+        common_words = {'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'been', 'be', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'can', 'cant', 'this', 'that', 'these', 'those'}
+        
+        # Clean text and split into words
+        words = re.findall(r'\b[a-zA-Z]+\b', text.lower())
+        keywords = [word for word in words if len(word) > 3 and word not in common_words]
+        
+        return keywords[:10]  # Return top 10 keywords
+
+class YouTubeTrendDetector:
+    """YouTube Data API integration for trending content analysis"""
+    
+    def __init__(self, api_key: str = None):
+        self.api_key = api_key or os.getenv('YOUTUBE_API_KEY')
+        self.base_url = "https://www.googleapis.com/youtube/v3"
+    
+    @rate_limit(max_calls=100, time_window=100)  # YouTube quota management
+    async def get_trending_videos(self, industry: str = 'general', region_code: str = 'US') -> List[Dict[str, Any]]:
+        """Get trending videos from YouTube"""
+        if not self.api_key:
+            return []
+        
+        # Industry-specific category IDs
+        category_mapping = {
+            'general': ['0'],  # All categories
+            'fitness': ['17'],  # Sports
+            'beauty': ['26'],  # Howto & Style
+            'restaurant': ['26'],  # Howto & Style (cooking)
+            'tech': ['28'],  # Science & Technology
+            'entertainment': ['24']  # Entertainment
+        }
+        
+        categories = category_mapping.get(industry, ['0'])
+        trending_videos = []
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                for category_id in categories:
+                    # Get trending videos for category
+                    params = {
+                        'part': 'snippet,statistics',
+                        'chart': 'mostPopular',
+                        'regionCode': region_code,
+                        'maxResults': 25,
+                        'key': self.api_key
+                    }
+                    
+                    if category_id != '0':
+                        params['videoCategoryId'] = category_id
+                    
+                    async with session.get(f"{self.base_url}/videos", params=params) as response:
+                        if response.status == 200:
+                            data = await response.json()
+                            
+                            for video in data.get('items', []):
+                                snippet = video['snippet']
+                                stats = video['statistics']
+                                
+                                # Calculate engagement score
+                                views = int(stats.get('viewCount', 0))
+                                likes = int(stats.get('likeCount', 0))
+                                comments = int(stats.get('commentCount', 0))
+                                engagement_score = (likes + comments * 5) / max(views, 1) * 1000000
+                                
+                                video_data = {
+                                    'name': snippet['title'],
+                                    'description': snippet['description'][:300],
+                                    'channel': snippet['channelTitle'],
+                                    'published_at': snippet['publishedAt'],
+                                    'views': views,
+                                    'likes': likes,
+                                    'comments': comments,
+                                    'engagement_score': engagement_score,
+                                    'tags': snippet.get('tags', []),
+                                    'keywords': self._extract_keywords(snippet['title'] + ' ' + snippet['description'][:200]),
+                                    'video_url': f"https://www.youtube.com/watch?v={video['id']}",
+                                    'thumbnail_url': snippet['thumbnails']['high']['url'],
+                                    'source': 'youtube'
+                                }
+                                
+                                trending_videos.append(video_data)
+                        
+                        else:
+                            logging.error(f"YouTube API error: {response.status}")
+            
+            # Sort by engagement score
+            trending_videos.sort(key=lambda x: x['engagement_score'], reverse=True)
+            return trending_videos[:20]  # Return top 20
+        
+        except Exception as e:
+            logging.error(f"YouTube trending videos error: {e}")
+            return []
+    
+    def _extract_keywords(self, text: str) -> List[str]:
+        """Extract keywords from YouTube video titles and descriptions"""
+        common_words = {'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'how', 'what', 'why', 'when', 'where', 'this', 'that', 'these', 'those', 'will', 'best', 'top'}
+        
+        # Clean text and extract words
+        words = re.findall(r'\b[a-zA-Z]+\b', text.lower())
+        keywords = [word for word in words if len(word) > 3 and word not in common_words]
+        
+        # Count frequency and return most common
+        keyword_freq = {}
+        for word in keywords:
+            keyword_freq[word] = keyword_freq.get(word, 0) + 1
+        
+        # Sort by frequency
+        sorted_keywords = sorted(keyword_freq.items(), key=lambda x: x[1], reverse=True)
+        return [keyword for keyword, freq in sorted_keywords[:15]]
+
+class GoogleTrendsDetector:
+    """Google Trends integration using pytrends"""
+    
+    def __init__(self):
+        self.pytrends = TrendReq(hl='en-US', tz=360)
+    
+    @rate_limit(max_calls=10, time_window=60)  # Conservative rate limiting for Google Trends
+    async def get_trending_searches(self, geo: str = 'US', category: int = 0) -> List[Dict[str, Any]]:
+        """Get trending searches from Google Trends"""
+        try:
+            # Get trending searches
+            trending_searches = self.pytrends.trending_searches(pn=geo)
+            
+            trends_data = []
+            if not trending_searches.empty:
+                for trend in trending_searches[0][:10]:  # Top 10 trending searches
+                    
+                    # Get related queries for additional context
+                    try:
+                        self.pytrends.build_payload([trend], cat=category, timeframe='now 7-d', geo=geo)
+                        related_queries = self.pytrends.related_queries()
+                        
+                        # Extract rising queries as keywords
+                        keywords = [trend.lower()]
+                        if trend in related_queries and related_queries[trend]['rising'] is not None:
+                            rising = related_queries[trend]['rising']['query'].tolist()
+                            keywords.extend([q.lower() for q in rising[:5]])
+                        
+                        trend_data = {
+                            'name': trend,
+                            'keywords': keywords,
+                            'geo': geo,
+                            'category': category,
+                            'timeframe': '7 days',
+                            'source': 'google_trends'
+                        }
+                        
+                        trends_data.append(trend_data)
+                        
+                        # Add delay to avoid rate limiting
+                        await asyncio.sleep(1)
+                    
+                    except Exception as e:
+                        logging.error(f"Error getting related queries for {trend}: {e}")
+                        # Still add the trend without related queries
+                        trends_data.append({
+                            'name': trend,
+                            'keywords': [trend.lower()],
+                            'geo': geo,
+                            'category': category,
+                            'source': 'google_trends'
+                        })
+            
+            return trends_data
+        
+        except Exception as e:
+            logging.error(f"Google Trends error: {e}")
+            return []
+    
+    @rate_limit(max_calls=5, time_window=60)  # Very conservative for detailed queries
+    async def get_interest_over_time(self, keywords: List[str], timeframe: str = 'today 3-m', geo: str = 'US') -> Dict[str, Any]:
+        """Get interest over time for specific keywords"""
+        try:
+            self.pytrends.build_payload(keywords, cat=0, timeframe=timeframe, geo=geo)
+            interest_data = self.pytrends.interest_over_time()
+            
+            if not interest_data.empty:
+                # Calculate trend direction
+                recent_avg = interest_data.tail(7).mean().mean()  # Last week average
+                older_avg = interest_data.head(7).mean().mean()  # First week average
+                
+                trend_direction = 'rising' if recent_avg > older_avg else 'declining'
+                
+                return {
+                    'keywords': keywords,
+                    'peak_interest': float(interest_data.max().max()),
+                    'current_interest': float(interest_data.tail(1).mean().mean()),
+                    'trend_direction': trend_direction,
+                    'data_points': len(interest_data),
+                    'source': 'google_trends'
+                }
+            
+            return {}
+        
+        except Exception as e:
+            logging.error(f"Interest over time error: {e}")
+            return {}
+
+class WebScrapingDetector:
+    """Web scraping for industry-specific trend detection"""
+    
+    def __init__(self):
+        self.session = None
+    
+    async def __aenter__(self):
+        self.session = aiohttp.ClientSession()
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if self.session:
+            await self.session.close()
+    
+    @rate_limit(max_calls=20, time_window=60)  # Be respectful to websites
+    async def scrape_industry_trends(self, industry: str) -> List[Dict[str, Any]]:
+        """Scrape industry-specific websites for trending topics"""
+        if not self.session:
+            self.session = aiohttp.ClientSession()
+        
+        # Industry-specific websites to scrape
+        industry_sites = {
+            'fitness': [
+                'https://www.bodybuilding.com/content/the-latest-fitness-trends.html',
+                'https://www.shape.com/latest-fitness-trends'
+            ],
+            'beauty': [
+                'https://www.allure.com/beauty-trends',
+                'https://www.harpersbazaar.com/beauty/'
+            ],
+            'restaurant': [
+                'https://www.foodandwine.com/news',
+                'https://www.eater.com/food-trends'
+            ],
+            'fashion': [
+                'https://www.vogue.com/fashion/trends',
+                'https://www.harpersbazaar.com/fashion/trends/'
+            ]
+        }
+        
+        sites = industry_sites.get(industry, [])
+        scraped_trends = []
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        
+        for site_url in sites:
+            try:
+                async with self.session.get(site_url, headers=headers, timeout=10) as response:
+                    if response.status == 200:
+                        html = await response.text()
+                        soup = BeautifulSoup(html, 'html.parser')
+                        
+                        # Extract article titles, headlines, and trending content
+                        trends = self._extract_trending_content(soup, site_url, industry)
+                        scraped_trends.extend(trends)
+                        
+                        # Be respectful - add delay between requests
+                        await asyncio.sleep(2)
+                    
+                    else:
+                        logging.warning(f"Failed to scrape {site_url}: Status {response.status}")
+            
+            except Exception as e:
+                logging.error(f"Scraping error for {site_url}: {e}")
+                continue
+        
+        return scraped_trends[:15]  # Limit to 15 trends
+    
+    def _extract_trending_content(self, soup: BeautifulSoup, site_url: str, industry: str) -> List[Dict[str, Any]]:
+        """Extract trending content from scraped HTML"""
+        trends = []
+        
+        # Common selectors for articles and headlines
+        selectors = [
+            'h1', 'h2', 'h3',  # Headlines
+            '.headline', '.title', '.article-title',  # Common class names
+            '[class*="title"]', '[class*="headline"]',  # Partial class matches
+            'article h1', 'article h2',  # Article headlines
+        ]
+        
+        found_content = set()  # Avoid duplicates
+        
+        for selector in selectors:
+            try:
+                elements = soup.select(selector)
+                for element in elements[:20]:  # Limit per selector
+                    text = element.get_text().strip()
+                    
+                    # Filter relevant content
+                    if (len(text) > 20 and len(text) < 200 and 
+                        text not in found_content and
+                        not self._is_navigation_content(text)):
+                        
+                        # Extract keywords
+                        keywords = self._extract_keywords_from_title(text)
+                        
+                        # Only include if we found relevant keywords
+                        if keywords and len(keywords) > 2:
+                            trend_data = {
+                                'name': text,
+                                'keywords': keywords,
+                                'source_url': site_url,
+                                'industry': industry,
+                                'source': 'web_scraping',
+                                'scraped_at': datetime.now()
+                            }
+                            
+                            trends.append(trend_data)
+                            found_content.add(text)
+            
+            except Exception as e:
+                logging.error(f"Error with selector {selector}: {e}")
+                continue
+        
+        return trends
+    
+    def _is_navigation_content(self, text: str) -> bool:
+        """Filter out navigation and non-content text"""
+        nav_keywords = ['menu', 'navigation', 'footer', 'header', 'subscribe', 'newsletter', 'follow us', 'contact', 'about us', 'privacy policy', 'terms']
+        text_lower = text.lower()
+        
+        return any(keyword in text_lower for keyword in nav_keywords)
+    
+    def _extract_keywords_from_title(self, title: str) -> List[str]:
+        """Extract keywords from article titles"""
+        common_words = {'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'how', 'what', 'why', 'when', 'where', 'this', 'that', 'these', 'those', 'will', 'best', 'top', 'new', 'latest'}
+        
+        # Clean and extract words
+        words = re.findall(r'\b[a-zA-Z]+\b', title.lower())
+        keywords = [word for word in words if len(word) > 3 and word not in common_words]
+        
+        return keywords[:8]  # Return top 8 keywords
 
 @dataclass
 class ViralCampaign:
-    """Complete viral campaign data structure"""
+    """Complete viral campaign data structure with enhanced real data"""
     campaign_id: str
     user_id: str
     trending_topic: TrendingTopic
@@ -56,21 +727,50 @@ class ViralCampaign:
     generated_assets: List[str]
     performance_prediction: Dict[str, float]
     created_at: datetime
+    # Enhanced fields
+    data_sources_used: Optional[List[str]] = None
+    competitor_analysis: Optional[Dict[str, Any]] = None
+    target_audience_insights: Optional[Dict[str, Any]] = None
 
 class ViralContentEngine:
     """
-    AI-powered system for detecting trends and creating viral content
+    Enhanced AI-powered system for detecting trends and creating viral content
+    Now integrates real data sources: Reddit, YouTube, Google Trends, Web Scraping, and Claude LLM
     """
     
     def __init__(self):
         # Setup logging
         self.logger = logging.getLogger(__name__)
         
-        # API keys for trend detection
+        # API keys for trend detection (enhanced)
         self.api_keys = {
-            'twitter': os.getenv('TWITTER_API_KEY'),
-            'google': os.getenv('GOOGLE_API_KEY'),
-            'newsapi': os.getenv('NEWS_API_KEY')
+            'reddit_client_id': os.getenv('REDDIT_CLIENT_ID'),
+            'reddit_client_secret': os.getenv('REDDIT_CLIENT_SECRET'),
+            'youtube': os.getenv('YOUTUBE_API_KEY'),
+            'anthropic': os.getenv('ANTHROPIC_API_KEY'),
+            'google': os.getenv('GOOGLE_API_KEY'),  # Keep legacy for other uses
+            'newsapi': os.getenv('NEWS_API_KEY')  # Keep legacy for other uses
+        }
+        
+        # Initialize real data source integrations
+        self.reddit_detector = RedditTrendDetector(
+            client_id=self.api_keys['reddit_client_id'],
+            client_secret=self.api_keys['reddit_client_secret']
+        )
+        self.youtube_detector = YouTubeTrendDetector(api_key=self.api_keys['youtube'])
+        self.google_trends_detector = GoogleTrendsDetector()
+        self.claude_curator = None  # Will be initialized when needed
+        
+        # Caching for performance
+        self.trend_cache = {}
+        self.cache_ttl = 1800  # 30 minutes cache TTL
+        
+        # Data source weights (for scoring)
+        self.source_weights = {
+            'reddit': 0.3,
+            'youtube': 0.25,
+            'google_trends': 0.25,
+            'web_scraping': 0.2
         }
         
         # Viral content patterns and frameworks
@@ -127,24 +827,327 @@ class ViralContentEngine:
         """Get database session for PostgreSQL operations"""
         return next(get_db())
     
-    async def detect_trending_topics(self, industry: str = 'general') -> List[TrendingTopic]:
-        """Detect current trending topics for specific industry"""
+    async def detect_trending_topics(self, industry: str = 'general', use_cache: bool = True) -> List[TrendingTopic]:
+        """Enhanced trending topic detection using real data sources"""
         try:
-            # This would integrate with real trend detection APIs
-            # For demo, we'll simulate trending topics
+            # Check cache first
+            cache_key = f"trends_{industry}_{datetime.now().hour}"  # Hourly cache
+            if use_cache and cache_key in self.trend_cache:
+                cache_data = self.trend_cache[cache_key]
+                if (datetime.now() - cache_data['timestamp']).seconds < self.cache_ttl:
+                    self.logger.info(f"Using cached trends for {industry}")
+                    return cache_data['trends']
             
-            simulated_trends = await self._simulate_trending_topics(industry)
+            self.logger.info(f"Fetching real trending topics for {industry} industry...")
             
-            # Store detected trends
-            for trend in simulated_trends:
+            # Collect data from all sources concurrently
+            tasks = []
+            
+            # Reddit trends
+            tasks.append(self._fetch_reddit_trends(industry))
+            
+            # YouTube trends  
+            tasks.append(self._fetch_youtube_trends(industry))
+            
+            # Google Trends
+            tasks.append(self._fetch_google_trends(industry))
+            
+            # Web scraping
+            tasks.append(self._fetch_web_scraping_trends(industry))
+            
+            # Execute all data collection tasks
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Process and merge results
+            all_trend_data = []
+            sources_used = []
+            
+            for i, result in enumerate(results):
+                source_names = ['reddit', 'youtube', 'google_trends', 'web_scraping']
+                if not isinstance(result, Exception) and result:
+                    all_trend_data.extend(result)
+                    sources_used.append(source_names[i])
+                    self.logger.info(f"Successfully fetched {len(result)} trends from {source_names[i]}")
+                elif isinstance(result, Exception):
+                    self.logger.error(f"Error fetching from {source_names[i]}: {result}")
+            
+            # Convert raw data to TrendingTopic objects
+            trending_topics = await self._process_raw_trends(all_trend_data, industry, sources_used)
+            
+            # Use Claude for curation and filtering
+            if self.api_keys['anthropic']:
+                trending_topics = await self._curate_with_claude(trending_topics, industry)
+            
+            # Store in cache
+            if use_cache:
+                self.trend_cache[cache_key] = {
+                    'trends': trending_topics,
+                    'timestamp': datetime.now()
+                }
+            
+            # Store detected trends in database
+            for trend in trending_topics:
                 await self._store_trending_topic(trend)
             
-            self.logger.info(f"Detected {len(simulated_trends)} trending topics for {industry}")
-            return simulated_trends
+            self.logger.info(f"Detected {len(trending_topics)} curated trending topics for {industry}")
+            return trending_topics
             
         except Exception as e:
             self.logger.error(f"Error detecting trending topics: {e}")
+            # Fallback to simulated data if all else fails
+            return await self._simulate_trending_topics(industry)
+    
+    async def _fetch_reddit_trends(self, industry: str) -> List[Dict[str, Any]]:
+        """Fetch trending topics from Reddit"""
+        try:
+            return await self.reddit_detector.get_trending_topics(industry, limit=15)
+        except Exception as e:
+            self.logger.error(f"Reddit fetch error: {e}")
             return []
+    
+    async def _fetch_youtube_trends(self, industry: str) -> List[Dict[str, Any]]:
+        """Fetch trending videos from YouTube"""
+        try:
+            return await self.youtube_detector.get_trending_videos(industry)
+        except Exception as e:
+            self.logger.error(f"YouTube fetch error: {e}")
+            return []
+    
+    async def _fetch_google_trends(self, industry: str) -> List[Dict[str, Any]]:
+        """Fetch trending searches from Google Trends"""
+        try:
+            return await self.google_trends_detector.get_trending_searches()
+        except Exception as e:
+            self.logger.error(f"Google Trends fetch error: {e}")
+            return []
+    
+    async def _fetch_web_scraping_trends(self, industry: str) -> List[Dict[str, Any]]:
+        """Fetch trends via web scraping"""
+        try:
+            async with WebScrapingDetector() as scraper:
+                return await scraper.scrape_industry_trends(industry)
+        except Exception as e:
+            self.logger.error(f"Web scraping fetch error: {e}")
+            return []
+    
+    async def _process_raw_trends(self, raw_data: List[Dict[str, Any]], industry: str, sources: List[str]) -> List[TrendingTopic]:
+        """Convert raw trend data into TrendingTopic objects with scoring"""
+        trending_topics = []
+        
+        # Group similar trends and calculate composite scores
+        trend_clusters = self._cluster_similar_trends(raw_data)
+        
+        for cluster in trend_clusters:
+            try:
+                # Calculate weighted score based on sources and engagement
+                trend_score = self._calculate_composite_trend_score(cluster)
+                
+                # Determine most representative trend data
+                primary_trend = max(cluster, key=lambda x: x.get('score', 0) or x.get('views', 0) or 0)
+                
+                # Extract and merge keywords
+                all_keywords = []
+                all_hashtags = []
+                cluster_sources = []
+                
+                for trend_data in cluster:
+                    all_keywords.extend(trend_data.get('keywords', []))
+                    cluster_sources.append(trend_data.get('source', 'unknown'))
+                    
+                    # Generate hashtags from keywords
+                    hashtags = [f"#{kw.replace(' ', '')}" for kw in trend_data.get('keywords', [])[:3]]
+                    all_hashtags.extend(hashtags)
+                
+                # Deduplicate and limit
+                unique_keywords = list(dict.fromkeys(all_keywords))[:10]
+                unique_hashtags = list(dict.fromkeys(all_hashtags))[:8]
+                unique_sources = list(dict.fromkeys(cluster_sources))
+                
+                # Create TrendingTopic object
+                topic_id = f"{industry}_{hashlib.md5(primary_trend['name'].encode()).hexdigest()[:8]}_{int(datetime.now().timestamp())}"
+                
+                trending_topic = TrendingTopic(
+                    topic_id=topic_id,
+                    topic_name=primary_trend['name'][:100],  # Limit length
+                    trend_score=trend_score,
+                    industry=industry,
+                    keywords=unique_keywords,
+                    hashtags=unique_hashtags,
+                    viral_elements=self._extract_viral_elements(cluster),
+                    detected_at=datetime.now(),
+                    peak_period=self._predict_peak_period(),
+                    engagement_potential=min(trend_score * 1.2, 100),
+                    sources=unique_sources,
+                    geographic_data={'region': 'US'},  # Default for now
+                    sentiment_score=self._estimate_sentiment(primary_trend),
+                    related_trends=[],
+                    content_examples=[trend_data for trend_data in cluster[:3]],  # Keep top 3 examples
+                    claude_analysis=None  # Will be filled by Claude curation
+                )
+                
+                trending_topics.append(trending_topic)
+                
+            except Exception as e:
+                self.logger.error(f"Error processing trend cluster: {e}")
+                continue
+        
+        # Sort by trend score
+        trending_topics.sort(key=lambda x: x.trend_score, reverse=True)
+        return trending_topics[:20]  # Limit to top 20
+    
+    def _cluster_similar_trends(self, raw_data: List[Dict[str, Any]]) -> List[List[Dict[str, Any]]]:
+        """Group similar trends together to avoid duplicates"""
+        clusters = []
+        processed = set()
+        
+        for trend in raw_data:
+            if id(trend) in processed:
+                continue
+            
+            # Create new cluster
+            cluster = [trend]
+            processed.add(id(trend))
+            
+            trend_keywords = set(word.lower() for word in trend.get('keywords', []))
+            trend_name_words = set(trend['name'].lower().split())
+            
+            # Find similar trends
+            for other_trend in raw_data:
+                if id(other_trend) in processed:
+                    continue
+                
+                other_keywords = set(word.lower() for word in other_trend.get('keywords', []))
+                other_name_words = set(other_trend['name'].lower().split())
+                
+                # Calculate similarity
+                keyword_similarity = len(trend_keywords & other_keywords) / len(trend_keywords | other_keywords) if trend_keywords | other_keywords else 0
+                name_similarity = len(trend_name_words & other_name_words) / len(trend_name_words | other_name_words) if trend_name_words | other_name_words else 0
+                
+                # Group if similarity is high
+                if keyword_similarity > 0.3 or name_similarity > 0.4:
+                    cluster.append(other_trend)
+                    processed.add(id(other_trend))
+            
+            clusters.append(cluster)
+        
+        return clusters
+    
+    def _calculate_composite_trend_score(self, cluster: List[Dict[str, Any]]) -> float:
+        """Calculate composite trend score from multiple data sources"""
+        total_score = 0
+        source_count = 0
+        
+        for trend_data in cluster:
+            source = trend_data.get('source', 'unknown')
+            weight = self.source_weights.get(source, 0.1)
+            
+            # Source-specific scoring
+            if source == 'reddit':
+                score = min((trend_data.get('score', 0) * trend_data.get('upvote_ratio', 0.5)) / 100, 100)
+            elif source == 'youtube':
+                score = min(trend_data.get('engagement_score', 0), 100)
+            elif source == 'google_trends':
+                score = 80  # Google trends are inherently high value
+            elif source == 'web_scraping':
+                score = 60  # Web scraped content gets moderate score
+            else:
+                score = 50  # Default score
+            
+            total_score += score * weight
+            source_count += weight
+        
+        # Normalize and add bonuses
+        base_score = total_score / source_count if source_count > 0 else 50
+        
+        # Multi-source bonus
+        unique_sources = len(set(trend.get('source') for trend in cluster))
+        multi_source_bonus = min(unique_sources * 5, 15)
+        
+        final_score = min(base_score + multi_source_bonus, 100)
+        return final_score
+    
+    def _extract_viral_elements(self, cluster: List[Dict[str, Any]]) -> List[str]:
+        """Extract viral elements from trend cluster"""
+        viral_elements = []
+        
+        for trend_data in cluster:
+            # Check for viral indicators in content
+            content = (trend_data.get('name', '') + ' ' + trend_data.get('description', '') + ' ' + ' '.join(trend_data.get('keywords', []))).lower()
+            
+            if any(word in content for word in ['challenge', 'try', 'attempt']):
+                viral_elements.append('challenge')
+            if any(word in content for word in ['before', 'after', 'transformation']):
+                viral_elements.append('transformation')
+            if any(word in content for word in ['tutorial', 'how to', 'learn', 'guide']):
+                viral_elements.append('tutorial')
+            if any(word in content for word in ['reaction', 'responds', 'reacts']):
+                viral_elements.append('reaction')
+            if any(word in content for word in ['behind', 'scenes', 'exclusive']):
+                viral_elements.append('behind_scenes')
+            if any(word in content for word in ['shocking', 'unbelievable', 'incredible']):
+                viral_elements.append('shocking')
+        
+        return list(set(viral_elements)) or ['general']
+    
+    def _estimate_sentiment(self, trend_data: Dict[str, Any]) -> float:
+        """Estimate sentiment score from trend data"""
+        content = trend_data.get('name', '') + ' ' + trend_data.get('description', '')
+        positive_words = ['amazing', 'best', 'love', 'great', 'awesome', 'incredible', 'fantastic']
+        negative_words = ['worst', 'hate', 'terrible', 'awful', 'bad', 'horrible', 'disaster']
+        
+        positive_count = sum(1 for word in positive_words if word in content.lower())
+        negative_count = sum(1 for word in negative_words if word in content.lower())
+        
+        if positive_count > negative_count:
+            return 0.7
+        elif negative_count > positive_count:
+            return 0.3
+        else:
+            return 0.5  # Neutral
+    
+    async def _curate_with_claude(self, trends: List[TrendingTopic], industry: str) -> List[TrendingTopic]:
+        """Use Claude to curate and filter trending topics"""
+        if not self.claude_curator:
+            self.claude_curator = ClaudeContentCurator(self.api_keys['anthropic'])
+        
+        curated_trends = []
+        
+        async with self.claude_curator:
+            for trend in trends:
+                try:
+                    # Prepare trend data for Claude analysis
+                    trend_data = {
+                        'name': trend.topic_name,
+                        'keywords': trend.keywords,
+                        'sources': trend.sources,
+                        'content_examples': trend.content_examples
+                    }
+                    
+                    # Get Claude analysis
+                    claude_analysis = await self.claude_curator.analyze_trend_relevance(trend_data, industry)
+                    
+                    # Filter based on Claude's assessment
+                    if claude_analysis.get('safety_score', 0) >= 70 and claude_analysis.get('relevance_score', 0) >= 60:
+                        # Update trend with Claude's analysis
+                        trend.claude_analysis = claude_analysis
+                        trend.trend_score = (trend.trend_score + claude_analysis.get('viral_potential', 50)) / 2
+                        
+                        # Update hashtags with Claude's suggestions
+                        claude_hashtags = claude_analysis.get('suggested_hashtags', [])
+                        trend.hashtags = list(set(trend.hashtags + claude_hashtags))[:10]
+                        
+                        curated_trends.append(trend)
+                    
+                    # Rate limit protection
+                    await asyncio.sleep(0.5)
+                
+                except Exception as e:
+                    self.logger.error(f"Error curating trend with Claude: {e}")
+                    # Include trend anyway if Claude fails
+                    curated_trends.append(trend)
+        
+        self.logger.info(f"Claude curated {len(curated_trends)} from {len(trends)} trends")
+        return curated_trends
     
     async def _simulate_trending_topics(self, industry: str) -> List[TrendingTopic]:
         """Simulate trending topics (would be replaced with real API integration)"""
@@ -265,29 +1268,67 @@ class ViralContentEngine:
             db.close()
     
     async def create_viral_content_from_trend(self, topic_id: str, framework: str = 'auto') -> ViralContent:
-        """Create viral content based on trending topic"""
+        """Enhanced viral content creation using Claude LLM and real trend data"""
         try:
             # Get trending topic
             trend = await self._get_trending_topic(topic_id)
             if not trend:
                 raise ValueError("Trending topic not found")
             
-            # Select viral framework
+            # Select viral framework (enhanced with Claude analysis)
             if framework == 'auto':
                 framework = self._select_optimal_framework(trend)
+                
+                # Use Claude's recommended frameworks if available
+                if trend.claude_analysis and trend.claude_analysis.get('recommended_frameworks'):
+                    claude_frameworks = trend.claude_analysis['recommended_frameworks']
+                    if claude_frameworks:
+                        framework = claude_frameworks[0]  # Use top recommendation
             
             framework_data = self.viral_frameworks.get(framework, self.viral_frameworks['challenge'])
             
-            # Generate viral content
-            viral_prompt = await self._generate_viral_prompt(trend, framework_data)
-            viral_caption = await self._generate_viral_caption(trend, framework_data)
+            # Initialize Claude curator if needed
+            if not self.claude_curator and self.api_keys['anthropic']:
+                self.claude_curator = ClaudeContentCurator(self.api_keys['anthropic'])
+            
+            # Generate enhanced viral content with Claude
+            if self.claude_curator:
+                async with self.claude_curator:
+                    # Use Claude for caption generation
+                    claude_caption_data = await self.claude_curator.curate_content_caption(trend, framework)
+                    
+                    viral_caption = claude_caption_data.get('instagram_caption', '')
+                    claude_hashtags = claude_caption_data.get('key_hashtags', [])
+                    engagement_prediction = claude_caption_data.get('engagement_prediction', 65)
+            else:
+                # Fallback to original method
+                viral_caption = await self._generate_viral_caption(trend, framework_data)
+                claude_hashtags = []
+                engagement_prediction = 65
+            
+            # Generate enhanced viral prompt
+            viral_prompt = await self._generate_enhanced_viral_prompt(trend, framework_data)
+            
+            # Combine engagement hooks
             engagement_hooks = framework_data['engagement_hooks'] + [random.choice(self.viral_triggers)]
             
-            # Calculate virality score
-            virality_score = self._calculate_virality_score(trend, framework_data)
+            # Add Claude's content angles if available
+            if trend.claude_analysis and trend.claude_analysis.get('content_angles'):
+                engagement_hooks.extend(trend.claude_analysis['content_angles'][:2])
             
-            # Determine optimal posting time
-            optimal_time = self._determine_optimal_posting_time(trend)
+            # Calculate enhanced virality score
+            virality_score = self._calculate_enhanced_virality_score(trend, framework_data, engagement_prediction)
+            
+            # Determine optimal posting time (enhanced with trend data)
+            optimal_time = self._determine_enhanced_optimal_posting_time(trend)
+            
+            # Combine hashtags from multiple sources
+            all_hashtags = list(set(
+                trend.hashtags + 
+                claude_hashtags + 
+                [f'#{framework}Challenge'] +
+                (trend.claude_analysis.get('suggested_hashtags', []) if trend.claude_analysis else [])
+            ))[:15]  # Limit to 15 hashtags
             
             content_id = f"viral_{topic_id}_{framework}_{int(datetime.now().timestamp())}"
             
@@ -297,20 +1338,210 @@ class ViralContentEngine:
                 content_type='image',  # Default to image, can be customized
                 viral_prompt=viral_prompt,
                 viral_caption=viral_caption,
-                viral_hashtags=trend.hashtags + [f'#{framework}Challenge'],
-                engagement_hooks=engagement_hooks,
+                viral_hashtags=all_hashtags,
+                engagement_hooks=list(set(engagement_hooks))[:10],  # Dedupe and limit
                 optimal_posting_time=optimal_time,
-                virality_score=virality_score
+                virality_score=virality_score,
+                # Enhanced fields
+                claude_refinement=trend.claude_analysis,
+                content_safety_score=trend.claude_analysis.get('safety_score', 80) if trend.claude_analysis else 80,
+                brand_alignment_score=trend.claude_analysis.get('relevance_score', 70) if trend.claude_analysis else 70,
+                competitor_differentiation=self._generate_competitor_differentiation(trend)
             )
             
             # Store viral content
             await self._store_viral_content(viral_content)
             
+            self.logger.info(f"Created enhanced viral content: {content_id} with score {virality_score:.1f}")
             return viral_content
             
         except Exception as e:
             self.logger.error(f"Error creating viral content: {e}")
             raise
+    
+    async def _generate_enhanced_viral_prompt(self, trend: TrendingTopic, framework: Dict[str, Any]) -> str:
+        """Generate enhanced AI prompt using real trend data and sources"""
+        base_prompt = f"Viral social media content featuring {trend.topic_name}"
+        
+        # Add source-specific context
+        if 'reddit' in trend.sources:
+            base_prompt += ", community-driven viral content"
+        if 'youtube' in trend.sources:
+            base_prompt += ", video-inspired engaging visuals"
+        if 'google_trends' in trend.sources:
+            base_prompt += ", trending search-optimized content"
+        
+        # Add industry-specific elements (enhanced)
+        industry_prompts = {
+            'restaurant': ", mouth-watering food photography, appetizing presentation, food styling",
+            'fitness': ", energetic workout demonstration, motivation and transformation focus",
+            'beauty': ", stunning beauty transformation, before/after comparison, professional makeup",
+            'fashion': ", stylish fashion showcase, outfit coordination, trendy styling",
+            'tech': ", sleek technology demonstration, modern gadgets, innovation focus"
+        }
+        
+        base_prompt += industry_prompts.get(trend.industry, ", professional and engaging content")
+        
+        # Add viral elements from trend analysis
+        if 'transformation' in trend.viral_elements:
+            base_prompt += ", dramatic before/after comparison, transformation journey"
+        elif 'challenge' in trend.viral_elements:
+            base_prompt += ", challenge participation, step-by-step demonstration"
+        elif 'tutorial' in trend.viral_elements:
+            base_prompt += ", educational tutorial style, clear step-by-step process"
+        
+        # Add trending keywords for better relevance
+        if trend.keywords:
+            trending_elements = ', '.join(trend.keywords[:5])
+            base_prompt += f", incorporating trending elements: {trending_elements}"
+        
+        # Add source examples context if available
+        if trend.content_examples:
+            example_keywords = []
+            for example in trend.content_examples[:2]:
+                example_keywords.extend(example.get('keywords', [])[:3])
+            if example_keywords:
+                unique_example_keywords = list(set(example_keywords))[:4]
+                base_prompt += f", inspired by: {', '.join(unique_example_keywords)}"
+        
+        # Add Claude's content angles if available
+        if trend.claude_analysis and trend.claude_analysis.get('content_angles'):
+            angles = ', '.join(trend.claude_analysis['content_angles'][:3])
+            base_prompt += f", content approach: {angles}"
+        
+        base_prompt += ", hyperrealistic poster style, high engagement visual design, viral-optimized composition, social media ready"
+        
+        return base_prompt
+    
+    def _calculate_enhanced_virality_score(self, trend: TrendingTopic, framework: Dict[str, Any], claude_prediction: float) -> float:
+        """Enhanced virality score calculation with real data"""
+        # Base score from trend data
+        base_score = trend.trend_score * 0.3
+        
+        # Framework multiplier
+        framework_bonus = framework['virality_multiplier'] * 8
+        
+        # Multi-source bonus
+        source_bonus = len(trend.sources) * 5  # 5 points per unique source
+        
+        # Claude prediction bonus
+        claude_bonus = (claude_prediction - 50) * 0.3  # Normalize Claude prediction
+        
+        # Sentiment bonus
+        if trend.sentiment_score:
+            if trend.sentiment_score > 0.6:  # Positive sentiment
+                sentiment_bonus = 10
+            elif trend.sentiment_score < 0.4:  # Negative sentiment (controversial can be viral)
+                sentiment_bonus = 5
+            else:
+                sentiment_bonus = 0
+        else:
+            sentiment_bonus = 0
+        
+        # Timing bonus (enhanced)
+        if 'next 2 hours' in trend.peak_period or 'today' in trend.peak_period:
+            timing_bonus = 15
+        elif 'tomorrow' in trend.peak_period:
+            timing_bonus = 10
+        else:
+            timing_bonus = 5
+        
+        # Industry multiplier (enhanced)
+        industry_multipliers = {
+            'beauty': 1.3,
+            'fitness': 1.25, 
+            'fashion': 1.2,
+            'restaurant': 1.2,
+            'tech': 1.1,
+            'general': 1.0
+        }
+        industry_bonus = industry_multipliers.get(trend.industry, 1.0) * 8
+        
+        # Content example quality bonus
+        if trend.content_examples:
+            high_engagement_examples = [ex for ex in trend.content_examples 
+                                      if ex.get('score', 0) > 1000 or ex.get('views', 0) > 10000]
+            example_bonus = len(high_engagement_examples) * 3
+        else:
+            example_bonus = 0
+        
+        # Calculate total score
+        total_score = (base_score + framework_bonus + source_bonus + claude_bonus + 
+                      sentiment_bonus + timing_bonus + industry_bonus + example_bonus)
+        
+        # Safety penalty if Claude identified risks
+        if trend.claude_analysis and trend.claude_analysis.get('safety_score', 100) < 80:
+            safety_penalty = (80 - trend.claude_analysis.get('safety_score', 80)) * 0.5
+            total_score -= safety_penalty
+        
+        return min(100, max(10, total_score))  # Clamp between 10-100
+    
+    def _determine_enhanced_optimal_posting_time(self, trend: TrendingTopic) -> str:
+        """Enhanced optimal posting time determination using trend data"""
+        # Base industry strategies
+        time_strategies = {
+            'fitness': ['6:00 AM', '12:00 PM', '6:00 PM'],
+            'beauty': ['7:00 PM', '9:00 PM', '11:00 AM'],
+            'restaurant': ['11:30 AM', '5:30 PM', '7:00 PM'],
+            'fashion': ['10:00 AM', '2:00 PM', '8:00 PM'],
+            'tech': ['9:00 AM', '1:00 PM', '7:00 PM'],
+            'general': ['9:00 AM', '1:00 PM', '7:00 PM']
+        }
+        
+        optimal_times = time_strategies.get(trend.industry, time_strategies['general'])
+        
+        # Consider source data for timing
+        if 'reddit' in trend.sources:
+            # Reddit is most active during evening hours
+            optimal_times = ['7:00 PM', '8:00 PM', '9:00 PM']
+        elif 'youtube' in trend.sources:
+            # YouTube peaks during afternoon/evening
+            optimal_times = ['2:00 PM', '6:00 PM', '8:00 PM']
+        
+        # Factor in peak period from trend data
+        if 'morning' in trend.peak_period:
+            return optimal_times[0] if len(optimal_times) > 0 else '9:00 AM'
+        elif 'evening' in trend.peak_period or 'night' in trend.peak_period:
+            return optimal_times[-1] if len(optimal_times) > 0 else '7:00 PM'
+        elif 'afternoon' in trend.peak_period:
+            return optimal_times[1] if len(optimal_times) > 1 else '2:00 PM'
+        else:
+            return optimal_times[1] if len(optimal_times) > 1 else '1:00 PM'
+    
+    def _generate_competitor_differentiation(self, trend: TrendingTopic) -> List[str]:
+        """Generate competitor differentiation strategies"""
+        differentiators = []
+        
+        # Based on viral elements
+        if 'tutorial' in trend.viral_elements:
+            differentiators.append("Quick-format tutorial approach")
+        if 'transformation' in trend.viral_elements:
+            differentiators.append("Authentic transformation story")
+        if 'challenge' in trend.viral_elements:
+            differentiators.append("Unique challenge variation")
+        
+        # Based on sources
+        if 'reddit' in trend.sources:
+            differentiators.append("Community-driven authentic content")
+        if 'youtube' in trend.sources:
+            differentiators.append("Video-first content strategy")
+        
+        # Based on Claude analysis
+        if trend.claude_analysis and trend.claude_analysis.get('content_angles'):
+            angles = trend.claude_analysis['content_angles']
+            differentiators.extend([f"Focus on {angle}" for angle in angles[:2]])
+        
+        # Industry-specific differentiators
+        industry_diff = {
+            'fitness': ["Real-time progress tracking", "Science-backed approach"],
+            'beauty': ["Natural ingredient focus", "Inclusive beauty standards"],
+            'restaurant': ["Behind-the-scenes authenticity", "Seasonal ingredient highlight"],
+            'fashion': ["Sustainable fashion angle", "Inclusive sizing representation"]
+        }
+        
+        differentiators.extend(industry_diff.get(trend.industry, ["Authentic brand voice", "Data-driven approach"]))
+        
+        return list(set(differentiators))[:6]  # Return unique differentiators, limit to 6
     
     async def _get_trending_topic(self, topic_id: str) -> Optional[TrendingTopic]:
         """Get trending topic from database"""
@@ -663,41 +1894,121 @@ async def create_trend_content(topic_id: str, framework: str = 'auto'):
     return await engine.create_viral_content_from_trend(topic_id, framework)
 
 async def main():
-    """Test the viral content engine"""
-    print("🔥 Viral Content & Trending Engine")
-    print("=" * 40)
+    """Enhanced demo of the viral content engine with real data sources"""
+    print("🔥 Enhanced Viral Content & Trending Engine")
+    print("=" * 50)
+    print("🚀 Now with Real Data Sources & Claude LLM!")
+    print("=" * 50)
     
     engine = ViralContentEngine()
     
-    # Demo: Detect trending topics
-    print("🔍 Detecting trending topics for fitness industry...")
+    # Check API configuration
+    print("\n🔧 API Configuration Status:")
+    apis = {
+        'Reddit': engine.reddit_detector.reddit is not None,
+        'YouTube': engine.youtube_detector.api_key is not None,
+        'Claude': engine.api_keys['anthropic'] is not None,
+        'Google Trends': True,  # No API key needed
+    }
+    
+    for api, status in apis.items():
+        status_icon = "✅" if status else "❌"
+        print(f"  {status_icon} {api}: {'Configured' if status else 'Not configured'}")
+    
+    if not any(apis.values()):
+        print("\n⚠️  No APIs configured! Using fallback simulated data.")
+        print("   Set up API keys in .env file for real data sources.")
+    
+    print(f"\n🔍 Detecting REAL trending topics for fitness industry...")
+    print("   Sources: Reddit + YouTube + Google Trends + Web Scraping")
+    
+    # Detect trending topics with real data
     trends = await engine.detect_trending_topics('fitness')
     
-    for trend in trends:
-        print(f"  📈 {trend.topic_name} (Score: {trend.trend_score:.1f})")
-        print(f"     Keywords: {', '.join(trend.keywords[:3])}")
-        print(f"     Peak: {trend.peak_period}")
+    print(f"\n📊 Found {len(trends)} trending topics:")
+    for i, trend in enumerate(trends[:5], 1):  # Show top 5
+        print(f"\n  {i}. 📈 {trend.topic_name}")
+        print(f"     🎯 Virality Score: {trend.trend_score:.1f}/100")
+        print(f"     📱 Sources: {', '.join(trend.sources)}")
+        print(f"     🏷️  Keywords: {', '.join(trend.keywords[:5])}")
+        print(f"     ⏰ Peak Period: {trend.peak_period}")
+        print(f"     😊 Sentiment: {trend.sentiment_score:.2f}" if trend.sentiment_score else "")
+        
+        # Show Claude analysis if available
+        if trend.claude_analysis:
+            claude = trend.claude_analysis
+            print(f"     🤖 Claude Analysis:")
+            print(f"        Safety Score: {claude.get('safety_score', 'N/A')}/100")
+            print(f"        Relevance Score: {claude.get('relevance_score', 'N/A')}/100")
+            print(f"        Recommended Frameworks: {', '.join(claude.get('recommended_frameworks', []))}")
     
-    # Demo: Create viral campaign
+    # Demo: Create enhanced viral content
     if trends:
-        print(f"\n🚀 Creating viral campaign...")
-        campaign = await engine.generate_viral_campaign('user_123', 'fitness')
+        print(f"\n🚀 Creating enhanced viral content with Claude LLM...")
+        trend = trends[0]  # Use top trend
         
-        print(f"✅ Campaign created: {campaign.campaign_id}")
-        print(f"📊 Virality Score: {campaign.viral_content.virality_score:.1f}")
-        print(f"🎯 Predicted Reach: {campaign.performance_prediction['predicted_reach']:,.0f}")
-        print(f"⏰ Optimal Posting: {campaign.viral_content.optimal_posting_time}")
+        # Create viral content with Claude enhancement
+        viral_content = await engine.create_viral_content_from_trend(
+            trend.topic_id, 
+            framework='auto'  # Let Claude choose optimal framework
+        )
         
-        print(f"\n📝 Viral Caption Preview:")
-        print(campaign.viral_content.viral_caption[:200] + "...")
+        print(f"\n✅ Enhanced Viral Content Created:")
+        print(f"   🆔 Content ID: {viral_content.content_id}")
+        print(f"   🎯 Virality Score: {viral_content.virality_score:.1f}/100")
+        print(f"   🛡️  Safety Score: {viral_content.content_safety_score:.1f}/100")
+        print(f"   🎨 Brand Alignment: {viral_content.brand_alignment_score:.1f}/100")
+        print(f"   ⏰ Optimal Posting: {viral_content.optimal_posting_time}")
+        print(f"   🏷️  Hashtags: {', '.join(viral_content.viral_hashtags[:8])}")
+        
+        print(f"\n📝 Claude-Generated Caption:")
+        print(f"   {viral_content.viral_caption[:300]}...")
+        
+        print(f"\n🎨 Enhanced AI Prompt:")
+        print(f"   {viral_content.viral_prompt[:200]}...")
+        
+        if viral_content.competitor_differentiation:
+            print(f"\n🏆 Competitive Advantages:")
+            for advantage in viral_content.competitor_differentiation[:3]:
+                print(f"   • {advantage}")
     
-    # Demo: Get viral opportunities
-    print(f"\n💎 Current viral opportunities:")
+    # Demo: Generate complete viral campaign
+    if trends:
+        print(f"\n🎬 Generating complete viral campaign...")
+        campaign = await engine.generate_viral_campaign('demo_user', 'fitness')
+        
+        print(f"\n✅ Enhanced Viral Campaign Created:")
+        print(f"   🆔 Campaign ID: {campaign.campaign_id}")
+        print(f"   📊 Overall Virality Score: {campaign.viral_content.virality_score:.1f}/100")
+        print(f"   🎯 Predicted Reach: {campaign.performance_prediction['predicted_reach']:,.0f}")
+        print(f"   💰 Predicted ROI: {campaign.performance_prediction.get('predicted_roi', 0):.2f}%")
+        print(f"   📱 Data Sources Used: {', '.join(campaign.trending_topic.sources)}")
+        print(f"   🖼️  Generated Assets: {len(campaign.generated_assets)} files")
+    
+    # Demo: Get viral opportunities with urgency
+    print(f"\n💎 Current viral opportunities (with urgency levels):")
     opportunities = await engine.get_viral_opportunities('fitness')
     
+    urgent_count = len([opp for opp in opportunities if opp.get('urgency_level') == 'URGENT'])
+    high_count = len([opp for opp in opportunities if opp.get('urgency_level') == 'HIGH'])
+    
+    print(f"   🚨 URGENT opportunities: {urgent_count}")
+    print(f"   ⚡ HIGH priority opportunities: {high_count}")
+    print(f"   📈 Total opportunities: {len(opportunities)}")
+    
     for opp in opportunities[:3]:
-        print(f"  🔥 {opp['topic_name']} - {opp['urgency_level']} urgency")
-        print(f"     Trend Score: {opp['trend_score']:.1f} | Peak: {opp['peak_period']}")
+        urgency_icon = {"URGENT": "🚨", "HIGH": "⚡", "MEDIUM": "⚠️", "LOW": "📊"}.get(opp.get('urgency_level', 'LOW'), '📊')
+        print(f"\n   {urgency_icon} {opp['topic_name']}")
+        print(f"      Trend Score: {opp['trend_score']:.1f} | Urgency: {opp.get('urgency_level', 'UNKNOWN')}")
+        print(f"      {opp.get('peak_period', 'Peak timing unknown')}")
+    
+    # Show cache status
+    print(f"\n📊 Performance Metrics:")
+    print(f"   Cache entries: {len(engine.trend_cache)}")
+    print(f"   Data source weights: Reddit({engine.source_weights['reddit']}) YouTube({engine.source_weights['youtube']}) Google Trends({engine.source_weights['google_trends']})")
+    
+    print(f"\n🎉 Demo completed! Check the generated content in your database.")
+    print(f"💡 Tip: Configure API keys in .env for full real-data experience.")
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -59,6 +59,8 @@ class UserProfile(BaseModel):
     is_active: bool
     is_verified: bool
     created_at: str
+    # Add computed name field for frontend compatibility
+    name: Optional[str] = None
     
     class Config:
         from_attributes = True

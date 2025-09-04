@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import asyncio
 import uuid
 import os
@@ -25,6 +25,9 @@ from competitor_analyzer import CompetitorAnalysisEngine
 from viral_engine import ViralContentEngine
 from photo_agent import image_creator
 from video_agent import video_from_prompt
+
+# Import new personalization system
+from enhanced_personalization_service import EnhancedPersonalizationService
 
 # Import service layer
 from services import CampaignService, MediaService, AnalyticsService, UserService
@@ -94,6 +97,9 @@ performance_engine = PerformanceGuaranteeEngine()
 template_engine = IndustryTemplateEngine()
 competitor_analyzer = CompetitorAnalysisEngine()
 viral_engine = ViralContentEngine()
+
+# Initialize personalization service
+personalization_service = EnhancedPersonalizationService()
 
 # Initialize service layer
 campaign_service = CampaignService()
@@ -406,10 +412,13 @@ async def get_campaigns(
         # Use campaign service to get campaigns
         user_campaigns = campaign_service.get_user_campaigns(db, current_user.id, limit=limit)
         
+        # Ensure compatibility for all campaigns
+        compatible_campaigns = [ensure_campaign_id_compatibility(campaign) for campaign in user_campaigns]
+        
         return {
             "success": True,
-            "data": user_campaigns,
-            "total": len(user_campaigns)
+            "data": compatible_campaigns,
+            "total": len(compatible_campaigns)
         }
         
     except Exception as e:
@@ -431,7 +440,10 @@ async def get_campaign(
         if campaign_data["user_id"] != current_user.id:
             raise HTTPException(status_code=403, detail="Access denied")
         
-        return {"success": True, "data": campaign_data}
+        # Ensure compatibility
+        compatible_campaign = ensure_campaign_id_compatibility(campaign_data)
+        
+        return {"success": True, "data": compatible_campaign}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -753,6 +765,638 @@ async def get_viral_opportunities():
     except Exception as e:
         logger.error(f"Error getting viral opportunities: {e}")
         raise HTTPException(status_code=500, detail="Failed to get viral opportunities")
+
+# ==================== PERSONALIZATION ENDPOINTS ====================
+
+class UserProfileRequest(BaseModel):
+    business_size: str = Field(..., description="Business size: startup, smb, enterprise")
+    industry: str = Field(..., description="Industry category")
+    business_name: Optional[str] = Field(None, description="Business name")
+    website_url: Optional[str] = Field(None, description="Website URL")
+    years_in_business: Optional[int] = Field(None, description="Years in business")
+    monthly_budget: str = Field(..., description="Monthly budget range: micro, small, medium, large, enterprise")
+    primary_objective: str = Field(..., description="Primary campaign objective")
+    secondary_objectives: List[str] = Field(default_factory=list, description="Secondary objectives")
+    target_age_groups: List[str] = Field(..., description="Target age groups")
+    target_locations: List[str] = Field(default_factory=list, description="Target locations")
+    target_interests: List[str] = Field(default_factory=list, description="Target interests")
+    target_behaviors: List[str] = Field(default_factory=list, description="Target behaviors")
+    brand_voice: str = Field("professional", description="Brand voice")
+    content_preference: str = Field("mixed", description="Content preference")
+    platform_priorities: List[str] = Field(..., description="Platform priorities")
+    brand_colors: List[str] = Field(default_factory=list, description="Brand colors")
+    competitor_urls: List[str] = Field(default_factory=list, description="Competitor URLs")
+    roi_focus: bool = Field(True, description="ROI focused vs engagement focused")
+    risk_tolerance: str = Field("medium", description="Risk tolerance level")
+    automation_level: str = Field("medium", description="Automation level preference")
+
+class CampaignStrategyRequest(BaseModel):
+    campaign_brief: str = Field(..., description="Campaign brief/description")
+    objective_override: Optional[str] = Field(None, description="Override primary objective")
+
+class CampaignQuestionRequest(BaseModel):
+    question: str = Field(..., description="Campaign question to answer")
+
+@app.post("/api/personalization/profile")
+async def create_personalization_profile(
+    request: UserProfileRequest,
+    current_user: User = Depends(get_current_active_verified_user),
+    db: Session = Depends(get_db)
+):
+    """Create comprehensive personalization profile for user"""
+    try:
+        profile_data = request.dict()
+        
+        result = await personalization_service.create_comprehensive_user_profile(
+            user_id=current_user.id,
+            profile_data=profile_data,
+            db=db
+        )
+        
+        return {
+            "success": True,
+            "data": result,
+            "message": "Personalization profile created successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error creating personalization profile: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to create profile: {str(e)}")
+
+@app.get("/api/personalization/dashboard")
+async def get_personalized_dashboard(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get personalized dashboard with insights and recommendations"""
+    try:
+        dashboard = await personalization_service.get_personalized_dashboard(
+            user_id=current_user.id,
+            db=db
+        )
+        
+        return {
+            "success": True,
+            "data": dashboard,
+            "message": "Dashboard generated successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error generating personalized dashboard: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate dashboard: {str(e)}")
+
+@app.post("/api/personalization/campaign-strategy")
+async def get_personalized_campaign_strategy(
+    request: CampaignStrategyRequest,
+    current_user: User = Depends(get_current_active_verified_user),
+    db: Session = Depends(get_db)
+):
+    """Get comprehensive personalized campaign strategy"""
+    try:
+        strategy = await personalization_service.get_personalized_campaign_strategy(
+            user_id=current_user.id,
+            campaign_brief=request.campaign_brief,
+            objective_override=request.objective_override
+        )
+        
+        return {
+            "success": True,
+            "data": strategy,
+            "message": "Campaign strategy generated successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error generating campaign strategy: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate strategy: {str(e)}")
+
+@app.post("/api/personalization/launch-campaign")
+async def launch_personalized_campaign(
+    campaign_strategy: Dict[str, Any],
+    current_user: User = Depends(get_current_active_verified_user),
+    db: Session = Depends(get_db)
+):
+    """Launch personalized campaign with A/B testing"""
+    try:
+        result = await personalization_service.launch_personalized_campaign(
+            user_id=current_user.id,
+            campaign_strategy=campaign_strategy,
+            db=db
+        )
+        
+        return {
+            "success": True,
+            "data": result,
+            "message": "Personalized campaign launched successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error launching personalized campaign: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to launch campaign: {str(e)}")
+
+@app.post("/api/personalization/optimize-campaign/{campaign_id}")
+async def optimize_existing_campaign(
+    campaign_id: str,
+    performance_data: Dict[str, Any],
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Optimize existing campaign based on performance data"""
+    try:
+        # Verify user owns the campaign
+        campaign = CampaignCRUD.get_campaign(db, campaign_id)
+        if not campaign or campaign.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        optimization = await personalization_service.optimize_existing_campaign(
+            user_id=current_user.id,
+            campaign_id=campaign_id,
+            performance_data=performance_data
+        )
+        
+        return {
+            "success": True,
+            "data": optimization,
+            "message": "Campaign optimization completed"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error optimizing campaign: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to optimize campaign: {str(e)}")
+
+@app.post("/api/personalization/ask")
+async def answer_campaign_question(
+    request: CampaignQuestionRequest,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Answer specific campaign questions using personalization AI"""
+    try:
+        answer = await personalization_service.answer_campaign_question(
+            user_id=current_user.id,
+            question=request.question
+        )
+        
+        return {
+            "success": True,
+            "data": answer,
+            "message": "Question answered successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error answering campaign question: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to answer question: {str(e)}")
+
+@app.get("/api/personalization/recommendations")
+async def get_campaign_recommendations(
+    objective_override: Optional[str] = None,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get personalized campaign recommendations"""
+    try:
+        recommendations = await personalization_service.personalization_engine.get_personalized_campaign_recommendations(
+            user_id=current_user.id,
+            objective_override=objective_override
+        )
+        
+        # Convert to serializable format
+        recommendations_data = []
+        for rec in recommendations:
+            recommendations_data.append({
+                "campaign_name": rec.campaign_name,
+                "recommended_type": rec.recommended_type,
+                "description": rec.description,
+                "reasoning": rec.reasoning,
+                "confidence_score": rec.confidence_score,
+                "predicted_roi": rec.predicted_roi,
+                "predicted_ctr": rec.predicted_ctr,
+                "predicted_conversion_rate": rec.predicted_conversion_rate,
+                "recommended_budget": rec.recommended_budget,
+                "content_prompts": rec.content_prompts,
+                "caption_templates": rec.caption_templates,
+                "visual_style": rec.visual_style,
+                "platform_allocation": rec.platform_allocation
+            })
+        
+        return {
+            "success": True,
+            "data": recommendations_data,
+            "total": len(recommendations_data),
+            "message": "Recommendations generated successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting recommendations: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get recommendations: {str(e)}")
+
+@app.get("/api/personalization/benchmarks")
+async def get_personalized_benchmarks(
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get personalized performance benchmarks"""
+    try:
+        benchmarks = await personalization_service.personalization_engine.get_personalized_benchmarks(
+            user_id=current_user.id
+        )
+        
+        return {
+            "success": True,
+            "data": benchmarks,
+            "message": "Benchmarks retrieved successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting benchmarks: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get benchmarks: {str(e)}")
+
+@app.get("/api/personalization/insights")
+async def get_learning_insights(
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get AI learning insights for user"""
+    try:
+        insights = await personalization_service.learning_system.get_test_insights(
+            user_id=current_user.id
+        )
+        
+        return {
+            "success": True,
+            "data": insights,
+            "message": "Learning insights retrieved successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting insights: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get insights: {str(e)}")
+
+# Additional missing personalization endpoints that frontend expects
+
+@app.get("/api/personalization/profile")
+async def get_personalization_profile(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get user's personalization profile"""
+    try:
+        # Get profile from database or return empty if not exists
+        profile = await personalization_service.get_user_profile(
+            user_id=current_user.id,
+            db=db
+        )
+        
+        return {
+            "success": True,
+            "data": profile,
+            "message": "Profile retrieved successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting personalization profile: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get profile: {str(e)}")
+
+@app.put("/api/personalization/profile")
+async def update_personalization_profile(
+    profile_data: dict,
+    current_user: User = Depends(get_current_active_verified_user),
+    db: Session = Depends(get_db)
+):
+    """Update user's personalization profile"""
+    try:
+        updated_profile = await personalization_service.update_user_profile(
+            user_id=current_user.id,
+            profile_data=profile_data,
+            db=db
+        )
+        
+        return {
+            "success": True,
+            "data": updated_profile,
+            "message": "Profile updated successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error updating personalization profile: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to update profile: {str(e)}")
+
+@app.delete("/api/personalization/profile")
+async def delete_personalization_profile(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Delete user's personalization profile"""
+    try:
+        success = await personalization_service.delete_user_profile(
+            user_id=current_user.id,
+            db=db
+        )
+        
+        return {
+            "success": True,
+            "data": {"deleted": success},
+            "message": "Profile deleted successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error deleting personalization profile: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete profile: {str(e)}")
+
+@app.get("/api/personalization/campaign-strategy")
+async def get_campaign_strategies(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get user's campaign strategies"""
+    try:
+        strategies = await personalization_service.get_user_campaign_strategies(
+            user_id=current_user.id,
+            db=db
+        )
+        
+        return {
+            "success": True,
+            "data": strategies,
+            "message": "Campaign strategies retrieved successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting campaign strategies: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get strategies: {str(e)}")
+
+@app.get("/api/personalization/campaign-strategy/{strategy_id}")
+async def get_campaign_strategy(
+    strategy_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get specific campaign strategy"""
+    try:
+        strategy = await personalization_service.get_campaign_strategy(
+            strategy_id=strategy_id,
+            user_id=current_user.id,
+            db=db
+        )
+        
+        if not strategy:
+            raise HTTPException(status_code=404, detail="Campaign strategy not found")
+        
+        return {
+            "success": True,
+            "data": strategy,
+            "message": "Campaign strategy retrieved successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting campaign strategy: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get strategy: {str(e)}")
+
+@app.put("/api/personalization/campaign-strategy/{strategy_id}")
+async def update_campaign_strategy(
+    strategy_id: str,
+    updates: dict,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Update specific campaign strategy"""
+    try:
+        updated_strategy = await personalization_service.update_campaign_strategy(
+            strategy_id=strategy_id,
+            user_id=current_user.id,
+            updates=updates,
+            db=db
+        )
+        
+        return {
+            "success": True,
+            "data": updated_strategy,
+            "message": "Campaign strategy updated successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error updating campaign strategy: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to update strategy: {str(e)}")
+
+@app.delete("/api/personalization/campaign-strategy/{strategy_id}")
+async def delete_campaign_strategy(
+    strategy_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Delete specific campaign strategy"""
+    try:
+        success = await personalization_service.delete_campaign_strategy(
+            strategy_id=strategy_id,
+            user_id=current_user.id,
+            db=db
+        )
+        
+        return {
+            "success": True,
+            "data": {"deleted": success},
+            "message": "Campaign strategy deleted successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error deleting campaign strategy: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete strategy: {str(e)}")
+
+# A/B Testing Endpoints
+
+@app.post("/api/personalization/ab-tests")
+async def create_ab_test(
+    test_request: dict,
+    current_user: User = Depends(get_current_active_verified_user),
+    db: Session = Depends(get_db)
+):
+    """Create new A/B test"""
+    try:
+        ab_test = await personalization_service.create_ab_test(
+            user_id=current_user.id,
+            test_data=test_request,
+            db=db
+        )
+        
+        return {
+            "success": True,
+            "data": ab_test,
+            "message": "A/B test created successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error creating A/B test: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to create A/B test: {str(e)}")
+
+@app.get("/api/personalization/ab-tests")
+async def get_ab_tests(
+    status: Optional[str] = None,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get user's A/B tests"""
+    try:
+        ab_tests = await personalization_service.get_user_ab_tests(
+            user_id=current_user.id,
+            status=status,
+            db=db
+        )
+        
+        return {
+            "success": True,
+            "data": ab_tests,
+            "message": "A/B tests retrieved successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting A/B tests: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get A/B tests: {str(e)}")
+
+@app.get("/api/personalization/ab-tests/{test_id}")
+async def get_ab_test(
+    test_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get specific A/B test"""
+    try:
+        ab_test = await personalization_service.get_ab_test(
+            test_id=test_id,
+            user_id=current_user.id,
+            db=db
+        )
+        
+        if not ab_test:
+            raise HTTPException(status_code=404, detail="A/B test not found")
+        
+        return {
+            "success": True,
+            "data": ab_test,
+            "message": "A/B test retrieved successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting A/B test: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get A/B test: {str(e)}")
+
+@app.post("/api/personalization/ab-tests/{test_id}/start")
+async def start_ab_test(
+    test_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Start A/B test"""
+    try:
+        result = await personalization_service.start_ab_test(
+            test_id=test_id,
+            user_id=current_user.id,
+            db=db
+        )
+        
+        return {
+            "success": True,
+            "data": result,
+            "message": "A/B test started successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error starting A/B test: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to start A/B test: {str(e)}")
+
+@app.post("/api/personalization/ab-tests/{test_id}/pause")
+async def pause_ab_test(
+    test_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Pause A/B test"""
+    try:
+        result = await personalization_service.pause_ab_test(
+            test_id=test_id,
+            user_id=current_user.id,
+            db=db
+        )
+        
+        return {
+            "success": True,
+            "data": result,
+            "message": "A/B test paused successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error pausing A/B test: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to pause A/B test: {str(e)}")
+
+@app.post("/api/personalization/ab-tests/{test_id}/complete")
+async def complete_ab_test(
+    test_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Complete A/B test"""
+    try:
+        result = await personalization_service.complete_ab_test(
+            test_id=test_id,
+            user_id=current_user.id,
+            db=db
+        )
+        
+        return {
+            "success": True,
+            "data": result,
+            "message": "A/B test completed successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error completing A/B test: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to complete A/B test: {str(e)}")
+
+@app.get("/api/personalization/ab-tests/{test_id}/results")
+async def get_ab_test_results(
+    test_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get A/B test results"""
+    try:
+        results = await personalization_service.get_ab_test_results(
+            test_id=test_id,
+            user_id=current_user.id,
+            db=db
+        )
+        
+        return {
+            "success": True,
+            "data": results,
+            "message": "A/B test results retrieved successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting A/B test results: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get A/B test results: {str(e)}")
+
+# Utility function for frontend-backend compatibility
+def ensure_campaign_id_compatibility(campaign_data: dict) -> dict:
+    """Ensure campaign data has both id and campaign_id for compatibility"""
+    if isinstance(campaign_data, dict):
+        # If we have id but not campaign_id, add campaign_id
+        if "id" in campaign_data and "campaign_id" not in campaign_data:
+            campaign_data["campaign_id"] = campaign_data["id"]
+        # If we have campaign_id but not id, add id
+        elif "campaign_id" in campaign_data and "id" not in campaign_data:
+            campaign_data["id"] = campaign_data["campaign_id"]
+    return campaign_data
+
+def ensure_user_name_compatibility(user_data: dict) -> dict:
+    """Ensure user data has both separate fields and computed name field"""
+    if isinstance(user_data, dict):
+        # Add computed name field if missing
+        if "first_name" in user_data and "last_name" in user_data and "name" not in user_data:
+            first_name = user_data.get("first_name", "")
+            last_name = user_data.get("last_name", "")
+            user_data["name"] = f"{first_name} {last_name}".strip()
+    return user_data
 
 # Background task for campaign monitoring
 async def monitor_campaign_performance(campaign_id: str):

@@ -3,6 +3,9 @@ google-genai
 python-dotenv
 requests
 
+# Enhanced AI dependencies for viral engine
+anthropic>=0.25.0  # Claude LLM API
+
 # Image processing
 Pillow
 opencv-python
@@ -36,6 +39,12 @@ facebook-sdk
 facebook-business
 python-instagram
 
+# Enhanced data source APIs for viral engine
+praw>=7.7.0  # Reddit API
+pytrends>=4.9.0  # Google Trends (unofficial)
+beautifulsoup4>=4.12.0  # Web scraping
+lxml>=4.9.0  # XML parser for BeautifulSoup
+
 # Authentication & Security
 python-jose[cryptography]
 passlib[bcrypt]
@@ -44,6 +53,8 @@ python-multipart
 # File handling
 aiofiles
 
+# Rate limiting and caching
+tenacity>=8.0.0  # Retry logic for API calls
 
 # Monitoring & Logging
 prometheus-client
