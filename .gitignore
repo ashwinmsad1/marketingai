@@ -1,6 +1,2 @@
 .env
-.claude
-.vscode
-__pycache__
 venv
-.pytest_cache

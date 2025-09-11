@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Read(/C:\\Users\\Ashwin\\Documents\\marketingai\\auth/**)",
+      "Read(/C:\\Users\\Ashwin\\Documents\\marketingai/**)",
+      "Read(/C:\\Users\\Ashwin\\Documents\\marketingai\\frontend/**)",
+      "Read(/C:\\Users\\Ashwin\\Documents\\marketingai/**)",
+      "Read(/C:\\Users\\Ashwin\\Documents\\marketingai\\database/**)",
+      "Read(/C:\\Users\\Ashwin\\Documents\\marketingai\\frontend\\src/**)",
+      "Read(/C:\\Users\\Ashwin\\Documents\\marketingai\\frontend\\src/**)",
+      "Read(/C:\\Users\\Ashwin\\Documents\\marketingai/**)",
+      "Bash(python:*)",
+      "Read(/C:\\Users\\Ashwin\\Documents\\marketingai/**)",
+      "Read(/C:\\Users\\Ashwin\\Documents\\marketingai\\migrations\\versions/**)",
+      "Read(/C:\\Users\\Ashwin\\Documents\\marketingai\\frontend\\src\\pages/**)",
+      "Read(/C:\\Users\\Ashwin\\Documents\\marketingai/**)",
+      "Read(/C:\\Users\\Ashwin\\Documents\\marketingai/**)",
+      "Read(/C:\\Users\\Ashwin\\Documents\\marketingai\\database/**)",
+      "Read(/C:\\Users\\Ashwin\\Documents\\marketingai\\frontend\\src\\services/**)",
+      "Read(/C:\\Users\\Ashwin\\Documents\\marketingai\\frontend/**)",
+      "Read(/C:\\Users\\Ashwin\\Documents\\marketingai\\frontend/**)",
+      "Read(/C:\\Users\\Ashwin\\Documents\\marketingai\\frontend/**)",
+      "Read(/C:\\Users\\Ashwin\\Documents\\marketingai\\frontend/**)",
+      "Read(/C:\\Users\\Ashwin\\Documents\\marketingai/**)",
+      "Read(/C:\\Users\\Ashwin\\Documents\\marketingai\\frontend\\src/**)",
+      "Read(/C:\\Users\\Ashwin\\Documents\\marketingai\\frontend/**)",
+      "Read(/C:\\Users\\Ashwin\\Documents\\marketingai\\database/**)",
+      "Read(/C:\\Users\\Ashwin\\Documents\\marketingai\\frontend\\src/**)",
+      "Bash(rm:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
