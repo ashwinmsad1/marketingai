@@ -132,7 +132,7 @@ const GooglePayButton: React.FC<GooglePayButtonProps> = ({
         transactionInfo: {
           totalPriceStatus: 'FINAL',
           totalPrice: amount.toString(),
-          currencyCode: 'USD'
+          currencyCode: 'INR'
         },
         merchantInfo: paymentConfig.google_pay.merchantInfo
       };

@@ -74,7 +74,7 @@ export const authService = {
 
   // Authentication endpoints
   login: async (email: string, password: string) => {
-    const response = await api.post('/api/auth/login', { email, password });
+    const response = await api.post('/api/v1/auth/login', { email, password });
     return response;
   },
 
@@ -86,27 +86,27 @@ export const authService = {
     company_name?: string;
     phone?: string;
   }) => {
-    const response = await api.post('/api/auth/register', userData);
+    const response = await api.post('/api/v1/auth/register', userData);
     return response;
   },
 
   refreshToken: async (refreshToken: string) => {
-    const response = await api.post('/api/auth/refresh', { refresh_token: refreshToken });
+    const response = await api.post('/api/v1/auth/refresh', { refresh_token: refreshToken });
     return response;
   },
 
   logout: async () => {
-    const response = await api.post('/api/auth/logout');
+    const response = await api.post('/api/v1/auth/logout');
     return response;
   },
 
   getCurrentUser: async () => {
-    const response = await api.get('/api/auth/me');
+    const response = await api.get('/api/v1/auth/me');
     return response;
   },
 
   updateProfile: async (userData: any) => {
-    const response = await api.put('/api/auth/me', userData);
+    const response = await api.put('/api/v1/auth/me', userData);
     return response;
   },
 
@@ -200,39 +200,73 @@ export const userService = {
 // Campaign Management
 export const campaignService = {
   createCampaign: async (campaignData: {
+    name: string;
+    description?: string;
     type: string;
     prompt: string;
     caption?: string;
     style?: string;
+    aspect_ratio?: string;
+    platforms: {
+      facebook: boolean;
+      instagram: boolean;
+    };
+    budget: {
+      daily_budget: number;
+      total_budget: number;
+      duration_days: number;
+    };
+    targeting?: {
+      demographics?: string[];
+      interests?: string[];
+      locations?: string[];
+      age_range?: { min: number; max: number };
+      gender?: string;
+    };
+    auto_optimization?: boolean;
+    schedule_start?: string;
+    schedule_end?: string;
     industry?: string;
     business_details?: Record<string, any>;
-    competitor_url?: string;
-    competitor_name?: string;
-    user_id?: string;
   }) => {
-    const response = await api.post('/api/campaigns', campaignData);
+    const response = await api.post('/api/v1/campaigns/create', campaignData);
     return response.data;
   },
 
   getCampaigns: async (limit: number = 50) => {
-    const response = await api.get('/api/campaigns', {
+    const response = await api.get('/api/v1/campaigns/', {
       params: { limit }
     });
     return response.data;
   },
 
   getCampaign: async (campaignId: string) => {
-    const response = await api.get(`/api/campaigns/${campaignId}`);
+    const response = await api.get(`/api/v1/campaigns/${campaignId}`);
+    return response.data;
+  },
+
+  updateCampaign: async (campaignId: string, campaignData: any) => {
+    const response = await api.put(`/api/v1/campaigns/${campaignId}`, campaignData);
     return response.data;
   },
 
   deleteCampaign: async (campaignId: string) => {
-    const response = await api.delete(`/api/campaigns/${campaignId}`);
+    const response = await api.delete(`/api/v1/campaigns/${campaignId}`);
+    return response.data;
+  },
+
+  getBudgetStatus: async () => {
+    const response = await api.get('/api/v1/campaigns/budget-status');
+    return response.data;
+  },
+
+  getUsageStatus: async () => {
+    const response = await api.get('/api/v1/campaigns/usage-status');
     return response.data;
   },
 
   updateCampaignStatus: async (campaignId: string, status: string) => {
-    const response = await api.patch(`/api/campaigns/${campaignId}`, { status });
+    const response = await api.patch(`/api/v1/campaigns/${campaignId}`, { status });
     return response.data;
   },
 };
@@ -247,26 +281,35 @@ export const mediaService = {
     creativity?: number;
     iterations?: number;
   }) => {
-    const response = await api.post('/api/media/images/generate', imageData);
+    const response = await api.post('/api/v1/media/images/generate', imageData);
     return response.data;
   },
 
   generateVideo: async (videoData: {
     prompt: string;
     style?: string;
-    duration?: number;
     aspect_ratio?: string;
-    motion?: string;
-    music_style?: string;
-    text_overlay?: boolean;
-    brand_colors?: string;
+    business_description?: string;
+    target_audience_description?: string;
+    unique_value_proposition?: string;
   }) => {
-    const response = await api.post('/api/media/videos/generate', videoData);
+    const response = await api.post('/api/v1/media/videos/generate', videoData);
+    return response.data;
+  },
+
+  generateVideoFromImage: async (imageData: {
+    image_url: string;
+    prompt?: string;
+    style?: string;
+    aspect_ratio?: string;
+    duration?: number;
+  }) => {
+    const response = await api.post('/api/v1/media/videos/from-image', imageData);
     return response.data;
   },
 
   getMedia: async (mediaType?: string) => {
-    const response = await api.get('/api/media', {
+    const response = await api.get('/api/v1/media/', {
       params: { media_type: mediaType }
     });
     return response.data;
@@ -277,7 +320,7 @@ export const mediaService = {
     formData.append('file', file);
     formData.append('type', mediaType);
 
-    const response = await api.post('/api/media/upload', formData, {
+    const response = await api.post('/api/v1/media/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -325,15 +368,21 @@ export const analyticsService = {
   },
 };
 
-// Industry Templates
+// Campaign Templates (User-defined)
 export const templateService = {
-  getIndustryTemplates: async () => {
-    const response = await api.get('/api/templates/industries');
+  getUserTemplates: async () => {
+    const response = await api.get('/api/templates/user');
     return response.data;
   },
 
-  getIndustryTemplate: async (industry: string) => {
-    const response = await api.get(`/api/templates/industries/${industry}`);
+  saveUserTemplate: async (template: {
+    name: string;
+    description: string;
+    business_description: string;
+    target_audience: string;
+    campaign_goal: string;
+  }) => {
+    const response = await api.post('/api/templates/user', template);
     return response.data;
   },
 
@@ -359,23 +408,6 @@ export const viralService = {
   },
 };
 
-// Competitor Analysis
-export const competitorService = {
-  analyzeCompetitor: async (url: string, contentType: string = 'webpage') => {
-    const response = await api.post('/api/competitors/analyze', {
-      url,
-      content_type: contentType
-    });
-    return response.data;
-  },
-
-  generateCompetitiveCampaign: async (competitorContentId: string) => {
-    const response = await api.post('/api/competitors/generate-campaign', {
-      competitor_content_id: competitorContentId
-    });
-    return response.data;
-  },
-};
 
 // Personalization Services
 export const personalizationService = {
@@ -590,6 +622,34 @@ export const personalizationService = {
   },
 
   // Personalized Campaign Creation
+  // Video Strategy Generation (User Input Based)
+  generateVideoStrategy: async (strategyRequest: {
+    user_id: string;
+    campaign_brief: string;
+    business_description: string;
+    target_audience_description: string;
+    unique_value_proposition: string;
+    preferred_style?: string;
+    aspect_ratios?: string[];
+  }) => {
+    const response = await api.post('/api/personalization/video-strategy', strategyRequest);
+    return response.data;
+  },
+
+  // Image Strategy Generation (User Input Based)
+  generateImageStrategy: async (strategyRequest: {
+    user_id: string;
+    campaign_brief: string;
+    business_description: string;
+    target_audience_description: string;
+    unique_value_proposition: string;
+    preferred_style?: string;
+    image_format?: string;
+  }) => {
+    const response = await api.post('/api/personalization/image-strategy', strategyRequest);
+    return response.data;
+  },
+
   createPersonalizedCampaign: async (campaignData: any) => {
     const response = await api.post('/api/personalization/campaigns/create', campaignData);
     return response.data;
@@ -639,6 +699,77 @@ export const personalizationService = {
     return response.data;
   },
 };
+
+// Subscription Management
+export const subscriptionService = {
+  upgradeSubscription: async (targetTier: string, billingCycle: string) => {
+    const response = await api.post('/api/v1/subscription/upgrade', {
+      target_tier: targetTier,
+      billing_cycle: billingCycle
+    });
+    return response.data;
+  },
+
+  getCurrentSubscription: async () => {
+    const response = await api.get('/api/v1/subscription/current');
+    return response.data;
+  },
+
+  cancelSubscription: async () => {
+    const response = await api.post('/api/v1/subscription/cancel');
+    return response.data;
+  },
+
+  getBillingHistory: async () => {
+    const response = await api.get('/api/v1/subscription/billing-history');
+    return response.data;
+  },
+
+  updatePaymentMethod: async (paymentData: any) => {
+    const response = await api.put('/api/v1/subscription/payment-method', paymentData);
+    return response.data;
+  }
+};
+
+// Privacy and Data Management
+export const privacyService = {
+  getPrivacyPolicy: async () => {
+    const response = await api.get('/api/v1/privacy/privacy-policy');
+    return response.data;
+  },
+
+  updateConsent: async (consentData: any) => {
+    const response = await api.post('/api/v1/privacy/consent', consentData);
+    return response.data;
+  },
+
+  getConsentStatus: async () => {
+    const response = await api.get('/api/v1/privacy/consent/status');
+    return response.data;
+  },
+
+  requestDataDeletion: async (deletionRequest: any) => {
+    const response = await api.post('/api/v1/privacy/data-deletion', deletionRequest);
+    return response.data;
+  },
+
+  getDataRequests: async () => {
+    const response = await api.get('/api/v1/privacy/data-requests');
+    return response.data;
+  },
+
+  deleteAccount: async () => {
+    const response = await api.delete('/api/v1/privacy/account');
+    return response.data;
+  },
+
+  getComplianceStatus: async () => {
+    const response = await api.get('/api/v1/privacy/compliance-status');
+    return response.data;
+  }
+};
+
+// Note: ML Prediction services moved to dedicated mlPredictionService.ts
 
 // Utility functions
 export const healthService = {

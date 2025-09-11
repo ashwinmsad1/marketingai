@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Zap, 
   Target, 
@@ -7,14 +8,20 @@ import {
   ArrowRight, 
   Check, 
   Star,
-  Play,
   Sparkles,
   Clock,
   DollarSign
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { PRICING_TIERS, formatCurrency, calculateSavingsPercentage } from '../constants/pricing';
 
 const LandingPage: React.FC = () => {
+  const navigate = useNavigate();
+  const [billingCycle, setBillingCycle] = React.useState<'monthly' | 'annual'>('monthly');
+
+  const handleStartFreeTrial = () => {
+    navigate(`/register?billing=${billingCycle}`);
+  };
 
   return (
     <div className="min-h-screen bg-white">
@@ -29,7 +36,7 @@ const LandingPage: React.FC = () => {
           >
             <div className="inline-flex items-center bg-white/10 rounded-full px-6 py-2 mb-8">
               <Sparkles className="w-5 h-5 mr-2" />
-              <span className="text-sm font-medium">From Idea to Profit in 60 Seconds</span>
+              <span className="text-sm font-medium">From Idea to Profit in Minutes</span>
             </div>
             
             <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
@@ -47,19 +54,12 @@ const LandingPage: React.FC = () => {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
+                onClick={handleStartFreeTrial}
                 className="bg-yellow-400 text-gray-900 px-8 py-4 rounded-lg font-bold text-lg hover:bg-yellow-300 transition-colors flex items-center"
               >
                 Start Free Trial
                 <ArrowRight className="ml-2 w-5 h-5" />
               </motion.button>
-              
-              <button 
-                onClick={() => {}}
-                className="bg-white/20 backdrop-blur-sm px-8 py-4 rounded-lg font-semibold text-lg hover:bg-white/30 transition-colors flex items-center"
-              >
-                <Play className="mr-2 w-5 h-5" />
-                Watch Demo
-              </button>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
@@ -67,8 +67,8 @@ const LandingPage: React.FC = () => {
                 <div className="bg-white/10 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
                   <Clock className="w-8 h-8" />
                 </div>
-                <h3 className="text-xl font-bold mb-2">60-Second Setup</h3>
-                <p className="opacity-90">From idea to live campaign in under a minute</p>
+                <h3 className="text-xl font-bold mb-2">Quick Setup</h3>
+                <p className="opacity-90">From idea to live campaign in just a few minutes</p>
               </div>
               
               <div className="text-center">
@@ -76,7 +76,7 @@ const LandingPage: React.FC = () => {
                   <TrendingUp className="w-8 h-8" />
                 </div>
                 <h3 className="text-xl font-bold mb-2">300% ROI Guarantee</h3>
-                <p className="opacity-90">We guarantee results or your money back</p>
+                <p className="opacity-90">We guarantee measurable performance improvement</p>
               </div>
               
               <div className="text-center">
@@ -128,7 +128,7 @@ const LandingPage: React.FC = () => {
                   </div>
                   <div>
                     <p className="font-medium text-gray-900">AI Automation</p>
-                    <p className="text-gray-600">60-second campaigns, performance guarantees, 10x ROI</p>
+                    <p className="text-gray-600">Quick campaigns, performance guarantees, 10x ROI</p>
                   </div>
                 </div>
               </div>
@@ -257,51 +257,82 @@ const LandingPage: React.FC = () => {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold mb-6">Simple, Value-Based Pricing</h2>
-            <p className="text-xl text-gray-600">Pay based on the value you get, not hours worked</p>
+            <p className="text-xl text-gray-600 mb-8">Pay based on the value you get, not hours worked</p>
+            
+            {/* Billing Cycle Toggle */}
+            <div className="flex items-center justify-center mb-8">
+              <div className="bg-gray-100 p-1 rounded-lg flex">
+                <button
+                  onClick={() => setBillingCycle('monthly')}
+                  className={`px-6 py-2 rounded-md font-semibold transition-all ${
+                    billingCycle === 'monthly'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Monthly
+                </button>
+                <button
+                  onClick={() => setBillingCycle('annual')}
+                  className={`px-6 py-2 rounded-md font-semibold transition-all relative ${
+                    billingCycle === 'annual'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Annual
+                  <span className="absolute -top-2 -right-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full">
+                    Save 17%
+                  </span>
+                </button>
+              </div>
+            </div>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
             {[
               {
-                name: "Starter",
-                price: "$49.99",
-                promise: "Get 100 new leads per month",
-                description: "Perfect for local businesses",
+                tier: "basic",
+                name: PRICING_TIERS.basic.name,
+                price: formatCurrency(PRICING_TIERS.basic.price_monthly),
+                promise: "Perfect for small businesses",
+                description: `${PRICING_TIERS.basic.campaigns_limit} campaigns • ${PRICING_TIERS.basic.ai_generations_limit} AI generations • ₹${(PRICING_TIERS.basic.ad_spend_monitoring_limit/1000).toFixed(0)}K ad spend monitoring`,
                 features: [
-                  "10 AI campaigns per month",
-                  "Industry-specific templates", 
-                  "Basic performance tracking",
-                  "Email support",
-                  "Performance guarantees"
+                  "AI Campaign Creation",
+                  "Meta Ads Automation", 
+                  "Basic Analytics",
+                  "Budget Monitoring",
+                  "Email Support"
                 ]
               },
               {
-                name: "Professional",
-                price: "$149.99",
-                promise: "Increase sales by 300%",
-                description: "Ideal for growing businesses",
+                tier: "professional", 
+                name: PRICING_TIERS.professional.name,
+                price: formatCurrency(PRICING_TIERS.professional.price_monthly),
+                promise: "Ideal for growing businesses",
+                description: `${PRICING_TIERS.professional.campaigns_limit} campaigns • ${PRICING_TIERS.professional.ai_generations_limit} AI generations • ₹${(PRICING_TIERS.professional.ad_spend_monitoring_limit/1000).toFixed(0)}K ad spend monitoring`,
                 features: [
-                  "50 AI campaigns per month",
-                  "A/B testing & optimization",
-                  "Revenue attribution tracking",
-                  "Competitor analysis",
-                  "Priority support",
-                  "Viral trend campaigns"
+                  "Everything in Basic",
+                  "Enhanced Analytics",
+                  "Advanced Budget Monitoring", 
+                  "Priority Email Support",
+                  "Performance Tracking"
                 ],
                 popular: true
               },
               {
-                name: "Enterprise",
-                price: "$399.99",
-                promise: "Scale to $1M+ attributed revenue",
-                description: "For agencies & large brands",
+                tier: "business",
+                name: PRICING_TIERS.business.name,
+                price: formatCurrency(PRICING_TIERS.business.price_monthly),
+                promise: "For agencies & enterprises",
+                description: `${PRICING_TIERS.business.campaigns_limit} campaigns • ${PRICING_TIERS.business.ai_generations_limit} AI generations • ₹${(PRICING_TIERS.business.ad_spend_monitoring_limit/1000).toFixed(0)}K ad spend monitoring`,
                 features: [
-                  "Unlimited campaigns",
-                  "White-label platform",
-                  "Custom industry templates",
-                  "Dedicated success manager",
-                  "API access",
-                  "Custom integrations"
+                  "Everything in Professional",
+                  "Full Analytics Suite",
+                  "Comprehensive Budget Monitoring",
+                  "Premium Email Support", 
+                  "Advanced Performance Tracking",
+                  "Data Export & Custom Reporting"
                 ]
               }
             ].map((plan, index) => (
@@ -322,10 +353,28 @@ const LandingPage: React.FC = () => {
                 
                 <div className="text-center mb-8">
                   <h3 className="text-2xl font-bold mb-2">{plan.name}</h3>
-                  <div className="text-4xl font-bold mb-2">{plan.price}</div>
-                  <div className="text-sm text-gray-600 mb-4">/month</div>
-                  <div className="text-primary-600 font-semibold mb-4">{plan.promise}</div>
-                  <p className="text-gray-600">{plan.description}</p>
+                  <div className="text-4xl font-bold mb-2">
+                    {billingCycle === 'monthly' 
+                      ? formatCurrency(PRICING_TIERS[plan.tier as keyof typeof PRICING_TIERS].price_monthly)
+                      : formatCurrency(Math.round(PRICING_TIERS[plan.tier as keyof typeof PRICING_TIERS].price_annual / 12))
+                    }
+                  </div>
+                  <div className="text-sm text-gray-600 mb-2">/month</div>
+                  {/* Show billing info */}
+                  {billingCycle === 'annual' ? (
+                    <div className="text-sm text-green-600 font-medium mb-4">
+                      Billed annually • Save {calculateSavingsPercentage(
+                        PRICING_TIERS[plan.tier as keyof typeof PRICING_TIERS].price_monthly, 
+                        PRICING_TIERS[plan.tier as keyof typeof PRICING_TIERS].price_annual
+                      )}%
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-500 mb-4">
+                      Billed monthly
+                    </div>
+                  )}
+                  <div className="text-blue-600 font-semibold mb-4">{plan.promise}</div>
+                  <p className="text-gray-600 text-sm">{plan.description}</p>
                 </div>
                 
                 <ul className="space-y-3 mb-8">
@@ -337,11 +386,14 @@ const LandingPage: React.FC = () => {
                   ))}
                 </ul>
                 
-                <button className={`w-full py-3 rounded-lg font-semibold transition-colors ${
-                  plan.popular 
-                    ? 'btn-primary' 
-                    : 'btn-secondary'
-                }`}>
+                <button 
+                  onClick={() => navigate(`/register?plan=${plan.tier}&billing=${billingCycle}`)}
+                  className={`w-full py-3 rounded-lg font-semibold transition-colors ${
+                    plan.popular 
+                      ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:from-blue-600 hover:to-purple-600' 
+                      : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                  }`}
+                >
                   Start {plan.name}
                 </button>
               </motion.div>
@@ -364,7 +416,10 @@ const LandingPage: React.FC = () => {
             <p className="text-xl mb-8 opacity-90">
               Join thousands of businesses using AI to generate more leads, sales, and revenue
             </p>
-            <button className="bg-yellow-400 text-gray-900 px-12 py-4 rounded-lg font-bold text-xl hover:bg-yellow-300 transition-colors">
+            <button 
+              onClick={handleStartFreeTrial}
+              className="bg-yellow-400 text-gray-900 px-12 py-4 rounded-lg font-bold text-xl hover:bg-yellow-300 transition-colors"
+            >
               Start Your Free Trial Today
             </button>
             <p className="text-sm mt-4 opacity-75">14-day free trial • No credit card required • Cancel anytime</p>

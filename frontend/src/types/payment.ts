@@ -80,7 +80,7 @@ export interface BillingItem {
   amount: number;
   currency: string;
   description?: string;
-  status: 'succeeded' | 'failed' | 'pending' | 'refunded' | 'disputed';
+  status: 'succeeded' | 'failed' | 'pending' | 'disputed';
   provider?: 'upi' | 'card' | 'netbanking' | 'wallet';
   created_at: string;
   processed_at?: string;

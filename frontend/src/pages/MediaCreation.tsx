@@ -63,7 +63,7 @@ const MediaCreation: React.FC<MediaCreationProps> = ({ onMediaCreated }) => {
           </div>
           
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Create Marketing Content in Seconds
+            Create Marketing Content in Minutes
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             Transform your ideas into professional images, posters, and videos using 

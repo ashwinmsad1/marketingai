@@ -3,7 +3,6 @@ import { useLocation } from 'react-router-dom';
 import {
   Zap,
   TrendingUp,
-  Target,
   ArrowRight,
   Clock,
   CheckCircle,
@@ -50,7 +49,12 @@ const CreateCampaign: React.FC = () => {
     type: '',
     prompt: '',
     caption: '',
-    industry: '',
+    style: '',
+    aspectRatio: '16:9',
+    imageFormat: 'social_media',
+    businessDescription: '',
+    targetAudience: '',
+    campaignGoal: '',
     selectedMetaAccount: '',
     budget: {
       daily: 50,
@@ -64,16 +68,13 @@ const CreateCampaign: React.FC = () => {
     },
     platforms: {
       facebook: true,
-      instagram: false
+      instagram: true
     },
-    businessDetails: {
-      business_name: '',
-      signature_product: '',
-      location: '',
-      phone: ''
-    },
-    competitorUrl: '',
-    competitorName: ''
+    userContext: {
+      business_description: '',
+      target_audience_description: '',
+      unique_value_proposition: ''
+    }
   });
 
 
@@ -123,27 +124,27 @@ const CreateCampaign: React.FC = () => {
       icon: <Brain className="w-8 h-8" />,
       color: 'bg-indigo-100 text-indigo-600',
       features: ['Profile-based targeting', 'AI recommendations', 'Performance optimization'],
-      estimatedTime: '90 seconds',
+      estimatedTime: '3-5 minutes',
       estimatedROI: '500-900%'
     },
     {
       id: 'quick',
       name: 'Quick Campaign',
-      description: 'AI-generated content ready in 60 seconds',
+      description: 'AI-generated content ready in a few minutes',
       icon: <Zap className="w-8 h-8" />,
       color: 'bg-blue-100 text-blue-600',
       features: ['AI content creation', 'Auto-posting', 'Basic targeting'],
-      estimatedTime: '60 seconds',
+      estimatedTime: '2-3 minutes',
       estimatedROI: '200-400%'
     },
     {
-      id: 'industry_optimized',
-      name: 'Industry Template',
-      description: 'Optimized campaigns for your specific industry',
+      id: 'custom',
+      name: 'Custom Campaign',
+      description: 'Create campaigns based on your specific business needs',
       icon: <Factory className="w-8 h-8" />,
       color: 'bg-purple-100 text-purple-600',
-      features: ['Industry templates', 'Conversion optimization', 'Best practices'],
-      estimatedTime: '2 minutes',
+      features: ['Custom targeting', 'Tailored messaging', 'Personalized content'],
+      estimatedTime: '3-5 minutes',
       estimatedROI: '300-500%'
     },
     {
@@ -153,26 +154,22 @@ const CreateCampaign: React.FC = () => {
       icon: <Flame className="w-8 h-8" />,
       color: 'bg-orange-100 text-orange-600',
       features: ['Trend detection', 'Viral optimization', 'Peak timing'],
-      estimatedTime: '90 seconds',
+      estimatedTime: '3-5 minutes',
       estimatedROI: '400-800%'
     },
     {
-      id: 'competitor_beating',
-      name: 'Beat Competitors',
-      description: 'Analyze competitors and create superior campaigns',
-      icon: <Target className="w-8 h-8" />,
-      color: 'bg-red-100 text-red-600',
-      features: ['Competitor analysis', 'Performance improvement', 'Market advantage'],
-      estimatedTime: '3 minutes',
-      estimatedROI: '350-600%'
+      id: 'video',
+      name: 'AI Video Ads',
+      description: 'Generate professional video advertisements using AI',
+      icon: <Eye className="w-8 h-8" />,
+      color: 'bg-green-100 text-green-600',
+      features: ['AI video generation', 'Multiple formats', 'Professional quality'],
+      estimatedTime: '2 minutes',
+      estimatedROI: '350-700%'
     }
   ];
 
-  const industries = [
-    'Restaurant/Food', 'Real Estate', 'Fitness/Health', 'Beauty/Cosmetics',
-    'Fashion/Retail', 'Automotive', 'Education', 'Healthcare',
-    'Technology/SaaS', 'Professional Services', 'E-commerce', 'Other'
-  ];
+  // Removed industries array - now using user input approach
 
   const handleTypeSelect = (typeId: string) => {
     setSelectedType(typeId);
@@ -210,16 +207,87 @@ const CreateCampaign: React.FC = () => {
     setIsCreating(true);
     
     try {
+      // Validate custom campaign fields
+      if (selectedType === 'custom') {
+        if (!formData.businessDescription || !formData.targetAudience || !formData.campaignGoal) {
+          toast.error('Please fill in all custom campaign fields: business description, target audience, and campaign goal.');
+          setIsCreating(false);
+          return;
+        }
+      }
+      
+      // Validate required user context for personalized campaigns
+      if (selectedType === 'video' || selectedType === 'personalized' || selectedType === 'viral' || selectedType === 'quick') {
+        const { business_description, target_audience_description, unique_value_proposition } = formData.userContext;
+        
+        if (!business_description || !target_audience_description || !unique_value_proposition) {
+          toast.error('Please fill in all campaign context fields for better personalization.');
+          setIsCreating(false);
+          return;
+        }
+      }
+
+      // Validate platform selection - at least one platform must be selected
+      if (!formData.platforms.facebook && !formData.platforms.instagram) {
+        toast.error('Please select at least one platform (Facebook or Instagram) for your campaign.');
+        setIsCreating(false);
+        return;
+      }
+
       const campaignData = {
         ...formData,
         user_id: userProfile?.user_id,
         strategy_id: selectedStrategy?.strategy_id
       };
       
-      if (selectedType === 'personalized') {
-        await personalizationService.createPersonalizedCampaign(campaignData);
+      // For video campaigns, generate video strategy first
+      if (selectedType === 'video' && userProfile?.user_id) {
+        const videoStrategy = await personalizationService.generateVideoStrategy({
+          user_id: userProfile.user_id,
+          campaign_brief: formData.prompt,
+          business_description: formData.userContext.business_description,
+          target_audience_description: formData.userContext.target_audience_description,
+          unique_value_proposition: formData.userContext.unique_value_proposition,
+          preferred_style: formData.style,
+          aspect_ratios: [formData.aspectRatio]
+        });
+        
+        // Include video strategy in campaign data
+        (campaignData as any).video_strategy = videoStrategy;
+      }
+      
+      // For image campaigns (quick, personalized), generate image strategy first
+      if ((selectedType === 'quick' || selectedType === 'personalized') && userProfile?.user_id) {
+        const imageStrategy = await personalizationService.generateImageStrategy({
+          user_id: userProfile.user_id,
+          campaign_brief: formData.prompt,
+          business_description: formData.userContext.business_description,
+          target_audience_description: formData.userContext.target_audience_description,
+          unique_value_proposition: formData.userContext.unique_value_proposition,
+          preferred_style: formData.style || 'professional',
+          image_format: formData.imageFormat || 'social_media'
+        });
+        
+        // Include image strategy in campaign data
+        (campaignData as any).image_strategy = imageStrategy;
+      }
+      
+      const finalCampaignData = {
+        ...campaignData,
+        name: `${selectedType} Campaign - ${new Date().toLocaleDateString()}`,
+        type: selectedType,
+        // Include custom campaign fields for API
+        ...(selectedType === 'custom' && {
+          business_description: formData.businessDescription,
+          target_audience: formData.targetAudience,
+          campaign_goal: formData.campaignGoal
+        })
+      };
+
+      if (selectedType === 'personalized' || selectedType === 'video' || selectedType === 'quick' || selectedType === 'custom') {
+        await personalizationService.createPersonalizedCampaign(finalCampaignData);
       } else {
-        await campaignService.createCampaign(campaignData);
+        await campaignService.createCampaign(finalCampaignData);
       }
       
       toast.success('Campaign created successfully!');
@@ -496,111 +564,67 @@ const CreateCampaign: React.FC = () => {
                       </div>
                     </motion.div>
                   )}
-                  {/* Industry Selection (for industry_optimized type) */}
-                  {selectedType === 'industry_optimized' && (
-                    <div>
-                      <label className="label">Industry</label>
-                      <select 
-                        className="input-field"
-                        value={formData.industry}
-                        onChange={(e) => setFormData({...formData, industry: e.target.value})}
-                      >
-                        <option value="">Select your industry</option>
-                        {industries.map(industry => (
-                          <option key={industry} value={industry.toLowerCase()}>
-                            {industry}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                  {/* Business Information */}
+                  {(selectedType === 'custom' || selectedType === 'personalized') && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="space-y-6"
+                    >
+                      <div>
+                        <label className="label">
+                          Business Description
+                          <span className="text-red-500">*</span>
+                        </label>
+                        <textarea
+                          value={formData.businessDescription}
+                          onChange={(e) => updateFormData({ businessDescription: e.target.value })}
+                          className="input min-h-[80px]"
+                          placeholder="Describe your business, products/services, and what makes you unique..."
+                          required
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="label">
+                          Target Audience
+                          <span className="text-red-500">*</span>
+                        </label>
+                        <textarea
+                          value={formData.targetAudience}
+                          onChange={(e) => updateFormData({ targetAudience: e.target.value })}
+                          className="input min-h-[60px]"
+                          placeholder="Who are your ideal customers? (age group, interests, demographics...)"
+                          required
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="label">
+                          Campaign Goal
+                          <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          value={formData.campaignGoal}
+                          onChange={(e) => updateFormData({ campaignGoal: e.target.value })}
+                          className="input"
+                          required
+                        >
+                          <option value="">Select campaign goal...</option>
+                          <option value="brand_awareness">Brand Awareness</option>
+                          <option value="lead_generation">Lead Generation</option>
+                          <option value="website_traffic">Website Traffic</option>
+                          <option value="sales_conversions">Sales & Conversions</option>
+                          <option value="engagement">Social Media Engagement</option>
+                          <option value="app_installs">App Installs</option>
+                        </select>
+                      </div>
+                    </motion.div>
                   )}
 
-                  {/* Business Details (for industry_optimized) */}
-                  {selectedType === 'industry_optimized' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="label">Business Name</label>
-                        <input
-                          type="text"
-                          className="input-field"
-                          placeholder="Your business name"
-                          value={formData.businessDetails.business_name}
-                          onChange={(e) => setFormData({
-                            ...formData,
-                            businessDetails: {...formData.businessDetails, business_name: e.target.value}
-                          })}
-                        />
-                      </div>
-                      <div>
-                        <label className="label">Signature Product/Service</label>
-                        <input
-                          type="text"
-                          className="input-field"
-                          placeholder="What you're known for"
-                          value={formData.businessDetails.signature_product}
-                          onChange={(e) => setFormData({
-                            ...formData,
-                            businessDetails: {...formData.businessDetails, signature_product: e.target.value}
-                          })}
-                        />
-                      </div>
-                      <div>
-                        <label className="label">Location</label>
-                        <input
-                          type="text"
-                          className="input-field"
-                          placeholder="City, State"
-                          value={formData.businessDetails.location}
-                          onChange={(e) => setFormData({
-                            ...formData,
-                            businessDetails: {...formData.businessDetails, location: e.target.value}
-                          })}
-                        />
-                      </div>
-                      <div>
-                        <label className="label">Phone (optional)</label>
-                        <input
-                          type="text"
-                          className="input-field"
-                          placeholder="(555) 123-4567"
-                          value={formData.businessDetails.phone}
-                          onChange={(e) => setFormData({
-                            ...formData,
-                            businessDetails: {...formData.businessDetails, phone: e.target.value}
-                          })}
-                        />
-                      </div>
-                    </div>
-                  )}
 
-                  {/* Competitor Details (for competitor_beating) */}
-                  {selectedType === 'competitor_beating' && (
-                    <div className="space-y-4">
-                      <div>
-                        <label className="label">Competitor Name</label>
-                        <input
-                          type="text"
-                          className="input-field"
-                          placeholder="Name of competitor to analyze"
-                          value={formData.competitorName}
-                          onChange={(e) => setFormData({...formData, competitorName: e.target.value})}
-                        />
-                      </div>
-                      <div>
-                        <label className="label">Competitor Content URL</label>
-                        <input
-                          type="url"
-                          className="input-field"
-                          placeholder="https://facebook.com/competitor-post"
-                          value={formData.competitorUrl}
-                          onChange={(e) => setFormData({...formData, competitorUrl: e.target.value})}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Campaign Prompt (for quick, viral, and personalized) */}
-                  {(selectedType === 'quick' || selectedType === 'viral' || selectedType === 'personalized') && (
+                  {/* Campaign Prompt (for quick, viral, video, personalized, and custom) */}
+                  {(selectedType === 'quick' || selectedType === 'viral' || selectedType === 'video' || selectedType === 'personalized' || selectedType === 'custom') && (
                     <div>
                       <label className="label">
                         Campaign Prompt
@@ -658,6 +682,233 @@ const CreateCampaign: React.FC = () => {
                     />
                   </div>
 
+                  {/* Video-specific options */}
+                  {selectedType === 'video' && (
+                    <div className="space-y-4 bg-green-50 p-4 rounded-lg border border-green-200">
+                      <h4 className="font-medium text-green-800 flex items-center">
+                        <Eye className="w-4 h-4 mr-2" />
+                        Video Settings
+                      </h4>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="label">Video Style</label>
+                          <select
+                            className="input-field"
+                            value={formData.style || 'marketing commercial'}
+                            onChange={(e) => setFormData({...formData, style: e.target.value})}
+                          >
+                            <option value="marketing commercial">Marketing Commercial</option>
+                            <option value="cinematic">Cinematic</option>
+                            <option value="luxury commercial">Luxury Commercial</option>
+                            <option value="corporate">Corporate</option>
+                            <option value="lifestyle">Lifestyle</option>
+                            <option value="product showcase">Product Showcase</option>
+                          </select>
+                        </div>
+                        
+                        <div>
+                          <label className="label">Aspect Ratio</label>
+                          <select
+                            className="input-field"
+                            value={formData.aspectRatio || '16:9'}
+                            onChange={(e) => setFormData({...formData, aspectRatio: e.target.value})}
+                          >
+                            <option value="16:9">16:9 (Landscape - Facebook)</option>
+                            <option value="1:1">1:1 (Square - Instagram Feed)</option>
+                            <option value="9:16">9:16 (Vertical - Instagram Stories)</option>
+                          </select>
+                        </div>
+                      </div>
+                      
+                      <div className="text-sm text-green-700 bg-green-100 p-3 rounded-md">
+                        <div className="flex items-start space-x-2">
+                          <Clock className="w-4 h-4 mt-0.5" />
+                          <div>
+                            <p className="font-medium">Video Generation Info:</p>
+                            <ul className="mt-1 space-y-1 text-xs">
+                              <li>• Fixed 8-second duration (perfect for social media ads)</li>
+                              <li>• High-quality AI generation using Google Veo 3.0</li>
+                              <li>• Professional commercial-grade output</li>
+                              <li>• Auto-posted to selected social platforms</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Image-specific options */}
+                  {(selectedType === 'quick' || selectedType === 'personalized') && (
+                    <div className="space-y-4 bg-blue-50 p-4 rounded-lg border border-blue-200">
+                      <h4 className="font-medium text-blue-800 flex items-center">
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        Image Settings
+                      </h4>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="label">Image Style</label>
+                          <select
+                            className="input-field"
+                            value={formData.style || 'professional'}
+                            onChange={(e) => setFormData({...formData, style: e.target.value})}
+                          >
+                            <option value="professional">Professional</option>
+                            <option value="modern">Modern</option>
+                            <option value="creative">Creative</option>
+                            <option value="minimalist">Minimalist</option>
+                            <option value="vibrant">Vibrant</option>
+                            <option value="corporate">Corporate</option>
+                          </select>
+                        </div>
+                        
+                        <div>
+                          <label className="label">Image Format</label>
+                          <select
+                            className="input-field"
+                            value={formData.imageFormat || 'social_media'}
+                            onChange={(e) => setFormData({...formData, imageFormat: e.target.value})}
+                          >
+                            <option value="social_media">Social Media (1:1, 16:9)</option>
+                            <option value="instagram_story">Instagram Stories (9:16)</option>
+                            <option value="facebook_cover">Facebook Cover (16:9)</option>
+                            <option value="poster">Print Poster (2:3, 3:4)</option>
+                            <option value="banner">Web Banner (5:1)</option>
+                          </select>
+                        </div>
+                      </div>
+                      
+                      <div className="text-sm text-blue-700 bg-blue-100 p-3 rounded-md">
+                        <div className="flex items-start space-x-2">
+                          <Clock className="w-4 h-4 mt-0.5" />
+                          <div>
+                            <p className="font-medium">Image Generation Info:</p>
+                            <ul className="mt-1 space-y-1 text-xs">
+                              <li>• High-resolution AI-generated images (1024x1024+)</li>
+                              <li>• Professional quality optimized for your industry</li>
+                              <li>• Platform-specific formatting and dimensions</li>
+                              <li>• Generated in 1-2 minutes</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* User Context Fields for Better Personalization */}
+                  {(selectedType === 'video' || selectedType === 'personalized' || selectedType === 'viral' || selectedType === 'quick') && (
+                    <div className="space-y-4 border-t pt-6">
+                      <div className="flex items-center space-x-2 mb-4">
+                        <Users className="w-5 h-5 text-indigo-600" />
+                        <h3 className="text-lg font-semibold text-gray-900">Campaign Context</h3>
+                        <span className="text-sm text-gray-500">(Better results with more details)</span>
+                      </div>
+                      
+                      <div>
+                        <label className="label">What does your business do? *</label>
+                        <textarea
+                          className="input-field h-20"
+                          placeholder="e.g., We run a boutique fitness studio specializing in HIIT workouts for busy professionals. We focus on 30-minute sessions that deliver maximum results."
+                          value={formData.userContext.business_description}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            userContext: {...formData.userContext, business_description: e.target.value}
+                          })}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="label">Who is your target audience? *</label>
+                        <textarea
+                          className="input-field h-20"
+                          placeholder="e.g., Working professionals aged 25-40 in Mumbai and Pune, earning 8-25 LPA, who struggle to find time for fitness but value health and efficiency."
+                          value={formData.userContext.target_audience_description}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            userContext: {...formData.userContext, target_audience_description: e.target.value}
+                          })}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="label">What makes you unique? *</label>
+                        <textarea
+                          className="input-field h-20"
+                          placeholder="e.g., Only fitness studio in the area with 30-minute scientifically proven HIIT programs. Results guaranteed in 6 weeks or money back. Personal trainers with 10+ years experience."
+                          value={formData.userContext.unique_value_proposition}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            userContext: {...formData.userContext, unique_value_proposition: e.target.value}
+                          })}
+                        />
+                      </div>
+                      
+                      <div className="text-sm text-blue-700 bg-blue-50 p-3 rounded-md">
+                        <div className="flex items-start space-x-2">
+                          <Lightbulb className="w-4 h-4 mt-0.5" />
+                          <div>
+                            <p className="font-medium">💡 Pro Tip:</p>
+                            <p className="mt-1">The more specific you are, the better our AI can create personalized content that resonates with your exact audience and highlights what makes you special.</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Platform Selection */}
+                  <div className="space-y-4 border-t pt-6">
+                    <div className="flex items-center space-x-2 mb-4">
+                      <BarChart3 className="w-5 h-5 text-blue-600" />
+                      <h3 className="text-lg font-semibold text-gray-900">Platform Selection</h3>
+                      <span className="text-sm text-gray-500">(At least one platform required)</span>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="flex items-center space-x-3 p-4 border rounded-lg hover:bg-blue-50 transition-colors">
+                        <input
+                          type="checkbox"
+                          id="facebook"
+                          checked={formData.platforms.facebook}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            platforms: { ...formData.platforms, facebook: e.target.checked }
+                          })}
+                          className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <label htmlFor="facebook" className="flex items-center space-x-2 text-sm font-medium text-gray-900 cursor-pointer">
+                          <div className="w-6 h-6 bg-blue-600 rounded flex items-center justify-center">
+                            <span className="text-white text-xs font-bold">f</span>
+                          </div>
+                          <span>Facebook Feed & Stories</span>
+                        </label>
+                      </div>
+                      
+                      <div className="flex items-center space-x-3 p-4 border rounded-lg hover:bg-pink-50 transition-colors">
+                        <input
+                          type="checkbox"
+                          id="instagram"
+                          checked={formData.platforms.instagram}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            platforms: { ...formData.platforms, instagram: e.target.checked }
+                          })}
+                          className="w-4 h-4 text-pink-600 bg-gray-100 border-gray-300 rounded focus:ring-pink-500"
+                        />
+                        <label htmlFor="instagram" className="flex items-center space-x-2 text-sm font-medium text-gray-900 cursor-pointer">
+                          <div className="w-6 h-6 bg-gradient-to-r from-pink-500 to-purple-600 rounded flex items-center justify-center">
+                            <span className="text-white text-xs font-bold">📸</span>
+                          </div>
+                          <span>Instagram Feed & Stories</span>
+                        </label>
+                      </div>
+                    </div>
+                    
+                    <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md">
+                      <p><strong>✓ Recommendation:</strong> Enable both platforms for maximum reach and engagement. Our AI will optimize content for each platform automatically.</p>
+                    </div>
+                  </div>
+
                   <div className="flex justify-between">
                     <button 
                       onClick={() => setStep(1)}
@@ -700,8 +951,8 @@ const CreateCampaign: React.FC = () => {
                       <p className="text-gray-600 capitalize">{selectedType.replace('_', ' ')}</p>
                     </div>
                     <div>
-                      <h3 className="font-semibold mb-2">Industry</h3>
-                      <p className="text-gray-600 capitalize">{formData.industry || 'General'}</p>
+                      <h3 className="font-semibold mb-2">Business Description</h3>
+                      <p className="text-gray-600">{formData.businessDescription || 'Not specified'}</p>
                     </div>
                     {(formData.businessDetails.business_name || userProfile?.business_name) && (
                       <div>
@@ -741,7 +992,7 @@ const CreateCampaign: React.FC = () => {
                       <p className={`${selectedType === 'personalized' ? 'text-indigo-800' : 'text-blue-800'} text-sm`}>
                         {selectedType === 'personalized' 
                           ? 'This personalized campaign uses AI to optimize for your specific business profile and goals. Expected performance improvement of 40-60% over standard campaigns.'
-                          : 'This campaign is backed by our performance guarantee. If it doesn\'t meet our performance standards, we\'ll optimize it automatically or provide a refund.'
+                          : 'This campaign is backed by our performance guarantee. If it doesn\'t meet our performance standards, we\'ll optimize it automatically.'
                         }
                       </p>
                     </div>

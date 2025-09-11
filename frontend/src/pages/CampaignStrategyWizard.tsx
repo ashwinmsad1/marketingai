@@ -52,7 +52,7 @@ const CampaignStrategyWizard: React.FC<CampaignStrategyWizardProps> = ({
     mode: 'onChange',
     defaultValues: {
       strategy_type: 'conversion',
-      budget_range: '$1,000-$2,500/month',
+      budget_range: '₹10,000-₹25,000/month',
       duration_days: 30,
       specific_goals: [],
       content_preferences: []
@@ -111,12 +111,12 @@ const CampaignStrategyWizard: React.FC<CampaignStrategyWizardProps> = ({
   ];
 
   const budgetRanges = [
-    '$500-$1,000/month',
-    '$1,000-$2,500/month',
-    '$2,500-$5,000/month',
-    '$5,000-$10,000/month',
-    '$10,000-$25,000/month',
-    '$25,000+/month'
+    '₹5,000-₹10,000/month',     // Small local businesses
+    '₹10,000-₹25,000/month',    // Growing SMEs
+    '₹25,000-₹50,000/month',    // Established SMEs
+    '₹50,000-₹100,000/month',   // Mid-size businesses
+    '₹100,000-₹250,000/month',  // Large businesses
+    '₹250,000+/month'           // Enterprise level
   ];
 
   const durationOptions = [

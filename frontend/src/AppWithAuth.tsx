@@ -56,8 +56,8 @@ const AppContent: React.FC = () => {
     };
   }, [navigate]);
 
-  const handleMediaCreated = (url: string, type: 'image' | 'video', prompt: string) => {
-    console.log('Media created:', { url, type, prompt });
+  const handleMediaCreated = (_url: string, _type: 'image' | 'video', _prompt: string) => {
+    // Media creation callback - could be used for tracking or notifications
   };
 
   return (

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   Mail, Lock, Eye, EyeOff, User, Building, Phone
@@ -19,7 +19,13 @@ interface FormData {
 
 const Register: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { register: registerUser, loading } = useAuth();
+  
+  // Get plan and billing cycle from URL params
+  const planFromUrl = searchParams.get('plan') as 'basic' | 'professional' | 'business' | null;
+  const billingFromUrl = searchParams.get('billing') as 'monthly' | 'annual' | null;
+  
   const [formData, setFormData] = useState<FormData>({
     email: '',
     password: '',
@@ -36,6 +42,13 @@ const Register: React.FC = () => {
     score: number;
     feedback: string[];
   }>({ score: 0, feedback: [] });
+  
+  // Display selected plan info if available
+  const selectedPlan = planFromUrl ? {
+    basic: { name: 'Basic Plan', price: billingFromUrl === 'annual' ? '₹2,499' : '₹2,999' },
+    professional: { name: 'Professional Plan', price: billingFromUrl === 'annual' ? '₹6,644' : '₹7,999' },
+    business: { name: 'Business Plan', price: billingFromUrl === 'annual' ? '₹16,658' : '₹19,999' }
+  }[planFromUrl] : null;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -174,6 +187,22 @@ const Register: React.FC = () => {
             Start your AI-powered marketing journey
           </p>
         </div>
+
+        {/* Selected Plan Info */}
+        {selectedPlan && (
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-blue-900">{selectedPlan.name}</h3>
+                <p className="text-blue-700 text-sm">
+                  {selectedPlan.price}/month {billingFromUrl === 'annual' && '(billed annually)'}
+                  {billingFromUrl === 'annual' && <span className="ml-2 text-green-600 font-medium">Save 17%!</span>}
+                </p>
+              </div>
+              <div className="text-2xl">🎉</div>
+            </div>
+          </div>
+        )}
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-6">

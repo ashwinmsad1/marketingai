@@ -51,7 +51,6 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({
       preferred_content_types: existingProfile.preferred_content_types,
       brand_colors: existingProfile.brand_colors,
       brand_fonts: existingProfile.brand_fonts,
-      competitor_analysis: existingProfile.competitor_analysis,
       seasonal_trends: existingProfile.seasonal_trends,
       marketing_channels: existingProfile.marketing_channels,
       content_calendar_preferences: existingProfile.content_calendar_preferences,
@@ -77,8 +76,12 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({
   const getBusinessTypeOptions = () => ['B2C', 'B2B', 'Both'];
   
   const getBudgetRangeOptions = () => [
-    '$500-$1,000/month', '$1,000-$2,500/month', '$2,500-$5,000/month', 
-    '$5,000-$10,000/month', '$10,000-$25,000/month', '$25,000+/month'
+    '₹5,000-₹10,000/month',     // Small local businesses
+    '₹10,000-₹25,000/month',    // Growing SMEs  
+    '₹25,000-₹50,000/month',    // Established SMEs
+    '₹50,000-₹100,000/month',   // Mid-size businesses
+    '₹100,000-₹250,000/month',  // Large businesses
+    '₹250,000+/month'           // Enterprise level
   ];
 
   const getPrimaryGoalsOptions = () => [
@@ -94,9 +97,9 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({
   ];
 
   const getMarketingChannelOptions = () => [
-    'Facebook Ads', 'Instagram Ads', 'Google Ads', 'Email Marketing',
-    'Content Marketing', 'SEO', 'Influencer Marketing', 'LinkedIn Ads',
-    'YouTube Ads', 'TikTok Ads', 'Print Advertising', 'Radio/TV'
+    'Facebook Ads', 'Instagram Ads', 'Email Marketing',
+    'Content Marketing', 'SEO', 'Influencer Marketing',
+    'Print Advertising', 'Radio/TV'
   ];
 
   const getPerformancePriorityOptions = () => [
@@ -330,7 +333,7 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({
           </label>
           <textarea
             {...register('unique_value_proposition', { required: 'Unique value proposition is required' })}
-            placeholder="What makes your business different from competitors?"
+            placeholder="What makes your business unique and valuable to customers?"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             rows={3}
           />
@@ -526,17 +529,6 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Competitor Analysis
-            </label>
-            <textarea
-              {...register('competitor_analysis')}
-              placeholder="Who are your main competitors?"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              rows={2}
-            />
-          </div>
         </div>
 
         <div>

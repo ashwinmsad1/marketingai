@@ -11,7 +11,7 @@ export interface User {
   created_at: string;
   // Computed property for full name
   name?: string;
-  subscription_tier?: 'starter' | 'professional' | 'enterprise';
+  subscription_tier?: 'basic' | 'professional' | 'business';
   industry?: string;
 }
 
@@ -30,7 +30,7 @@ export interface Campaign {
   name: string;
   description?: string;
   objective?: string;
-  type?: 'image' | 'video' | 'industry_optimized' | 'viral' | 'competitor_beating';
+  type?: 'image' | 'video' | 'custom' | 'viral';
   status: 'draft' | 'active' | 'paused' | 'completed' | 'failed';
   created_at: string;
   updated_at: string;
@@ -74,14 +74,12 @@ export interface Campaign {
 
 // Campaign Creation Types
 export interface CampaignCreateRequest {
-  type: 'image' | 'video' | 'industry_optimized' | 'viral' | 'competitor_beating';
+  type: 'image' | 'video' | 'custom' | 'viral';
   prompt: string;
   caption?: string;
   style?: string;
   industry?: string;
   business_details?: Record<string, any>;
-  competitor_url?: string;
-  competitor_name?: string;
 }
 
 // Performance Metrics
@@ -158,13 +156,15 @@ export interface CreativePerformance {
   revenue: number;
 }
 
-// Industry Templates
-export interface IndustryTemplate {
+// Campaign Templates (User-defined)
+export interface CampaignTemplate {
   template_id: string;
-  industry: string;
   name: string;
   description: string;
-  expected_performance: {
+  business_description: string;
+  target_audience: string;
+  campaign_goal: string;
+  expected_performance?: {
     ctr: number;
     conversion_rate: number;
     engagement_rate: number;
@@ -224,7 +224,6 @@ export interface PersonalizationProfileRequest {
   preferred_content_types?: string[];
   brand_colors?: string;
   brand_fonts?: string;
-  competitor_analysis?: string;
   seasonal_trends?: string;
   marketing_channels?: string[];
   content_calendar_preferences?: string;
@@ -277,19 +276,99 @@ export interface PersonalizationAskResponse {
   suggested_actions?: string[];
 }
 
-// Subscription Types
-export interface SubscriptionLimits {
-  campaigns_per_month: number;
-  ai_generations_per_month: number;
-  api_calls_per_month: number;
+// Subscription and Usage Tracking Types
+export type SubscriptionTier = 'basic' | 'professional' | 'business';
+
+export interface PricingTier {
+  name: string;
+  price_monthly: number;
+  price_annual: number;
+  campaigns_limit: number;
+  ai_generations_limit: number;
+  ad_spend_monitoring_limit: number;
+  support_level: string;
   features: string[];
 }
 
-export interface SubscriptionUsage {
-  campaigns_used: number;
-  ai_generations_used: number;
-  api_calls_used: number;
+export interface SubscriptionLimits {
+  campaigns: number;
+  ai_generations: number;
+  ad_spend: number;
+  features: string[];
+}
+
+export interface UsageTracking {
+  campaigns: number;
+  ai_generations: number;
+  ad_spend: number;
   reset_date: string;
+  billing_cycle_start: string;
+  billing_cycle_end: string;
+}
+
+export interface UsagePercentages {
+  campaigns: number;
+  ai_generations: number;
+  ad_spend: number;
+}
+
+export interface UsageSummary {
+  current_tier: SubscriptionTier;
+  usage: UsageTracking;
+  limits: SubscriptionLimits;
+  usage_percentages: UsagePercentages;
+  warnings: UsageWarning[];
+  days_until_reset: number;
+  next_reset_date: string;
+}
+
+export interface UsageWarning {
+  metric: string;
+  metric_name: string;
+  percentage: number;
+  status: {
+    status: 'normal' | 'caution' | 'warning' | 'critical' | 'exceeded';
+    color: string;
+    message: string;
+    severity: string;
+  };
+  message: string;
+}
+
+export interface TierComparisonData {
+  tier1: SubscriptionTier;
+  tier2: SubscriptionTier;
+  differences: {
+    campaigns: { tier1: number; tier2: number; increase: number };
+    ai_generations: { tier1: number; tier2: number; increase: number };
+    ad_spend: { tier1: number; tier2: number; increase: number };
+  };
+  pricing: {
+    monthly_difference: number;
+    annual_difference: number;
+  };
+  new_features: string[];
+}
+
+export interface SubscriptionUpgradeInfo {
+  current_tier: SubscriptionTier;
+  suggested_tier: SubscriptionTier;
+  benefits: string[];
+  cost_difference: {
+    monthly: number;
+    annual: number;
+    annual_savings: number;
+  };
+  upgrade_urgency: 'none' | 'low' | 'medium' | 'high' | 'critical';
+}
+
+export interface TierEnforcementError {
+  error: 'tier_limit_exceeded' | 'feature_unavailable';
+  message: string;
+  current_tier: SubscriptionTier;
+  suggested_tier?: SubscriptionTier;
+  usage_info?: any;
+  upgrade_url?: string;
 }
 
 // Form Types
@@ -325,7 +404,6 @@ export interface MetaUserProfile {
   preferred_content_types: string[];
   brand_colors?: string;
   brand_fonts?: string;
-  competitor_analysis?: string;
   seasonal_trends?: string;
   marketing_channels?: string[];
   content_calendar_preferences?: string;

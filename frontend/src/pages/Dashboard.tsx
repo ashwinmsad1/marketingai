@@ -129,15 +129,15 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
       },
       {
         campaign_id: '3',
-        name: 'Competitor Analysis Fashion',
-        type: 'competitor_beating',
-        status: 'paused',
+        name: 'Fashion Trend Analysis',
+        type: 'viral',
+        status: 'active',
         spend: 320,
         revenue: 1200,
         roi: 275,
         ctr: 2.1,
         created_at: '2024-12-25',
-        performance_status: 'poor'
+        performance_status: 'good'
       }
     ]
   };
@@ -166,7 +166,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
       case 'personalized': return '🧠';
       case 'viral': return '🔥';
       case 'industry_optimized': return '🏭';
-      case 'competitor_beating': return '🥊';
       default: return '🎨';
     }
   };
@@ -630,7 +629,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                 <Zap className="w-8 h-8 text-blue-600" />
               </div>
               <CardTitle as="h3" className="text-base mb-2">Quick Campaign</CardTitle>
-              <CardDescription className="mb-4">Create campaign in 60 seconds</CardDescription>
+              <CardDescription className="mb-4">Create campaign in minutes</CardDescription>
               <Button width="full">Start Now</Button>
             </CardContent>
           </Card>
