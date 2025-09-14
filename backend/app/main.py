@@ -25,6 +25,8 @@ from backend.integrations.payment import payment_routes
 # Middleware
 from backend.middleware.rate_limit_middleware import RateLimitMiddleware
 from backend.middleware.tier_enforcement_middleware import TierEnforcementMiddleware
+from backend.middleware.security_middleware import SecurityMiddleware
+from backend.middleware.logging_middleware import LoggingMiddleware
 
 # Configure logging
 logging.basicConfig(
@@ -83,6 +85,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Security middleware
+app.add_middleware(SecurityMiddleware)
+
+# Logging middleware
+app.add_middleware(LoggingMiddleware, log_requests=True, log_responses=False)
 
 # Rate limiting middleware (applied before tier enforcement)
 app.add_middleware(RateLimitMiddleware)
