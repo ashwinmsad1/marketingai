@@ -54,7 +54,6 @@
 - **Cross-platform asset management** (reuse creatives across campaigns)
 - **Advanced attribution tracking** (multi-touch attribution analysis)
 - **Custom reporting dashboard**
-- **Multi-account management**
 - **Unlimited ad spend monitoring**
 - **90-day performance analytics**
 
@@ -101,11 +100,6 @@
 - **Creative fatigue detection** - AI monitors engagement drops and auto-refreshes creatives
 - **Cross-platform asset management** - Intelligent creative reuse across campaigns
 - **Advanced attribution tracking** - Multi-touch attribution with conversion path analysis
-
-**Multi-Account Management**
-- Agency-level account management
-- Client reporting dashboards
-- Team collaboration features
 
 ---
 
