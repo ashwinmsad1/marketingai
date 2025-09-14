@@ -16,11 +16,121 @@ from enum import Enum
 import uuid
 from dataclasses import dataclass, field
 from decimal import Decimal
+import random
+import asyncio
+from functools import wraps
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
+class MetaAPIError(Exception):
+    """Base exception for Meta API errors"""
+    pass
+
+class MetaRateLimitError(MetaAPIError):
+    """Rate limit exceeded error"""
+    pass
+
+class MetaAuthenticationError(MetaAPIError):
+    """Authentication/authorization error"""
+    pass
+
+class MetaBudgetError(MetaAPIError):
+    """Budget related error"""  
+    pass
+
+class MetaObjectiveError(MetaAPIError):
+    """Invalid objective error"""
+    pass
+
+class MetaAPIErrorHandler:
+    """Enhanced error handling for Meta API operations"""
+    
+    def __init__(self, retry_count=3, base_delay=1.0):
+        self.retry_count = retry_count
+        self.base_delay = base_delay
+        
+    def classify_error(self, error: Exception) -> tuple:
+        """Classify Meta API error and return error type and handler"""
+        error_str = str(error).lower()
+        
+        if any(keyword in error_str for keyword in ['rate limit', 'too many requests', '(#613)']):
+            return 'RATE_LIMIT', self.handle_rate_limit_error
+        elif any(keyword in error_str for keyword in ['invalid objective', '#100']):
+            return 'INVALID_OBJECTIVE', self.handle_objective_error
+        elif any(keyword in error_str for keyword in ['insufficient budget', 'budget', 'daily_budget']):
+            return 'BUDGET_ERROR', self.handle_budget_error
+        elif any(keyword in error_str for keyword in ['unauthorized', 'invalid access token', '#190']):
+            return 'AUTH_ERROR', self.handle_auth_error
+        elif any(keyword in error_str for keyword in ['network', 'connection', 'timeout']):
+            return 'NETWORK_ERROR', self.handle_network_error
+        else:
+            return 'UNKNOWN_ERROR', self.handle_unknown_error
+            
+    def handle_rate_limit_error(self, error, attempt=0):
+        """Handle rate limit errors with exponential backoff"""
+        wait_time = self.base_delay * (2 ** attempt) + random.uniform(0, 1)
+        logger.warning(f"Rate limit hit. Waiting {wait_time:.1f}s before retry {attempt+1}/{self.retry_count}")
+        return {'action': 'retry', 'delay': wait_time, 'recoverable': True}
+        
+    def handle_objective_error(self, error, attempt=0):
+        """Handle invalid objective errors"""
+        valid_objectives = ['OUTCOME_AWARENESS', 'OUTCOME_TRAFFIC', 'OUTCOME_ENGAGEMENT', 
+                          'OUTCOME_LEADS', 'OUTCOME_SALES', 'OUTCOME_APP_PROMOTION']
+        logger.error(f"Invalid objective error: {error}")
+        logger.info(f"Valid objectives: {', '.join(valid_objectives)}")
+        return {'action': 'fail', 'recoverable': False, 'suggested_objectives': valid_objectives}
+        
+    def handle_budget_error(self, error, attempt=0):
+        """Handle budget related errors"""
+        logger.warning(f"Budget error: {error}")
+        return {'action': 'retry', 'delay': 2.0, 'recoverable': True, 'suggestion': 'Check and adjust budget amounts'}
+        
+    def handle_auth_error(self, error, attempt=0):
+        """Handle authentication errors"""
+        logger.error(f"Authentication error: {error}")
+        return {'action': 'fail', 'recoverable': False, 'suggestion': 'Check access token and permissions'}
+        
+    def handle_network_error(self, error, attempt=0):
+        """Handle network connectivity errors"""
+        wait_time = min(self.base_delay * (2 ** attempt), 30)  # Max 30s wait
+        logger.warning(f"Network error: {error}. Retrying in {wait_time}s")
+        return {'action': 'retry', 'delay': wait_time, 'recoverable': True}
+        
+    def handle_unknown_error(self, error, attempt=0):
+        """Handle unknown errors"""
+        logger.error(f"Unknown error: {error}")
+        return {'action': 'fail', 'recoverable': False}
+
+def with_retry(max_attempts=3):
+    """Decorator for adding retry logic to Meta API calls"""
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(self, *args, **kwargs):
+            for attempt in range(max_attempts):
+                try:
+                    return await func(self, *args, **kwargs)
+                except Exception as e:
+                    error_type, handler = self.error_handler.classify_error(e)
+                    response = handler(e, attempt)
+                    
+                    if response['action'] == 'retry' and attempt < max_attempts - 1:
+                        if 'delay' in response:
+                            await asyncio.sleep(response['delay'])
+                        logger.info(f"Retrying {func.__name__} (attempt {attempt + 2}/{max_attempts})")
+                        continue
+                    else:
+                        # Final failure or non-recoverable error
+                        logger.error(f"{func.__name__} failed after {attempt + 1} attempts: {e}")
+                        if response.get('suggestion'):
+                            logger.info(f"Suggestion: {response['suggestion']}")
+                        raise e
+            return None
+        return wrapper
+    return decorator
+
 from backend.utils.config_manager import get_config, ConfigurationError
+from backend.utils.meta_config import get_meta_config, validate_meta_config
 
 try:
     from facebook_business.api import FacebookAdsApi
@@ -1898,35 +2008,168 @@ class MetaAdsAutomationEngine:
     """
     
     def __init__(self):
-        # Meta API Configuration
-        self.app_id = os.getenv("FACEBOOK_APP_ID")
-        self.app_secret = os.getenv("FACEBOOK_APP_SECRET") 
-        self.access_token = os.getenv("META_ACCESS_TOKEN")
-        self.ad_account_id = os.getenv("META_AD_ACCOUNT_ID")
-        self.page_id = os.getenv("FACEBOOK_PAGE_ID")
+        # Load centralized Meta configuration
+        self.meta_config = get_meta_config()
         
-        # Initialize Facebook Ads API
+        # Validate configuration
+        is_valid, errors = validate_meta_config()
+        if not is_valid:
+            raise ConfigurationError(f"Meta configuration validation failed: {'; '.join(errors)}")
+        
+        # Extract commonly used values for convenience
+        self.app_id = self.meta_config.app_id
+        self.app_secret = self.meta_config.app_secret
+        self.access_token = self.meta_config.access_token
+        self.ad_account_id = self.meta_config.ad_account_id
+        self.page_id = self.meta_config.facebook_page_id
+        
+        # Use centralized API configuration
+        self.api_version = self.meta_config.ads_api_version
+        self.api_timeout = self.meta_config.api_timeout
+        self.retry_count = self.meta_config.retry_count
+        
+        # Initialize Facebook Ads API with centralized configuration
         if all([self.app_id, self.app_secret, self.access_token]):
-            FacebookAdsApi.init(self.app_id, self.app_secret, self.access_token)
+            FacebookAdsApi.init(
+                app_id=self.app_id, 
+                app_secret=self.app_secret, 
+                access_token=self.access_token,
+                api_version=self.api_version  # Use centralized API version
+            )
             self.account = AdAccount(f'act_{self.ad_account_id}')
+            logger.info(f"Meta API initialized with version {self.api_version}")
         else:
             raise ValueError("Missing required Meta API credentials in environment variables")
         
         # Thread pool for blocking operations
         self._thread_pool = ThreadPoolExecutor(max_workers=4)
         
+        # Initialize error handler
+        self.error_handler = MetaAPIErrorHandler(
+            retry_count=self.retry_count,
+            base_delay=1.0
+        )
+        
         # Initialize personalization engine
         self.personalization_engine = MetaAdsPersonalizationEngine()
+        
+        # Validate API version compatibility
+        self._validate_api_version_compatibility()
+    
+    def _validate_api_version_compatibility(self):
+        """Validate API version compatibility and warn about deprecated features"""
+        try:
+            # Supported API versions and their features
+            SUPPORTED_VERSIONS = {
+                'v21.0': {
+                    'supported': True,
+                    'deprecated_features': [],
+                    'new_features': ['enhanced_insights', 'improved_targeting'],
+                    'objective_format': 'OUTCOME_*'
+                },
+                'v20.0': {
+                    'supported': True,
+                    'deprecated_features': ['old_conversion_api'],
+                    'new_features': ['outcome_driven_ads'],
+                    'objective_format': 'OUTCOME_*'
+                },
+                'v19.0': {
+                    'supported': True,
+                    'deprecated_features': ['legacy_objectives', 'old_insights'],
+                    'new_features': [],
+                    'objective_format': 'MIXED'  # Both legacy and OUTCOME_* supported
+                },
+                'v18.0': {
+                    'supported': False,
+                    'deprecated_features': ['all_legacy_features'],
+                    'new_features': [],
+                    'objective_format': 'LEGACY'
+                }
+            }
+            
+            version_info = SUPPORTED_VERSIONS.get(self.api_version)
+            
+            if not version_info:
+                logger.warning(f"Unknown API version {self.api_version}. Using default compatibility mode.")
+                return
+            
+            if not version_info['supported']:
+                raise ValueError(f"API version {self.api_version} is no longer supported. Please upgrade to v20.0 or v21.0")
+            
+            # Log compatibility information
+            if version_info['deprecated_features']:
+                logger.warning(f"API version {self.api_version} has deprecated features: {version_info['deprecated_features']}")
+            
+            if version_info['new_features']:
+                logger.info(f"API version {self.api_version} supports new features: {version_info['new_features']}")
+            
+            # Validate objective format compatibility
+            if version_info['objective_format'] == 'LEGACY':
+                logger.warning("Using legacy objective format. Consider upgrading to OUTCOME_* format.")
+            elif version_info['objective_format'] == 'OUTCOME_*':
+                logger.info("Using modern OUTCOME_* objective format.")
+            
+            self.api_compatibility = version_info
+            
+        except Exception as e:
+            logger.error(f"API version compatibility check failed: {e}")
+            # Don't fail initialization, but warn
+            self.api_compatibility = {'supported': True, 'objective_format': 'OUTCOME_*'}
+    
+    def migrate_legacy_objectives(self, objective: str) -> str:
+        """Migrate legacy objectives to current OUTCOME_* format"""
+        LEGACY_TO_OUTCOME_MAPPING = {
+            # Legacy → Modern OUTCOME_* format
+            'BRAND_AWARENESS': 'OUTCOME_AWARENESS',
+            'REACH': 'OUTCOME_AWARENESS',
+            'VIDEO_VIEWS': 'OUTCOME_AWARENESS',
+            'LINK_CLICKS': 'OUTCOME_TRAFFIC',
+            'CONVERSIONS': 'OUTCOME_SALES',
+            'LEAD_GENERATION': 'OUTCOME_LEADS',
+            'MESSAGES': 'OUTCOME_LEADS',
+            'POST_ENGAGEMENT': 'OUTCOME_ENGAGEMENT',
+            'PAGE_LIKES': 'OUTCOME_ENGAGEMENT',
+            'EVENT_RESPONSES': 'OUTCOME_ENGAGEMENT',
+            'APP_INSTALLS': 'OUTCOME_APP_PROMOTION',
+            'PRODUCT_CATALOG_SALES': 'OUTCOME_SALES',
+            'STORE_VISITS': 'OUTCOME_AWARENESS'
+        }
+        
+        if objective in LEGACY_TO_OUTCOME_MAPPING:
+            migrated = LEGACY_TO_OUTCOME_MAPPING[objective]
+            logger.info(f"Migrated legacy objective '{objective}' to '{migrated}'")
+            return migrated
+        
+        # If already in OUTCOME_* format or unknown, return as-is
+        return objective
+    
+    def get_compatible_objective(self, objective: str) -> str:
+        """Get API version compatible objective format"""
+        try:
+            # Check if we need to migrate from legacy format
+            if self.api_compatibility.get('objective_format') == 'MIXED':
+                # For mixed compatibility, prefer OUTCOME_* but support legacy
+                return self.migrate_legacy_objectives(objective)
+            elif self.api_compatibility.get('objective_format') == 'OUTCOME_*':
+                # Modern format only
+                return self.migrate_legacy_objectives(objective)
+            else:
+                # Legacy format or unknown - return as-is
+                return objective
+                
+        except Exception as e:
+            logger.error(f"Objective compatibility check failed: {e}")
+            return objective  # Safe fallback
     
     # CAMPAIGN OBJECTIVES MAPPING
     CAMPAIGN_OBJECTIVES = {
-        'brand_awareness': Campaign.Objective.outcome_awareness,
-        'traffic': Campaign.Objective.outcome_traffic,
-        'engagement': Campaign.Objective.outcome_engagement,
-        'leads': Campaign.Objective.outcome_leads,
-        'app_promotion': Campaign.Objective.outcome_app_promotion,
-        'sales': Campaign.Objective.outcome_sales,
-        'conversions': Campaign.Objective.outcome_sales  # Most common for e-commerce
+        'brand_awareness': 'OUTCOME_AWARENESS',
+        'traffic': 'OUTCOME_TRAFFIC',
+        'engagement': 'OUTCOME_ENGAGEMENT',
+        'leads': 'OUTCOME_LEADS',
+        'app_promotion': 'OUTCOME_APP_PROMOTION',
+        'sales': 'OUTCOME_SALES',
+        'conversions': 'OUTCOME_SALES'  # Most common for e-commerce
     }
     
     async def create_ai_optimized_campaign(self, campaign_config: Dict[str, Any]) -> Dict[str, Any]:
@@ -2007,10 +2250,13 @@ class MetaAdsAutomationEngine:
             results['error'] = f'Unexpected error: {e}'
             return results
     
+    @with_retry(max_attempts=3)
     async def _create_campaign(self, config: Dict[str, Any]) -> Dict[str, str]:
         """Create Meta advertising campaign with proper async handling"""
         try:
-            objective = self.CAMPAIGN_OBJECTIVES.get(config['objective'], Campaign.Objective.outcome_sales)
+            # Use version-compatible objective mapping
+            raw_objective = self.CAMPAIGN_OBJECTIVES.get(config['objective'], 'OUTCOME_SALES')
+            objective = self.get_compatible_objective(raw_objective)
             
             # Run blocking Facebook API call in thread pool
             loop = asyncio.get_event_loop()
@@ -2023,6 +2269,7 @@ class MetaAdsAutomationEngine:
                         Campaign.Field.objective: objective,
                         Campaign.Field.status: Campaign.Status.paused,  # Start paused for safety
                         Campaign.Field.buying_type: Campaign.BuyingType.auction,
+                        Campaign.Field.special_ad_categories: config.get('special_ad_categories', []),  # Required field
                     }
                 )
             )

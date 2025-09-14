@@ -8,11 +8,11 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
-from database import SessionLocal
-from core.security import verify_token
-from core.exceptions import unauthorized_exception
-from database.models import User
-from database.crud import UserCRUD
+from backend.database import SessionLocal
+from backend.core.security import verify_token
+from backend.core.exceptions import MarketingAIException
+from backend.database.models import User
+from backend.database.crud import UserCRUD
 
 # Security
 security = HTTPBearer()
@@ -38,15 +38,24 @@ async def get_current_user(
         user_id = payload.get("sub")
         
         if user_id is None:
-            raise unauthorized_exception("Invalid authentication credentials")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication credentials"
+            )
             
-        user = UserCRUD.get_user(db, user_id=int(user_id))
+        user = UserCRUD.get_user(db, user_id=user_id)
         if user is None:
-            raise unauthorized_exception("User not found")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found"
+            )
             
         return user
     except Exception:
-        raise unauthorized_exception("Could not validate credentials")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials"
+        )
 
 
 async def get_current_active_user(

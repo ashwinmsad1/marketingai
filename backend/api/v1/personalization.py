@@ -13,6 +13,12 @@ from backend.database.models import User
 from backend.services.personalization_service import EnhancedPersonalizationService
 from backend.services.ml_prediction_service import MLPredictionService
 from backend.core.config import settings
+from backend.core.tier_enforcement import (
+    ai_generation_guard,
+    campaign_creation_guard,
+    feature_usage_guard,
+    require_tier
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -66,6 +72,7 @@ async def get_user_profile(
 
 
 @router.post("/campaign-strategy")
+@ai_generation_guard("campaign_strategy")
 async def generate_campaign_strategy(
     strategy_request: dict,
     current_user: User = Depends(get_current_verified_user)
@@ -98,6 +105,7 @@ async def generate_campaign_strategy(
 
 
 @router.post("/video-strategy")
+@ai_generation_guard("video_strategy")
 async def generate_video_strategy(
     strategy_request: dict,
     current_user: User = Depends(get_current_verified_user)
@@ -135,6 +143,7 @@ async def generate_video_strategy(
 
 
 @router.post("/image-strategy")
+@ai_generation_guard("image_strategy")
 async def generate_image_strategy(
     strategy_request: dict,
     current_user: User = Depends(get_current_verified_user)
@@ -172,6 +181,7 @@ async def generate_image_strategy(
 
 
 @router.post("/campaigns/create")
+@campaign_creation_guard
 async def create_personalized_campaign(
     campaign_data: dict,
     current_user: User = Depends(get_current_verified_user),
@@ -295,6 +305,7 @@ async def answer_campaign_question(
 # A/B Testing Endpoints
 
 @router.post("/ab-tests")
+@require_tier("professional")
 async def create_ab_test(
     test_request: dict,
     current_user: User = Depends(get_current_verified_user)
@@ -693,6 +704,7 @@ async def get_ab_test_results(
 # ML Prediction Endpoints
 
 @router.post("/predictions/campaign-performance")
+@require_tier("professional")
 async def predict_campaign_performance(
     campaign_config: dict,
     historical_data: List[dict] = None,
@@ -751,6 +763,7 @@ async def predict_campaign_performance(
         }
 
 @router.post("/predictions/viral-potential")
+@require_tier("professional")
 async def predict_viral_potential(
     content_config: dict,
     use_cache: bool = True,

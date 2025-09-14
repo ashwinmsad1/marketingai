@@ -11,29 +11,194 @@ import mimetypes
 # Configure logging
 logger = logging.getLogger(__name__)
 
-from utils.config_manager import get_config, ConfigurationError
+from ..utils.config_manager import get_config, ConfigurationError
+from ..utils.meta_response_formatter import MetaResponseFormatter, MetaErrorType, MetaPlatform, classify_meta_error
+from ..utils.circuit_breaker import circuit_breaker, CircuitBreakerOpenError
+from ..utils.meta_health_check import get_meta_health_status, get_cached_meta_health_status
+from ..utils.meta_config import get_meta_config, validate_meta_config
+from ..utils.meta_startup_validator import get_startup_validation_summary
 
 load_dotenv()
+
+# Import Meta API error classes for consistency
+class FacebookAPIError(Exception):
+    """Base exception for Facebook API errors"""
+    pass
+
+class FacebookRateLimitError(FacebookAPIError):
+    """Facebook rate limit exceeded error"""
+    pass
+
+class FacebookAuthError(FacebookAPIError):
+    """Facebook authentication error"""
+    pass
+
+class FacebookUploadError(FacebookAPIError):
+    """Facebook content upload error"""
+    pass
+
+def facebook_retry(max_attempts=3):
+    """Retry decorator for Facebook API calls"""
+    def decorator(func):
+        async def wrapper(self, *args, **kwargs):
+            for attempt in range(max_attempts):
+                try:
+                    return await func(self, *args, **kwargs)
+                except Exception as e:
+                    error_type, should_retry, delay = self._classify_facebook_error(e)
+                    
+                    if should_retry and attempt < max_attempts - 1:
+                        logger.warning(f"Facebook API error (attempt {attempt + 1}/{max_attempts}): {e}")
+                        if delay > 0:
+                            logger.info(f"Waiting {delay}s before retry...")
+                            await asyncio.sleep(delay)
+                        continue
+                    else:
+                        logger.error(f"Facebook API failed after {attempt + 1} attempts: {e}")
+                        raise e
+            return None
+        return wrapper
+    return decorator
 
 class FacebookMarketingAgent:
     def __init__(self):
         try:
-            # Use secure config manager consistently
-            self.access_token = get_config("META_ACCESS_TOKEN")
-            self.page_id = get_config("FACEBOOK_PAGE_ID") 
-            # Add Instagram Business ID to secure config if needed
-            try:
-                self.instagram_business_id = get_config("INSTAGRAM_BUSINESS_ID")
-            except:
-                self.instagram_business_id = None  # Optional parameter
-            self.graph_api_url = "https://graph.facebook.com/v19.0"
+            # Load centralized Meta configuration
+            self.meta_config = get_meta_config()
+            
+            # Validate configuration
+            is_valid, errors = validate_meta_config()
+            if not is_valid:
+                raise ConfigurationError(f"Meta configuration validation failed: {'; '.join(errors)}")
+            
+            # Extract commonly used values for convenience
+            self.access_token = self.meta_config.access_token
+            self.page_id = self.meta_config.facebook_page_id
+            self.instagram_business_id = self.meta_config.instagram_business_id
+            self.api_version = self.meta_config.graph_api_version
+            self.graph_api_url = f"https://graph.facebook.com/{self.api_version}"
+            self.timeout = self.meta_config.api_timeout
+            self.retry_count = self.meta_config.retry_count
             
             if not self.access_token:
-                raise ConfigurationError("FACEBOOK_ACCESS_TOKEN or META_ACCESS_TOKEN not found")
+                raise ConfigurationError("META_ACCESS_TOKEN is required for Facebook Agent")
+                
+            logger.info(f"Facebook Agent initialized with centralized config (API: {self.api_version}, Environment: {self.meta_config.environment.value})")
         except ConfigurationError as e:
             logger.error(f"Facebook agent configuration error: {e}")
             raise ValueError(f"Facebook agent configuration error: {e}")
     
+    def _classify_facebook_error(self, error: Exception) -> tuple[str, bool, float]:
+        """
+        Classify Facebook API errors and determine retry strategy
+        Uses standardized Meta error classification
+        
+        Returns:
+            tuple: (error_type, should_retry, delay_seconds)
+        """
+        error_type, should_retry, delay = classify_meta_error(error)
+        return error_type.value, should_retry, delay
+    
+    def _create_error_response(self, platform: str, error: Exception, context: str = "") -> Dict[str, Any]:
+        """
+        Create standardized error response for any exception
+        
+        Args:
+            platform: Platform name (facebook, instagram, both)
+            error: Exception that occurred
+            context: Additional context about the error
+        
+        Returns:
+            Standardized error response dictionary
+        """
+        # Handle circuit breaker open errors specially
+        if isinstance(error, CircuitBreakerOpenError):
+            return MetaResponseFormatter.error_response(
+                platform=platform,
+                error_message=f"Service temporarily unavailable due to circuit breaker: {str(error)}",
+                error_type=MetaErrorType.SERVER_ERROR,
+                retry_suggested=True,
+                data={'circuit_breaker': error.circuit_name, 'retry_after': error.retry_after}
+            )
+        
+        # Use standard error classification
+        error_type, should_retry, delay = classify_meta_error(error)
+        
+        error_message = f"{context}: {str(error)}" if context else str(error)
+        
+        return MetaResponseFormatter.error_response(
+            platform=platform,
+            error_message=error_message,
+            error_type=error_type,
+            retry_suggested=should_retry
+        )
+    
+    async def get_health_status(self, run_checks: bool = True) -> Dict[str, Any]:
+        """
+        Get health status of Meta API services
+        
+        Args:
+            run_checks: Whether to run new health checks or use cached results
+        
+        Returns:
+            Health status dictionary
+        """
+        try:
+            if run_checks:
+                return await get_meta_health_status()
+            else:
+                return get_cached_meta_health_status()
+        except Exception as e:
+            logger.error(f"Failed to get health status: {e}")
+            return {
+                'overall_status': 'UNKNOWN',
+                'message': f'Health check failed: {str(e)}',
+                'timestamp': None,
+                'services': {}
+            }
+    
+    async def get_circuit_breaker_status(self) -> Dict[str, Any]:
+        """Get circuit breaker status for all Meta API services"""
+        try:
+            from ..utils.circuit_breaker import circuit_manager
+            return circuit_manager.get_health_status()
+        except Exception as e:
+            logger.error(f"Failed to get circuit breaker status: {e}")
+            return {
+                'error': str(e),
+                'overall_status': 'UNKNOWN'
+            }
+    
+    def get_configuration_summary(self) -> Dict[str, Any]:
+        """Get Facebook Agent configuration summary"""
+        try:
+            from ..utils.meta_config import get_meta_config_summary
+            return get_meta_config_summary()
+        except Exception as e:
+            logger.error(f"Failed to get configuration summary: {e}")
+            return {
+                'error': str(e),
+                'status': 'unknown'
+            }
+    
+    def get_startup_validation_status(self) -> Dict[str, Any]:
+        """Get Meta API startup validation status"""
+        try:
+            return get_startup_validation_summary()
+        except Exception as e:
+            logger.error(f"Failed to get startup validation status: {e}")
+            return {
+                'error': str(e),
+                'status': 'unknown'
+            }
+
+    @circuit_breaker(
+        name="facebook_video_upload",
+        failure_threshold=3,
+        timeout=300.0,  # 5 minutes
+        expected_exception=Exception
+    )
+    @facebook_retry(max_attempts=3)
     async def upload_video_to_facebook(self, video_path: str, caption: str = "", scheduled_time: Optional[int] = None) -> Optional[Dict[str, Any]]:
         """
         Upload video to Facebook Page
@@ -94,35 +259,78 @@ class FacebookMarketingAgent:
                         result = await response.json()
                         print(f"✅ Facebook video uploaded successfully!")
                         print(f"📝 Post ID: {result.get('id')}")
-                        return {
-                            'platform': 'facebook',
-                            'post_id': result.get('id'),
-                            'success': True,
-                            'message': 'Video uploaded to Facebook successfully'
-                        }
+                        return MetaResponseFormatter.success_response(
+                            platform=MetaPlatform.FACEBOOK.value,
+                            post_id=result.get('id'),
+                            message='Video uploaded to Facebook successfully'
+                        )
                     else:
                         error_text = await response.text()
                         print(f"❌ Facebook upload failed: {response.status}")
                         print(f"❌ Error: {error_text}")
-                        return None
+                        
+                        # Classify error based on status code and message
+                        error_type = MetaErrorType.CLIENT_ERROR
+                        retry_suggested = False
+                        
+                        if response.status == 429:
+                            error_type = MetaErrorType.RATE_LIMIT
+                            retry_suggested = True
+                        elif response.status >= 500:
+                            error_type = MetaErrorType.SERVER_ERROR
+                            retry_suggested = True
+                        elif response.status == 401:
+                            error_type = MetaErrorType.AUTH_ERROR
+                        elif response.status == 403:
+                            error_type = MetaErrorType.PERMISSION_ERROR
+                        
+                        return MetaResponseFormatter.error_response(
+                            platform=MetaPlatform.FACEBOOK.value,
+                            error_message=f"Facebook upload failed: {response.status} - {error_text}",
+                            error_type=error_type,
+                            retry_suggested=retry_suggested
+                        )
                         
         except FileNotFoundError as e:
             logger.error(f"Video file not found: {e}")
             print(f"❌ Video file not found: {str(e)}")
-            return None
+            return self._create_error_response(
+                platform=MetaPlatform.FACEBOOK.value,
+                error=e,
+                context="Video file not found"
+            )
         except PermissionError as e:
             logger.error(f"Permission denied accessing video file: {e}")
             print(f"❌ Permission denied: {str(e)}")
-            return None
+            return self._create_error_response(
+                platform=MetaPlatform.FACEBOOK.value,
+                error=e,
+                context="Permission denied accessing video file"
+            )
         except aiohttp.ClientError as e:
             logger.error(f"Network error uploading to Facebook: {e}")
             print(f"❌ Network error: {str(e)}")
-            return None
+            return self._create_error_response(
+                platform=MetaPlatform.FACEBOOK.value,
+                error=e,
+                context="Network error uploading to Facebook"
+            )
         except Exception as e:
             logger.error(f"Unexpected error uploading to Facebook: {e}")
             print(f"❌ Error uploading to Facebook: {str(e)}")
-            return None
+            return self._create_error_response(
+                platform=MetaPlatform.FACEBOOK.value,
+                error=e,
+                context="Unexpected error uploading to Facebook"
+            )
     
+    @circuit_breaker(
+        name="instagram_video_upload",
+        failure_threshold=3,
+        timeout=300.0,  # 5 minutes
+        expected_exception=Exception
+    )
+    @facebook_retry(max_attempts=3)
     async def upload_video_to_instagram(self, video_path: str, caption: str = "") -> Optional[Dict[str, Any]]:
         """
         Upload video to Instagram Business Account (Reels)
@@ -217,6 +425,13 @@ class FacebookMarketingAgent:
             print(f"❌ Error uploading to Instagram: {str(e)}")
             return None
     
+    @circuit_breaker(
+        name="facebook_image_upload",
+        failure_threshold=3,
+        timeout=180.0,  # 3 minutes
+        expected_exception=Exception
+    )
+    @facebook_retry(max_attempts=3)
     async def upload_image_to_facebook(self, image_path: str, caption: str = "") -> Optional[Dict[str, Any]]:
         """Upload image to Facebook Page"""
         try:
@@ -278,6 +493,13 @@ class FacebookMarketingAgent:
             print(f"❌ Error uploading image to Facebook: {str(e)}")
             return None
     
+    @circuit_breaker(
+        name="instagram_image_upload",
+        failure_threshold=3,
+        timeout=180.0,  # 3 minutes
+        expected_exception=Exception
+    )
+    @facebook_retry(max_attempts=3)
     async def upload_image_to_instagram(self, image_path: str, caption: str = "") -> Optional[Dict[str, Any]]:
         """Upload image to Instagram Business Account"""
         try:
@@ -420,24 +642,25 @@ async def post_image_to_instagram(image_path: str, caption: str = ""):
     agent = FacebookMarketingAgent()
     return await agent.upload_image_to_instagram(image_path, caption)
 
+@circuit_breaker(
+    name="multi_platform_posting",
+    failure_threshold=2,
+    timeout=600.0,  # 10 minutes
+    expected_exception=Exception
+)
+@facebook_retry(max_attempts=3)
 async def post_content_everywhere(content_path: str, caption: str = ""):
     """
-    Post content to both Facebook and Instagram
+    Post content to both Facebook and Instagram using standardized batch response
     
     Args:
         content_path (str): Path to image or video file
         caption (str): Caption for the posts
         
     Returns:
-        Dict with results from both platforms
+        Standardized batch response with results from both platforms
     """
     agent = FacebookMarketingAgent()
-    results = {
-        'facebook': None,
-        'instagram': None,
-        'success_count': 0,
-        'total_platforms': 2
-    }
     
     # Determine if content is video or image
     file_ext = Path(content_path).suffix.lower()
@@ -445,26 +668,37 @@ async def post_content_everywhere(content_path: str, caption: str = ""):
     
     print(f"🚀 Posting {'video' if is_video else 'image'} to all platforms...")
     
+    # Collect results from both platforms
+    platform_results = []
+    
     # Post to Facebook
     if is_video:
-        results['facebook'] = await agent.upload_video_to_facebook(content_path, caption)
+        facebook_result = await agent.upload_video_to_facebook(content_path, caption)
     else:
-        results['facebook'] = await agent.upload_image_to_facebook(content_path, caption)
+        facebook_result = await agent.upload_image_to_facebook(content_path, caption)
     
-    if results['facebook'] and results['facebook']['success']:
-        results['success_count'] += 1
+    platform_results.append(facebook_result)
     
     # Post to Instagram
     if is_video:
-        results['instagram'] = await agent.upload_video_to_instagram(content_path, caption)
+        instagram_result = await agent.upload_video_to_instagram(content_path, caption)
     else:
-        results['instagram'] = await agent.upload_image_to_instagram(content_path, caption)
+        instagram_result = await agent.upload_image_to_instagram(content_path, caption)
     
-    if results['instagram'] and results['instagram']['success']:
-        results['success_count'] += 1
+    platform_results.append(instagram_result)
     
-    print(f"✅ Posted to {results['success_count']}/{results['total_platforms']} platforms successfully")
-    return results
+    # Create standardized batch response
+    batch_response = MetaResponseFormatter.batch_response(
+        platform=MetaPlatform.BOTH.value,
+        results=platform_results
+    )
+    
+    success_count = batch_response['successful_operations']
+    total_count = batch_response['total_operations']
+    
+    print(f"✅ Posted to {success_count}/{total_count} platforms successfully")
+    
+    return batch_response
 
 async def main():
     print("📱 Facebook & Instagram Marketing Agent")

@@ -10,9 +10,9 @@ import uuid
 logger = logging.getLogger(__name__)
 
 # Import our AI agents - fix relative imports
-from agents.photo_agent import poster_editor, image_creator
-from agents.video_agent import video_from_prompt, video_from_image
-from agents.facebook_agent import post_content_everywhere, FacebookMarketingAgent
+from backend.agents.photo_agent import poster_editor, image_creator
+from backend.agents.video_agent import video_from_prompt, video_from_image
+from backend.agents.facebook_agent import post_content_everywhere, FacebookMarketingAgent
 
 # Import new enhanced systems - fix imports
 from .revenue_tracking import RevenueAttributionEngine, track_campaign_success

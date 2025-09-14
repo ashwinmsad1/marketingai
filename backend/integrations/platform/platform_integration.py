@@ -10,11 +10,11 @@ from typing import Dict, Optional, List, Any
 from datetime import datetime
 
 # Import our modules
-from subscription_management import PlatformSubscriptionManager, SubscriptionTier, UsageTracker
-from meta_ads_automation import MetaAdsAutomationEngine
-from photo_agent import poster_editor, image_creator
-from video_agent import video_from_prompt, video_from_image
-from facebook_agent import post_content_everywhere
+from backend.utils.subscription_management import PlatformSubscriptionManager, SubscriptionTier, UsageTracker
+from backend.integrations.meta.meta_ads_automation import MetaAdsAutomationEngine
+from backend.agents.photo_agent import poster_editor, image_creator
+from backend.agents.video_agent import video_from_prompt, video_from_image
+from backend.agents.facebook_agent import post_content_everywhere
 
 class AIMarketingPlatform:
     """

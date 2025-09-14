@@ -9,6 +9,7 @@ from typing import Dict, Any, Optional, Union, List
 from dataclasses import dataclass
 from urllib.parse import urlparse
 import re
+from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,9 @@ class SecureConfigManager:
     """
     
     def __init__(self):
+        # Load environment variables from .env file
+        load_dotenv()
+        
         self._config_cache: Dict[str, Any] = {}
         self._validators: Dict[str, ConfigValidator] = {}
         self._setup_default_validators()
@@ -57,7 +61,7 @@ class SecureConfigManager:
             "GOOGLE_API_KEY",
             ConfigValidator(
                 required=True,
-                validator_func=self._validate_access_token,  # Same validation as access token
+                validator_func=self._validate_google_api_key,
                 description="Google API Key for AI services",
                 sensitive=True
             )
@@ -382,6 +386,29 @@ class SecureConfigManager:
         # Basic format validation for Meta tokens
         if not any(char.isalnum() for char in value):
             raise ValueError("Access token must contain alphanumeric characters")
+        
+        return value
+    
+    def _validate_google_api_key(self, value: str, key: str) -> str:
+        """Validate Google API Key"""
+        if not isinstance(value, str):
+            value = str(value)
+        
+        value = value.strip()
+        
+        if not value:
+            raise ValueError("Google API Key cannot be empty")
+        
+        # Google API keys typically start with "AIza" and are 39 characters long
+        if not value.startswith("AIza"):
+            raise ValueError("Google API Key must start with 'AIza'")
+        
+        if len(value) != 39:
+            raise ValueError("Google API Key must be 39 characters long")
+        
+        # Basic format validation
+        if not re.match(r'^AIza[A-Za-z0-9_-]+$', value):
+            raise ValueError("Google API Key contains invalid characters")
         
         return value
     

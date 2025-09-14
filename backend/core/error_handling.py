@@ -10,7 +10,7 @@ from fastapi.exceptions import RequestValidationError
 import traceback
 import uuid
 
-from core.logging_config import security_logger
+from backend.core.logging_config import security_logger
 
 logger = logging.getLogger(__name__)
 

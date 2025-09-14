@@ -14,9 +14,9 @@ import uuid
 Base = declarative_base()
 
 class SubscriptionTier(PyEnum):
-    STARTER = "starter"
+    BASIC = "basic"
     PROFESSIONAL = "professional"
-    ENTERPRISE = "enterprise"
+    BUSINESS = "business"
 
 class CampaignStatus(PyEnum):
     DRAFT = "draft"

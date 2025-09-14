@@ -125,9 +125,9 @@ class RateLimitService:
             "/api/v1/campaigns/create": {
                 "anonymous": {"requests": 5, "window_minutes": 60},
                 "authenticated": {"requests": 20, "window_minutes": 60},
-                "starter": {"requests": 20, "window_minutes": 60},
+                "basic": {"requests": 20, "window_minutes": 60},
                 "professional": {"requests": 50, "window_minutes": 60},
-                "enterprise": {"requests": 100, "window_minutes": 60}
+                "business": {"requests": 100, "window_minutes": 60}
             },
             "/api/v1/auth/login": {
                 "anonymous": {"requests": 10, "window_minutes": 15},
@@ -140,9 +140,9 @@ class RateLimitService:
             "default": {
                 "anonymous": {"requests": 60, "window_minutes": 60},
                 "authenticated": {"requests": 120, "window_minutes": 60},
-                "starter": {"requests": 120, "window_minutes": 60},
+                "basic": {"requests": 120, "window_minutes": 60},
                 "professional": {"requests": 300, "window_minutes": 60},
-                "enterprise": {"requests": 600, "window_minutes": 60}
+                "business": {"requests": 600, "window_minutes": 60}
             }
         }
         
@@ -179,7 +179,7 @@ class RateLimitService:
             .first()
         )
         
-        return subscription.tier.value if subscription else "starter"
+        return subscription.tier.value if subscription else "basic"
     
     def _get_window_start(self, now: datetime, window_minutes: int) -> datetime:
         """Calculate the start of the current rate limiting window"""

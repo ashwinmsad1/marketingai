@@ -9,13 +9,13 @@ from typing import Any
 
 from backend.app.dependencies import get_db, get_current_active_user
 from backend.auth import authenticate_user, create_tokens
-from backend.auth.models import UserCreate, UserResponse, TokenResponse
+from backend.auth.models import UserRegister, UserProfile, Token
 from backend.database.models import User
 
 router = APIRouter()
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=Token)
 async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
@@ -39,9 +39,9 @@ async def login(
     return tokens
 
 
-@router.post("/register", response_model=UserResponse)
+@router.post("/register", response_model=UserProfile)
 async def register(
-    user_data: UserCreate,
+    user_data: UserRegister,
     db: Session = Depends(get_db)
 ) -> Any:
     """User registration"""
@@ -58,7 +58,7 @@ async def refresh_token(
     pass
 
 
-@router.get("/me", response_model=UserResponse)
+@router.get("/me", response_model=UserProfile)
 async def get_current_user_info(
     current_user: User = Depends(get_current_active_user)
 ) -> Any:

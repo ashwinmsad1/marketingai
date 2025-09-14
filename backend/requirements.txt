@@ -18,6 +18,14 @@ python-multipart==0.0.6
 
 # AI Services
 anthropic==0.40.0
+google-genai
+
+# Web Scraping & API Integration
+aiohttp==3.9.1
+praw==7.7.1
+pytrends==4.9.2
+beautifulsoup4==4.12.2
+lxml==4.9.4
 
 # Social Media APIs
 requests==2.31.0
@@ -33,6 +41,8 @@ numpy==1.26.2
 
 # Configuration
 python-dotenv==1.0.0
+pydantic-settings==2.1.0
+email-validator==2.1.0
 
 # Email
 fastapi-mail==1.4.1

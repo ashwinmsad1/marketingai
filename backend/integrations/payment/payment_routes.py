@@ -9,10 +9,12 @@ from typing import Optional, Dict, Any, List
 from datetime import datetime
 import json
 import logging
+import hmac
+import hashlib
 from backend.database import get_db
 from backend.database.models import User, SubscriptionTier, PaymentProvider, PaymentStatus, Payment, BillingSubscription
 from backend.database.crud import (
-    BillingSubscriptionCRUD, PaymentCRUD, InvoiceCRUD, 
+    BillingSubscriptionCRUD, PaymentCRUD,
     PaymentMethodCRUD, WebhookEventCRUD
 )
 from .upi_payment_service import upi_payment_service
@@ -29,7 +31,7 @@ router = APIRouter(prefix="/api/payments", tags=["payments"])
 
 # Pydantic models for API requests
 class CreateSubscriptionRequest(BaseModel):
-    tier: str = Field(..., description="Subscription tier: starter, professional, enterprise")
+    tier: str = Field(..., description="Subscription tier: basic, professional, business")
     trial_days: int = Field(30, description="Trial period in days")
 
 class UPIPaymentRequest(BaseModel):
@@ -397,8 +399,8 @@ async def get_billing_history(
         # Get payments
         payments = PaymentCRUD.get_user_payments(db, current_user.id, limit=limit)
         
-        # Get invoices
-        invoices = InvoiceCRUD.get_user_invoices(db, current_user.id, limit=limit)
+        # Get invoices (placeholder - InvoiceCRUD not implemented yet)
+        invoices = []
         
         payment_history = []
         for payment in payments:
@@ -601,6 +603,112 @@ async def handle_payment_webhook(
     except Exception as e:
         logger.error(f"Error handling webhook: {e}")
         raise HTTPException(status_code=500, detail="Failed to process webhook")
+
+
+@router.post("/webhook/razorpay")
+async def razorpay_webhook(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Handle Razorpay-specific webhook events for subscription activation"""
+    try:
+        # Get raw body for signature verification
+        body = await request.body()
+
+        # Get webhook signature
+        signature = request.headers.get("x-razorpay-signature")
+        if not signature:
+            logger.warning("Missing Razorpay webhook signature")
+            raise HTTPException(status_code=400, detail="Missing webhook signature")
+
+        # Parse the body
+        try:
+            event_data = json.loads(body)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid JSON payload")
+
+        # Verify webhook signature with Razorpay
+        webhook_secret = os.getenv("RAZORPAY_WEBHOOK_SECRET", "")
+        if webhook_secret:
+            # Verify signature using Razorpay's method
+            expected_signature = hmac.new(
+                webhook_secret.encode('utf-8'),
+                body,
+                hashlib.sha256
+            ).hexdigest()
+
+            if signature != expected_signature:
+                logger.warning("Invalid Razorpay webhook signature")
+                raise HTTPException(status_code=401, detail="Invalid webhook signature")
+
+        # Handle different event types
+        event_type = event_data.get("event")
+
+        if event_type == "payment.captured":
+            # Handle successful payment capture
+            payment_data = event_data["payload"]["payment"]["entity"]
+            notes = payment_data.get("notes", {})
+            subscription_id = notes.get("subscription_id")
+
+            if subscription_id:
+                # Activate the subscription
+                result = await subscription_manager.activate_subscription_with_payment(
+                    db_session=db,
+                    subscription_id=subscription_id,
+                    razorpay_payment_id=payment_data["id"],
+                    razorpay_order_id=payment_data.get("order_id", ""),
+                    razorpay_signature=""  # Not needed for webhook
+                )
+
+                if result["success"]:
+                    logger.info(f"Subscription {subscription_id} activated via Razorpay webhook")
+                else:
+                    logger.error(f"Failed to activate subscription {subscription_id}: {result.get('error')}")
+
+        elif event_type == "payment.failed":
+            # Handle failed payment
+            payment_data = event_data["payload"]["payment"]["entity"]
+            logger.warning(f"Payment failed via webhook: {payment_data['id']} - {payment_data.get('error_description')}")
+
+            # Update payment record if exists
+            payment = db.query(Payment).filter(
+                Payment.provider_payment_id == payment_data["id"]
+            ).first()
+
+            if payment:
+                payment.status = PaymentStatus.FAILED
+                payment.failure_reason = payment_data.get("error_description")
+                payment.failure_code = payment_data.get("error_code")
+                db.commit()
+
+        elif event_type == "subscription.charged":
+            # Handle recurring subscription charge
+            subscription_data = event_data["payload"]["subscription"]["entity"]
+            logger.info(f"Subscription charged: {subscription_data['id']}")
+
+        elif event_type == "subscription.cancelled":
+            # Handle subscription cancellation
+            subscription_data = event_data["payload"]["subscription"]["entity"]
+            provider_subscription_id = subscription_data["id"]
+
+            # Find and cancel subscription in database
+            subscription = db.query(BillingSubscription).filter(
+                BillingSubscription.provider_subscription_id == provider_subscription_id
+            ).first()
+
+            if subscription:
+                subscription.status = SubscriptionStatus.CANCELED
+                subscription.canceled_at = datetime.utcnow()
+                db.commit()
+                logger.info(f"Subscription {subscription.id} cancelled via webhook")
+
+        return {"status": "processed", "event": event_type}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error processing Razorpay webhook: {e}")
+        raise HTTPException(status_code=500, detail="Webhook processing failed")
 
 
 async def process_webhook_event(webhook_id: str, event_data: Dict[str, Any]):

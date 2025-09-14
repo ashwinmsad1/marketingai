@@ -1,0 +1,27 @@
+use the business agent\
+  we have created a saas application with the features mentioned in the subscription \
+  will the application be really helpful for indian users\
+  dont be biased give me results based on proper fact checks and industry analysis\
+  or do we need some more functionalities to justify the cost 
+
+
+
+● Write(backend\middleware\security_middleware.py)
+  ⎿  Wrote 1 lines to backend\middleware\security_middleware.py
+     """
+     Security Middleware for FastAPI
+     Adds security headers and basic protections
+     """
+     from fastapi import Request, Response
+     from starlette.middleware.base import BaseHTTPMiddleware
+     import time
+     import logging
+  ⎿  5-hour limit reached ∙ resets 6:30pm
+     /upgrade to increase your usage limit.
+
+  Todos
+  ☐ Move SecurityMiddleware to backend/middleware/security_middleware.py
+  ☐ Move LoggingMiddleware to backend/middleware/logging_middleware.py
+  ☐ Update middleware package __init__.py exports
+  ☐ Register new middleware in main.py
+  ☐ Remove redundant backend/core/middleware.py file

@@ -1,19 +1,36 @@
 import asyncio
-import google.generativeai as genai
-from google.generativeai import types
+from google import genai
+from google.genai import types
 from PIL import Image
 from io import BytesIO
 import base64
 import os
+import sys
 
-from utils.config_manager import get_config
+# Add project root to path for direct execution
+if __name__ == "__main__":
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+try:
+    from backend.utils.config_manager import get_config
+except ImportError:
+    # Fallback for direct execution
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from utils.config_manager import get_config
 
 class HyperrealisticPosterAgent:
     def __init__(self):
         api_key = get_config("GOOGLE_API_KEY")
-        self.client = genai.Client(api_key=api_key)
         if not api_key:
             raise ValueError("GOOGLE_API_KEY not found in configuration")
+        
+        # Create client for the new Google Gen AI SDK
+        self.client = genai.Client(api_key=api_key)
+        
+        # Vision model for image analysis (still using Gemini)
+        import google.generativeai as old_genai
+        old_genai.configure(api_key=api_key)
+        self.vision_model = old_genai.GenerativeModel('gemini-1.5-pro-latest')
     
     def encode_image(self, image_path):
         """Encode image to base64 for API"""
@@ -21,52 +38,55 @@ class HyperrealisticPosterAgent:
             return base64.b64encode(image_file.read()).decode('utf-8')
     
     async def create_poster(self, image_path, prompt, style="hyperrealistic poster"):
-        """Create a hyperrealistic poster from an input image and prompt (async)"""
+        """Edit existing image to create a marketing poster using image analysis and generation"""
         try:
-            # Load and encode the input image
+            # First, analyze the existing image with Gemini Vision
             with open(image_path, "rb") as image_file:
                 image_data = image_file.read()
             
-            # Enhanced prompt for poster creation
-            enhanced_prompt = f"""
-            Create a {style} based on the provided image with the following requirements:
-            {prompt}
+            image = Image.open(BytesIO(image_data))
             
-            Style specifications:
-            - Hyperrealistic quality with professional poster aesthetics
-            - High contrast and vibrant colors suitable for marketing
-            - Clean composition with strong visual hierarchy
-            - Modern typography integration if text is needed
-            - Professional marketing poster layout
-            - Ensure the image is suitable for social media advertising
+            # Use Gemini to analyze the image and create an enhanced prompt
+            analysis_prompt = f"""
+            Analyze this image and create a detailed prompt to transform it into a {style}.
+            Requirements: {prompt}
+            
+            Create a comprehensive prompt for image generation that includes:
+            - Visual elements from the original image to preserve
+            - {style} aesthetic enhancements
+            - Professional marketing poster qualities
+            - High contrast, vibrant colors for advertising
+            - Modern composition and layout
+            - Social media advertising optimization
             """
             
-            # Create content with both image and text
-            response = self.client.models.generate_content(
-                model="gemini-2.5-flash-image-preview",
-                contents=[
-                    types.Content(parts=[
-                        types.Part.from_bytes(data=image_data, mime_type="image/jpeg"),
-                        types.Part.from_text(text=enhanced_prompt)
-                    ])
-                ]
+            analysis_response = self.vision_model.generate_content([analysis_prompt, image])
+            enhanced_prompt = analysis_response.text
+            
+            print(f"🔍 Image analyzed, creating enhanced poster...")
+            
+            # Generate new image based on enhanced prompt using Imagen 4.0
+            response = self.client.models.generate_images(
+                model='imagen-4.0-generate-001',
+                prompt=enhanced_prompt,
+                config=types.GenerateImagesConfig(
+                    number_of_images=1,
+                    aspect_ratio="1:1"  # Square format for social media
+                )
             )
             
-            # Process response
-            for part in response.candidates[0].content.parts:
-                if part.text is not None:
-                    print(f"Generation details: {part.text}")
-                elif part.inline_data is not None:
-                    poster_image = Image.open(BytesIO(part.inline_data.data))
-                    filename = f"hyperrealistic_poster_{hash(prompt) % 10000}.png"
-                    poster_image.save(filename)
-                    print(f"Hyperrealistic poster saved as: {filename}")
-                    return filename
+            if response.generated_images:
+                # Save the generated poster
+                generated_image = response.generated_images[0]
+                filename = f"poster_edited_{hash(prompt) % 10000}.png"
+                generated_image.image.save(filename)
+                print(f"✅ Marketing poster created: {filename}")
+                return filename
             
             return None
             
         except Exception as e:
-            print(f"Error creating poster: {str(e)}")
+            print(f"❌ Error creating poster: {str(e)}")
             return None
 
 async def poster_editor(image_path, prompt, style="hyperrealistic poster"):
@@ -88,56 +108,64 @@ async def poster_editor(image_path, prompt, style="hyperrealistic poster"):
         print(f"Error in poster_editor: {str(e)}")
         return None
 
-async def image_creator(prompt, style="hyperrealistic poster"):
+async def image_creator(prompt, style="hyperrealistic poster", aspect_ratio="1:1"):
     """
-    Create a new image from scratch based on a given prompt (async)
+    Create a new marketing poster from scratch using Imagen (async)
     
     Args:
         prompt (str): Description for image creation
         style (str): Style specification (default: "hyperrealistic poster")
+        aspect_ratio (str): Image aspect ratio (default: "1:1" for social media)
     
     Returns:
         str: Path to generated image file, or None if failed
     """
     try:
         api_key = get_config("GOOGLE_API_KEY")
-        client = genai.Client(api_key=api_key)
         if not api_key:
             raise ValueError("GOOGLE_API_KEY not found in configuration")
         
-        # Enhanced prompt for image creation
+        # Create client for the new Google Gen AI SDK
+        client = genai.Client(api_key=api_key)
+        
+        # Enhanced prompt for marketing poster creation
         enhanced_prompt = f"""
-        Create a {style} with the following requirements:
+        Create a {style} for marketing and advertising with these specifications:
         {prompt}
         
-        Style specifications:
-        - Hyperrealistic quality with professional poster aesthetics
-        - High contrast and vibrant colors suitable for marketing
-        - Clean composition with strong visual hierarchy
-        - Modern typography integration if text is needed
-        - Professional marketing poster layout
-        - Ensure the image is suitable for social media advertising
+        Professional marketing requirements:
+        - {style} quality with stunning visual appeal
+        - High contrast and vibrant colors perfect for advertising
+        - Clean, professional composition with visual hierarchy
+        - Eye-catching design optimized for social media advertising
+        - Modern aesthetic suitable for digital marketing campaigns
+        - Professional poster layout with balanced elements
+        - Marketing-ready quality for commercial use
         """
         
-        response = client.models.generate_content(
-            model="gemini-2.5-flash-image-preview",
-            contents=[enhanced_prompt],
+        print(f"🎨 Creating new marketing image...")
+        
+        response = client.models.generate_images(
+            model='imagen-4.0-generate-001',
+            prompt=enhanced_prompt,
+            config=types.GenerateImagesConfig(
+                number_of_images=1,
+                aspect_ratio=aspect_ratio
+            )
         )
         
-        for part in response.candidates[0].content.parts:
-            if part.text is not None:
-                print(f"Generation details: {part.text}")
-            elif part.inline_data is not None:
-                image = Image.open(BytesIO(part.inline_data.data))
-                filename = f"created_image_{hash(prompt) % 10000}.png"
-                image.save(filename)
-                print(f"Image created and saved as: {filename}")
-                return filename
+        if response.generated_images:
+            # Save the generated image
+            generated_image = response.generated_images[0]
+            filename = f"marketing_poster_{hash(prompt) % 10000}.png"
+            generated_image.image.save(filename)
+            print(f"✅ Marketing poster created: {filename}")
+            return filename
         
         return None
         
     except Exception as e:
-        print(f"Error in image_creator: {str(e)}")
+        print(f"❌ Error in image_creator: {str(e)}")
         return None
 
 async def main():

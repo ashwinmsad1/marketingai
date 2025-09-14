@@ -52,12 +52,13 @@ class MediaService:
             
             for i in range(iterations):
                 # Generate image using photo agent
-                result = await image_creator.generate_poster_async(
+                image_path = await image_creator(
                     prompt=prompt,
-                    style=f"{style} marketing image, {aspect_ratio} aspect ratio"
+                    style=f"{style} marketing image",
+                    aspect_ratio=aspect_ratio
                 )
                 
-                if result.get("success") and result.get("image_path"):
+                if image_path:
                     # Store in database
                     ai_content = AIContentCRUD.create_content(
                         db,
@@ -65,8 +66,8 @@ class MediaService:
                         content_type=ContentType.IMAGE,
                         prompt=prompt,
                         style=style,
-                        file_path=result["image_path"],
-                        file_url=f"/uploads/{os.path.basename(result['image_path'])}",
+                        file_path=image_path,
+                        file_url=f"/uploads/{os.path.basename(image_path)}",
                         aspect_ratio=aspect_ratio
                     )
                     
@@ -116,13 +117,13 @@ class MediaService:
         """
         try:
             # Generate video using video agent
-            result = await video_from_prompt.generate_video_async(
+            video_path = await video_from_prompt(
                 prompt=prompt,
-                duration=duration,
-                style=f"{style} marketing video, {aspect_ratio} format"
+                style=f"{style} marketing video",
+                aspect_ratio=aspect_ratio
             )
             
-            if not result.get("success") or not result.get("video_path"):
+            if not video_path:
                 raise ValueError("Failed to generate video")
             
             # Store in database
@@ -132,8 +133,8 @@ class MediaService:
                 content_type=ContentType.VIDEO,
                 prompt=prompt,
                 style=style,
-                file_path=result["video_path"],
-                file_url=f"/uploads/{os.path.basename(result['video_path'])}",
+                file_path=video_path,
+                file_url=f"/uploads/{os.path.basename(video_path)}",
                 duration=duration,
                 aspect_ratio=aspect_ratio
             )
@@ -143,7 +144,7 @@ class MediaService:
                 "id": ai_content.id,
                 "type": "video",
                 "url": ai_content.file_url,
-                "thumbnail": result.get("thumbnail_path", ""),
+                "thumbnail": "",  # No thumbnail for now
                 "prompt": ai_content.prompt,
                 "style": ai_content.style,
                 "duration": ai_content.duration,

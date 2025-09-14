@@ -7,52 +7,58 @@ import { SubscriptionPlan } from '../../types/payment';
 
 const plans: SubscriptionPlan[] = [
   {
-    id: 'starter',
-    name: 'Essential',
-    price: 599,
+    id: 'basic',
+    name: 'Basic',
+    price: 2999,
     description: 'Perfect for small businesses getting started with AI marketing',
-    tier: 'starter',
+    tier: 'basic',
     icon: <Star className="w-6 h-6" />,
     features: [
-      '10 Facebook/Instagram campaigns per month',
+      '5 Facebook/Instagram campaigns per month',
+      '150 AI content generations per month',
       'Basic AI content generation (text + image)',
       'Facebook & Instagram posting',
       'Basic analytics (last 30 days)',
+      'Budget monitoring up to ₹25,000',
       'Email support'
     ]
   },
   {
     id: 'professional',
-    name: 'Growth',
-    price: 1299,
+    name: 'Professional',
+    price: 7999,
     description: 'Advanced features for growing businesses ready to scale',
     tier: 'professional',
     icon: <Zap className="w-6 h-6" />,
     popular: true,
     features: [
-      '50 Facebook/Instagram campaigns per month',
+      '20 Facebook/Instagram campaigns per month',
+      '500 AI content generations per month',
       'Advanced AI content generation (text + image + video thumbnails)',
       'Advanced Facebook & Instagram automation',
-      'Performance analytics (90 days + basic insights)',
-      'Phone + email support',
+      'Enhanced analytics (90 days + performance tracking)',
+      'Budget monitoring up to ₹1,00,000',
+      'Priority email support',
       'Campaign templates library'
     ]
   },
   {
-    id: 'enterprise',
-    name: 'Professional',
-    price: 2499,
+    id: 'business',
+    name: 'Business',
+    price: 19999,
     description: 'Complete automation solution for serious marketers',
-    tier: 'enterprise',
+    tier: 'business',
     icon: <Crown className="w-6 h-6" />,
     features: [
-      'Unlimited Facebook/Instagram campaigns',
+      '50 Facebook/Instagram campaigns per month',
+      '1200 AI content generations per month',
       'Premium AI content generation (all formats + brand customization)',
       'Full Facebook & Instagram automation suite',
-      'Advanced analytics + reporting (12 months + competitor insights)',
-      'White-label capabilities',
-      'Dedicated account manager',
-      'Priority support (2-hour response)'
+      'Full analytics suite (12 months + custom reporting)',
+      'Budget monitoring up to ₹5,00,000',
+      'Premium email support',
+      'Data export and custom reporting',
+      'Advanced performance tracking'
     ]
   }
 ];

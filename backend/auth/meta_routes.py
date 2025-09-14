@@ -19,10 +19,12 @@ from urllib.parse import urlencode
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/meta", tags=["Meta Integration"])
 
-# Meta OAuth Configuration
-FACEBOOK_APP_ID = os.getenv("FACEBOOK_APP_ID")
-FACEBOOK_APP_SECRET = os.getenv("FACEBOOK_APP_SECRET")
-FACEBOOK_REDIRECT_URI = os.getenv("FACEBOOK_REDIRECT_URI", "http://localhost:3000/meta/callback")
+# Meta OAuth Configuration - Using centralized config
+from backend.utils.meta_config import get_meta_config
+meta_config = get_meta_config()
+FACEBOOK_APP_ID = meta_config.app_id
+FACEBOOK_APP_SECRET = meta_config.app_secret
+FACEBOOK_REDIRECT_URI = meta_config.redirect_uri
 
 class MetaOAuthHandler:
     """Handle Meta OAuth flow"""

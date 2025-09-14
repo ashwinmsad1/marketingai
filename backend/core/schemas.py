@@ -8,9 +8,9 @@ from enum import Enum
 from datetime import datetime
 
 class SubscriptionTier(str, Enum):
-    STARTER = "starter"
+    BASIC = "basic"
     PROFESSIONAL = "professional"
-    ENTERPRISE = "enterprise"
+    BUSINESS = "business"
 
 class CampaignType(str, Enum):
     QUICK = "quick"

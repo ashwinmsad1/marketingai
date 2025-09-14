@@ -50,7 +50,7 @@ export interface PaymentStatus {
 
 export interface SubscriptionDetails {
   subscription_id: string;
-  tier: 'starter' | 'professional' | 'enterprise';
+  tier: 'basic' | 'professional' | 'business';
   status: 'active' | 'trial' | 'past_due' | 'canceled' | 'incomplete';
   monthly_price: number;
   currency: string;
@@ -108,11 +108,11 @@ export interface SubscriptionPlan {
   features: string[];
   icon: React.ReactNode;
   popular?: boolean;
-  tier: 'starter' | 'professional' | 'enterprise';
+  tier: 'basic' | 'professional' | 'business';
 }
 
 export interface CreateSubscriptionRequest {
-  tier: 'starter' | 'professional' | 'enterprise';
+  tier: 'basic' | 'professional' | 'business';
   plan_id: string;
   monthly_price: number;
   start_trial: boolean;

@@ -20,6 +20,11 @@ from backend.database import init_db, check_db_connection
 
 # API Routes
 from backend.api.v1 import auth, campaigns, media, personalization
+from backend.integrations.payment import payment_routes
+
+# Middleware
+from backend.middleware.rate_limit_middleware import RateLimitMiddleware
+from backend.middleware.tier_enforcement_middleware import TierEnforcementMiddleware
 
 # Configure logging
 logging.basicConfig(
@@ -79,6 +84,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Rate limiting middleware (applied before tier enforcement)
+app.add_middleware(RateLimitMiddleware)
+
+# Tier enforcement middleware (resolves user subscription tier)
+app.add_middleware(TierEnforcementMiddleware)
+
 # Static files
 uploads_dir = Path(settings.UPLOAD_DIR)
 uploads_dir.mkdir(exist_ok=True)
@@ -107,6 +118,12 @@ app.include_router(
     personalization.router,
     prefix=f"{settings.API_V1_PREFIX}/personalization",
     tags=["Personalization"]
+)
+
+app.include_router(
+    payment_routes.router,
+    prefix=f"{settings.API_V1_PREFIX}/payments",
+    tags=["Payments & Subscriptions"]
 )
 
 # Health check
