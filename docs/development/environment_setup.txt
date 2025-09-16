@@ -1,0 +1,771 @@
+# Development Environment Setup Guide
+## AI Marketing Automation Platform
+
+---
+
+## 1. PREREQUISITES
+
+### System Requirements
+**Operating System**: macOS 10.15+, Ubuntu 18.04+, or Windows 10+
+**RAM**: Minimum 8GB (16GB recommended)
+**Storage**: 20GB free space for development tools and dependencies
+**Network**: Stable internet connection for AI service APIs
+
+### Required Software Versions
+- **Python**: 3.13+ (latest stable)
+- **Node.js**: 18+ LTS
+- **PostgreSQL**: 14+
+- **Redis**: 6+
+- **Git**: 2.30+
+- **Docker**: 20.10+ (optional but recommended)
+- **Docker Compose**: 2.0+ (optional but recommended)
+
+---
+
+## 2. BACKEND DEVELOPMENT SETUP
+
+### 2.1 Python Environment Setup
+
+#### Install Python 3.13+
+```bash
+# macOS (using Homebrew)
+brew install python@3.13
+
+# Ubuntu/Debian
+sudo apt update
+sudo apt install python3.13 python3.13-venv python3.13-dev
+
+# Windows
+# Download from python.org or use Microsoft Store
+```
+
+#### Create Virtual Environment
+```bash
+# Navigate to project directory
+cd /path/to/photo_agent
+
+# Create virtual environment
+python3.13 -m venv venv
+
+# Activate virtual environment
+# macOS/Linux
+source venv/bin/activate
+
+# Windows
+venv\Scripts\activate
+
+# Verify Python version
+python --version  # Should show Python 3.13.x
+```
+
+#### Install Backend Dependencies
+```bash
+# Ensure virtual environment is activated
+pip install --upgrade pip
+
+# Install dependencies from requirements.txt
+pip install -r backend/requirements.txt
+
+# Verify critical packages
+python -c "import fastapi, sqlalchemy, anthropic; print('All packages installed successfully')"
+```
+
+### 2.2 Database Setup (PostgreSQL)
+
+#### Install PostgreSQL
+```bash
+# macOS (using Homebrew)
+brew install postgresql@14
+brew services start postgresql@14
+
+# Ubuntu/Debian
+sudo apt install postgresql-14 postgresql-contrib-14
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
+
+# Windows
+# Download installer from postgresql.org
+```
+
+#### Create Database and User
+```bash
+# Connect to PostgreSQL as superuser
+sudo -u postgres psql
+
+# Create database and user
+CREATE DATABASE marketing_ai_dev;
+CREATE USER marketing_ai_user WITH PASSWORD 'dev_password_2024';
+GRANT ALL PRIVILEGES ON DATABASE marketing_ai_dev TO marketing_ai_user;
+ALTER USER marketing_ai_user CREATEDB;
+\q
+```
+
+#### Verify Database Connection
+```bash
+# Test connection
+psql -h localhost -U marketing_ai_user -d marketing_ai_dev
+
+# Should connect successfully
+\q
+```
+
+### 2.3 Redis Setup
+
+#### Install Redis
+```bash
+# macOS (using Homebrew)
+brew install redis
+brew services start redis
+
+# Ubuntu/Debian
+sudo apt install redis-server
+sudo systemctl start redis-server
+sudo systemctl enable redis-server
+
+# Windows
+# Download from Redis GitHub releases or use WSL
+```
+
+#### Verify Redis Installation
+```bash
+# Test Redis connection
+redis-cli ping
+# Should return: PONG
+```
+
+### 2.4 Environment Variables Setup
+
+#### Create .env File
+```bash
+# Copy example environment file
+cp backend/.env.example backend/.env
+
+# Edit with your configuration
+nano backend/.env
+```
+
+#### Backend .env Configuration
+```bash
+# Application Settings
+APP_NAME=AI Marketing Platform
+ENVIRONMENT=development
+DEBUG=true
+SECRET_KEY=your-secret-key-min-32-chars-dev
+API_VERSION=v1
+
+# Database Configuration
+DATABASE_URL=postgresql://marketing_ai_user:dev_password_2024@localhost:5432/marketing_ai_dev
+DATABASE_POOL_SIZE=5
+DATABASE_MAX_OVERFLOW=10
+
+# Redis Configuration
+REDIS_URL=redis://localhost:6379/0
+REDIS_CACHE_TTL=3600
+
+# AI Service Configuration
+ANTHROPIC_API_KEY=your-anthropic-api-key
+GOOGLE_AI_API_KEY=your-google-ai-api-key
+AI_RATE_LIMIT_PER_MINUTE=60
+
+# Meta API Configuration (for testing)
+META_APP_ID=your-meta-app-id
+META_APP_SECRET=your-meta-app-secret
+META_REDIRECT_URI=http://localhost:8000/auth/meta/callback
+
+# File Storage (Local Development)
+AWS_ACCESS_KEY_ID=your-aws-access-key
+AWS_SECRET_ACCESS_KEY=your-aws-secret-key
+AWS_REGION=ap-south-1
+S3_BUCKET_NAME=marketing-ai-assets-dev
+
+# Payment Configuration (Test Mode)
+RAZORPAY_KEY_ID=your-razorpay-test-key
+RAZORPAY_KEY_SECRET=your-razorpay-test-secret
+PAYMENT_WEBHOOK_SECRET=your-webhook-secret
+
+# Security Settings
+JWT_SECRET_KEY=your-jwt-secret-key-min-32-chars
+JWT_ALGORITHM=HS256
+JWT_EXPIRATION_HOURS=1
+REFRESH_TOKEN_EXPIRATION_DAYS=30
+
+# Email Configuration (Development)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=your-dev-email@gmail.com
+SMTP_PASSWORD=your-app-password
+EMAIL_FROM=noreply@marketingai.dev
+
+# Logging Configuration
+LOG_LEVEL=DEBUG
+LOG_FORMAT=detailed
+```
+
+### 2.5 Database Migration Setup
+
+#### Install and Run Alembic Migrations
+```bash
+# Navigate to backend directory
+cd backend
+
+# Initialize Alembic (if not already done)
+alembic init migrations
+
+# Generate initial migration
+alembic revision --autogenerate -m "Initial migration"
+
+# Run migrations
+alembic upgrade head
+
+# Verify tables created
+psql -h localhost -U marketing_ai_user -d marketing_ai_dev -c "\dt"
+```
+
+### 2.6 Backend Development Server
+
+#### Start FastAPI Development Server
+```bash
+# Navigate to backend directory
+cd backend
+
+# Start with auto-reload
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+# Alternative with more detailed logging
+uvicorn main:app --reload --host 0.0.0.0 --port 8000 --log-level debug
+
+# Verify server is running
+curl http://localhost:8000/health
+# Should return: {"status": "healthy"}
+```
+
+#### Access API Documentation
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+- **OpenAPI JSON**: http://localhost:8000/openapi.json
+
+---
+
+## 3. FRONTEND DEVELOPMENT SETUP
+
+### 3.1 Node.js Environment Setup
+
+#### Install Node.js 18+ LTS
+```bash
+# macOS (using Homebrew)
+brew install node@18
+
+# Ubuntu/Debian (using NodeSource)
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# Windows
+# Download from nodejs.org or use Chocolatey
+choco install nodejs
+
+# Verify installation
+node --version  # Should show v18.x.x
+npm --version   # Should show compatible npm version
+```
+
+#### Install Package Manager (pnpm recommended)
+```bash
+# Install pnpm globally
+npm install -g pnpm
+
+# Verify installation
+pnpm --version
+```
+
+### 3.2 Frontend Dependencies Installation
+
+#### Install Dependencies
+```bash
+# Navigate to frontend directory
+cd frontend
+
+# Install dependencies
+pnpm install
+
+# Verify critical packages
+pnpm list react react-dom typescript @types/react
+```
+
+### 3.3 Frontend Environment Configuration
+
+#### Create Frontend .env File
+```bash
+# Copy example environment file
+cp frontend/.env.example frontend/.env.local
+
+# Edit with your configuration
+nano frontend/.env.local
+```
+
+#### Frontend .env.local Configuration
+```bash
+# API Configuration
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api/v1
+NEXT_PUBLIC_API_TIMEOUT=30000
+
+# Meta OAuth Configuration
+NEXT_PUBLIC_META_APP_ID=your-meta-app-id
+NEXT_PUBLIC_META_REDIRECT_URI=http://localhost:3000/auth/meta/callback
+
+# Feature Flags
+NEXT_PUBLIC_ENABLE_ANALYTICS=true
+NEXT_PUBLIC_ENABLE_A11Y_TOOLS=true
+NEXT_PUBLIC_ENABLE_DARK_MODE=true
+
+# Environment
+NEXT_PUBLIC_ENVIRONMENT=development
+NEXT_PUBLIC_APP_VERSION=1.0.0-dev
+
+# External Services
+NEXT_PUBLIC_GOOGLE_ANALYTICS_ID=your-ga-id
+NEXT_PUBLIC_SENTRY_DSN=your-sentry-dsn
+
+# Payment Configuration
+NEXT_PUBLIC_RAZORPAY_KEY_ID=your-razorpay-test-key
+
+# CDN Configuration
+NEXT_PUBLIC_CDN_URL=http://localhost:8000/static
+NEXT_PUBLIC_ASSETS_URL=http://localhost:8000/assets
+```
+
+### 3.4 Frontend Development Server
+
+#### Start Next.js Development Server
+```bash
+# Navigate to frontend directory
+cd frontend
+
+# Start development server
+pnpm dev
+
+# Alternative with custom port
+pnpm dev -- --port 3001
+
+# Verify server is running
+curl http://localhost:3000/api/health
+```
+
+#### Access Frontend Application
+- **Development URL**: http://localhost:3000
+- **Storybook** (if configured): http://localhost:6006
+
+---
+
+## 4. DOCKER SETUP (OPTIONAL)
+
+### 4.1 Docker Compose Configuration
+
+#### Create docker-compose.dev.yml
+```yaml
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:14
+    environment:
+      POSTGRES_DB: marketing_ai_dev
+      POSTGRES_USER: marketing_ai_user
+      POSTGRES_PASSWORD: dev_password_2024
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/database/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  redis:
+    image: redis:6-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://marketing_ai_user:dev_password_2024@postgres:5432/marketing_ai_dev
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./backend:/app
+      - backend_node_modules:/app/node_modules
+    depends_on:
+      - postgres
+      - redis
+    command: uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000/api/v1
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    command: pnpm dev
+
+volumes:
+  postgres_data:
+  redis_data:
+  backend_node_modules:
+  frontend_node_modules:
+```
+
+#### Start Development Environment
+```bash
+# Start all services
+docker-compose -f docker-compose.dev.yml up -d
+
+# View logs
+docker-compose -f docker-compose.dev.yml logs -f
+
+# Stop services
+docker-compose -f docker-compose.dev.yml down
+```
+
+---
+
+## 5. DEVELOPMENT TOOLS SETUP
+
+### 5.1 Code Editor Configuration (VS Code)
+
+#### Install VS Code Extensions
+```bash
+# Install VS Code extensions via command line
+code --install-extension ms-python.python
+code --install-extension ms-python.black-formatter
+code --install-extension ms-python.flake8
+code --install-extension bradlc.vscode-tailwindcss
+code --install-extension esbenp.prettier-vscode
+code --install-extension ms-vscode.vscode-typescript-next
+```
+
+#### VS Code Settings (.vscode/settings.json)
+```json
+{
+  "python.defaultInterpreterPath": "./venv/bin/python",
+  "python.formatting.provider": "black",
+  "python.linting.enabled": true,
+  "python.linting.flake8Enabled": true,
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": true
+  },
+  "typescript.preferences.importModuleSpecifier": "relative",
+  "tailwindCSS.includeLanguages": {
+    "typescript": "javascript",
+    "typescriptreact": "javascript"
+  }
+}
+```
+
+### 5.2 Git Configuration
+
+#### Git Hooks Setup
+```bash
+# Install pre-commit hooks
+pip install pre-commit
+
+# Set up pre-commit hooks
+pre-commit install
+
+# Test pre-commit hooks
+pre-commit run --all-files
+```
+
+#### .gitignore Configuration
+```bash
+# Backend
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+.env
+.env.local
+instance/
+.webassets-cache
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Frontend
+node_modules/
+.next/
+out/
+build/
+.env.local
+.env.production.local
+.env.development.local
+.vercel
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite3
+
+# Temporary files
+*.tmp
+*.temp
+```
+
+### 5.3 Testing Setup
+
+#### Backend Testing
+```bash
+# Install test dependencies (already in requirements.txt)
+pip install pytest pytest-asyncio pytest-cov
+
+# Run tests
+cd backend
+pytest
+
+# Run with coverage
+pytest --cov=. --cov-report=html
+```
+
+#### Frontend Testing
+```bash
+# Install test dependencies
+cd frontend
+pnpm add -D jest @testing-library/react @testing-library/jest-dom
+
+# Run tests
+pnpm test
+
+# Run with coverage
+pnpm test:coverage
+```
+
+---
+
+## 6. EXTERNAL SERVICES SETUP
+
+### 6.1 AI Services Configuration
+
+#### Google AI API Setup
+1. Create Google Cloud Project
+2. Enable Generative AI APIs
+3. Create service account and download JSON key
+4. Set GOOGLE_AI_API_KEY in environment
+
+#### Anthropic API Setup
+1. Sign up at console.anthropic.com
+2. Generate API key
+3. Set ANTHROPIC_API_KEY in environment
+
+### 6.2 Meta API Setup (Development)
+
+#### Create Meta App
+1. Go to developers.facebook.com
+2. Create new app for development
+3. Add Meta Login and Marketing API products
+4. Configure OAuth redirect URIs
+5. Get App ID and App Secret
+
+### 6.3 Payment Gateway Setup
+
+#### Razorpay Test Account
+1. Sign up at razorpay.com
+2. Get test API keys
+3. Configure webhook endpoints
+4. Set up test payment methods
+
+---
+
+## 7. VERIFICATION & TROUBLESHOOTING
+
+### 7.1 Environment Verification Script
+
+#### Create verify_setup.py
+```python
+#!/usr/bin/env python3
+"""Development environment verification script"""
+
+import sys
+import subprocess
+import importlib
+import psycopg2
+import redis
+import requests
+
+def check_python_version():
+    version = sys.version_info
+    if version.major == 3 and version.minor >= 13:
+        print("✅ Python version: OK")
+        return True
+    else:
+        print(f"❌ Python version: {version.major}.{version.minor} (need 3.13+)")
+        return False
+
+def check_dependencies():
+    required_packages = [
+        'fastapi', 'sqlalchemy', 'alembic', 'uvicorn', 
+        'anthropic', 'psycopg2', 'redis', 'pytest'
+    ]
+    
+    all_installed = True
+    for package in required_packages:
+        try:
+            importlib.import_module(package)
+            print(f"✅ {package}: OK")
+        except ImportError:
+            print(f"❌ {package}: Missing")
+            all_installed = False
+    
+    return all_installed
+
+def check_database():
+    try:
+        conn = psycopg2.connect(
+            host="localhost",
+            database="marketing_ai_dev",
+            user="marketing_ai_user",
+            password="dev_password_2024"
+        )
+        conn.close()
+        print("✅ PostgreSQL: OK")
+        return True
+    except Exception as e:
+        print(f"❌ PostgreSQL: {e}")
+        return False
+
+def check_redis():
+    try:
+        r = redis.Redis(host='localhost', port=6379, db=0)
+        r.ping()
+        print("✅ Redis: OK")
+        return True
+    except Exception as e:
+        print(f"❌ Redis: {e}")
+        return False
+
+def check_backend_server():
+    try:
+        response = requests.get("http://localhost:8000/health", timeout=5)
+        if response.status_code == 200:
+            print("✅ Backend server: OK")
+            return True
+        else:
+            print(f"❌ Backend server: HTTP {response.status_code}")
+            return False
+    except Exception as e:
+        print(f"❌ Backend server: {e}")
+        return False
+
+def main():
+    print("🔍 Verifying development environment setup...\n")
+    
+    checks = [
+        check_python_version(),
+        check_dependencies(),
+        check_database(),
+        check_redis(),
+        check_backend_server()
+    ]
+    
+    if all(checks):
+        print("\n🎉 All checks passed! Development environment is ready.")
+        return 0
+    else:
+        print("\n⚠️ Some checks failed. Please fix the issues above.")
+        return 1
+
+if __name__ == "__main__":
+    sys.exit(main())
+```
+
+#### Run Verification
+```bash
+python verify_setup.py
+```
+
+### 7.2 Common Issues & Solutions
+
+#### Issue: Python 3.13 not available
+**Solution**: Use pyenv to install latest Python
+```bash
+# Install pyenv
+curl https://pyenv.run | bash
+
+# Install Python 3.13
+pyenv install 3.13.0
+pyenv local 3.13.0
+```
+
+#### Issue: PostgreSQL connection failed
+**Solution**: Check PostgreSQL service and credentials
+```bash
+# Check PostgreSQL status
+sudo systemctl status postgresql
+
+# Reset password if needed
+sudo -u postgres psql -c "ALTER USER marketing_ai_user PASSWORD 'dev_password_2024';"
+```
+
+#### Issue: Redis connection failed
+**Solution**: Start Redis service
+```bash
+# Start Redis
+sudo systemctl start redis-server
+
+# Check Redis status
+redis-cli ping
+```
+
+#### Issue: Node.js version conflicts
+**Solution**: Use nvm to manage Node.js versions
+```bash
+# Install nvm
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+
+# Install and use Node.js 18
+nvm install 18
+nvm use 18
+```
+
+---
+
+## 8. NEXT STEPS
+
+After completing the development environment setup:
+
+1. **Run verification script** to ensure everything is working
+2. **Start backend server** and verify API documentation access
+3. **Start frontend development server** and verify application loads
+4. **Run initial tests** to ensure testing framework is working
+5. **Create first API endpoint** to test the full development cycle
+6. **Set up development database** with initial test data
+7. **Configure IDE** with appropriate extensions and settings
+8. **Set up debugging** for both backend and frontend
+9. **Test external API integrations** with development credentials
+10. **Document any environment-specific configurations**
+
+---
+
+This development environment setup guide provides a comprehensive foundation for all developers to start contributing to the AI Marketing Automation Platform with consistent configurations and tools.

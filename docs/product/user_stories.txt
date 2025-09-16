@@ -1,0 +1,597 @@
+# User Stories & Acceptance Criteria
+## AI Marketing Automation Platform
+
+---
+
+## 1. USER PERSONA DEFINITIONS
+
+### Primary Persona: Small Business Owner (Raj)
+- **Age**: 35-45
+- **Business**: Local restaurant/clinic/retail store
+- **Tech Savvy**: Moderate
+- **Marketing Budget**: ₹10K-50K/month
+- **Pain Points**: Expensive creative teams, time-consuming campaign setup
+- **Goals**: Increase foot traffic, generate leads, build brand awareness
+
+### Secondary Persona: Marketing Agency Owner (Priya)
+- **Age**: 28-40
+- **Business**: Digital marketing agency with 5-20 clients
+- **Tech Savvy**: High
+- **Client Budget**: ₹25K-200K/month per client
+- **Pain Points**: Scaling creative production, client reporting
+- **Goals**: Serve more clients efficiently, improve campaign performance
+
+### Tertiary Persona: E-commerce Business Owner (Amit)
+- **Age**: 25-35
+- **Business**: Online fashion/electronics store
+- **Tech Savvy**: High
+- **Marketing Budget**: ₹50K-300K/month
+- **Pain Points**: Creative fatigue, audience targeting
+- **Goals**: Increase sales, reduce acquisition costs, scale profitably
+
+---
+
+## 2. AUTHENTICATION & ONBOARDING
+
+### Epic: User Registration & Setup
+**Goal**: Enable users to quickly set up their account and start using the platform
+
+#### Story 2.1: User Registration
+**As a** business owner
+**I want to** create an account with email and password
+**So that** I can access the AI marketing platform
+
+**Acceptance Criteria**:
+- [ ] User can register with email and password
+- [ ] Password must be minimum 8 characters with special characters
+- [ ] Email verification sent within 30 seconds
+- [ ] Account activated upon email verification
+- [ ] User redirected to subscription selection after verification
+- [ ] Duplicate email registration shows appropriate error message
+- [ ] Form validation prevents invalid email formats
+
+**Definition of Done**:
+- Registration form validates all inputs
+- Email verification system functional
+- User account created in database
+- Welcome email sent successfully
+- Error handling for all edge cases
+
+#### Story 2.2: Subscription Tier Selection
+**As a** new user
+**I want to** choose my subscription tier during registration
+**So that** I get access to appropriate features for my needs
+
+**Acceptance Criteria**:
+- [ ] Display all three tiers with clear feature comparison
+- [ ] Show pricing in Indian Rupees (₹)
+- [ ] Highlight most popular tier (Professional)
+- [ ] Allow tier selection without immediate payment for Starter
+- [ ] Redirect to payment for Professional/Business tiers
+- [ ] Display feature limitations clearly for each tier
+- [ ] Show cost savings for annual billing
+
+**Definition of Done**:
+- Subscription comparison page loads in < 2 seconds
+- Payment integration working for paid tiers
+- User tier recorded in database
+- Feature access controls implemented
+- Trial period activated for applicable tiers
+
+#### Story 2.3: Business Profile Setup
+**As a** new user
+**I want to** set up my business profile quickly
+**So that** the AI can generate relevant content for my business
+
+**Acceptance Criteria**:
+- [ ] Business name and type selection (required)
+- [ ] Industry selection from predefined list (required)
+- [ ] Website URL input with validation (optional)
+- [ ] Target audience description (optional)
+- [ ] Monthly marketing budget range selection (required)
+- [ ] Form completion in under 3 minutes
+- [ ] Auto-save progress to prevent data loss
+
+**Definition of Done**:
+- Business profile form functional
+- Data validation for all fields
+- Profile saved to database
+- Industry-specific recommendations ready
+- Setup progress indicator working
+
+---
+
+## 3. CREATIVE STUDIO
+
+### Epic: AI-Powered Creative Generation
+**Goal**: Enable users to generate professional marketing creatives using AI
+
+#### Story 3.1: Image Generation
+**As a** business owner
+**I want to** generate professional marketing images with simple prompts
+**So that** I can create compelling visuals without hiring designers
+
+**Acceptance Criteria**:
+- [ ] Text prompt input with character limit (500 chars)
+- [ ] Style selection from predefined options (modern, traditional, festive, etc.)
+- [ ] Format selection (1:1, 16:9, 9:16, 4:5)
+- [ ] Brand voice application toggle
+- [ ] Generation completes in under 30 seconds
+- [ ] High-resolution output (minimum 1080px)
+- [ ] Preview before saving to library
+- [ ] Multiple generation attempts if user unsatisfied
+
+**Definition of Done**:
+- Image generation API integrated
+- Style and format options functional
+- Brand voice integration working
+- Progress indicator during generation
+- Error handling for generation failures
+- Generated images saved to user library
+
+#### Story 3.2: Video Generation
+**As a** business owner
+**I want to** create marketing videos with AI
+**So that** I can produce engaging video content for social media
+
+**Acceptance Criteria**:
+- [ ] Video prompt input with examples
+- [ ] Duration selection (15s, 30s, 60s)
+- [ ] Format selection optimized for platforms
+- [ ] Style selection (dynamic, subtle, static overlay)
+- [ ] Generation completes in under 60 seconds
+- [ ] HD quality output (minimum 720p)
+- [ ] Thumbnail auto-generation
+- [ ] Audio track selection options
+
+**Definition of Done**:
+- Video generation API integrated
+- Multiple duration options working
+- Quality output achieved consistently
+- Thumbnail generation functional
+- Video saved with proper metadata
+- Preview functionality implemented
+
+#### Story 3.3: Asset Library Management
+**As a** user
+**I want to** organize and manage my generated assets
+**So that** I can easily find and reuse content for campaigns
+
+**Acceptance Criteria**:
+- [ ] Grid view of all user assets
+- [ ] Filter by type (image/video), format, date, tags
+- [ ] Search functionality by filename and tags
+- [ ] Bulk selection and operations (tag, delete, download)
+- [ ] Favorite marking system
+- [ ] Usage tracking per asset
+- [ ] Pagination for large libraries (20 items per page)
+- [ ] Asset preview without full download
+
+**Definition of Done**:
+- Asset library interface responsive
+- All filter and search functions working
+- Bulk operations implemented
+- Usage analytics tracked
+- Performance optimized for large libraries
+- Mobile-friendly interface
+
+---
+
+## 4. BRAND VOICE ANALYSIS
+
+### Epic: Intelligent Brand Understanding
+**Goal**: Extract and apply brand voice automatically from existing digital presence
+
+#### Story 4.1: Website Analysis
+**As a** business owner
+**I want to** analyze my website to extract brand voice
+**So that** AI-generated content matches my existing brand
+
+**Acceptance Criteria**:
+- [ ] Website URL input with validation
+- [ ] Analysis completes in under 5 minutes
+- [ ] Extract minimum 10 brand attributes
+- [ ] Identify color palette (primary, secondary, accent)
+- [ ] Extract tone of voice (professional, friendly, formal, etc.)
+- [ ] Identify key messaging and value propositions
+- [ ] Generate brand guidelines summary
+- [ ] Allow user to review and edit extracted information
+
+**Definition of Done**:
+- Website scraping system functional
+- AI analysis pipeline working
+- Brand attributes extraction reliable
+- User review interface implemented
+- Brand guidelines auto-generation working
+- Data saved to user profile
+
+#### Story 4.2: Social Media Intelligence
+**As a** business owner
+**I want to** connect my social media accounts for brand analysis
+**So that** the AI understands my existing content strategy
+
+**Acceptance Criteria**:
+- [ ] Facebook page URL analysis
+- [ ] Instagram account analysis
+- [ ] Extract posting patterns and engagement data
+- [ ] Identify successful content themes
+- [ ] Analyze hashtag usage strategies
+- [ ] Detect audience engagement preferences
+- [ ] Generate content recommendations
+- [ ] Respect platform privacy and API limitations
+
+**Definition of Done**:
+- Social media analysis functional
+- Content pattern recognition working
+- Engagement analysis accurate
+- Recommendations relevant and actionable
+- Privacy compliance maintained
+- Integration with brand profile complete
+
+---
+
+## 5. CAMPAIGN MANAGEMENT
+
+### Epic: Multi-Purpose Campaign Creation
+**Goal**: Enable users to create purpose-driven marketing campaigns with AI assistance
+
+#### Story 5.1: Lead Generation Campaign
+**As a** service business owner
+**I want to** create a lead generation campaign
+**So that** I can capture potential customer information
+
+**Acceptance Criteria**:
+- [ ] Campaign purpose selection (Lead Generation)
+- [ ] Target audience definition interface
+- [ ] Budget allocation recommendations
+- [ ] Lead form creation or integration
+- [ ] Asset selection from library or auto-generation
+- [ ] Landing page recommendations
+- [ ] Success metrics definition (cost per lead target)
+- [ ] Campaign preview before launch
+
+**Definition of Done**:
+- Lead generation workflow complete
+- Form creation/integration working
+- Budget recommendations accurate
+- Asset integration functional
+- Metrics tracking implemented
+- Campaign creation under 30 minutes
+
+#### Story 5.2: E-commerce Sales Campaign
+**As an** e-commerce business owner
+**I want to** create product sales campaigns
+**So that** I can drive traffic to my online store
+
+**Acceptance Criteria**:
+- [ ] Product catalog integration options
+- [ ] Dynamic product ads setup
+- [ ] Audience targeting for shoppers
+- [ ] Budget optimization for ROAS
+- [ ] Creative templates for product showcasing
+- [ ] Conversion tracking setup
+- [ ] Retargeting audience creation
+- [ ] Seasonal optimization recommendations
+
+**Definition of Done**:
+- E-commerce workflow functional
+- Product integration working
+- ROAS optimization implemented
+- Conversion tracking accurate
+- Retargeting setup automated
+- Performance monitoring active
+
+#### Story 5.3: Brand Awareness Campaign
+**As a** new business owner
+**I want to** create brand awareness campaigns
+**So that** more people in my area know about my business
+
+**Acceptance Criteria**:
+- [ ] Reach and frequency optimization
+- [ ] Local audience targeting interface
+- [ ] Brand-focused creative recommendations
+- [ ] Video content prioritization
+- [ ] Awareness metrics tracking (reach, impressions, brand recall)
+- [ ] Competitive analysis integration
+- [ ] Long-term brand building recommendations
+- [ ] Multi-platform distribution strategy
+
+**Definition of Done**:
+- Brand awareness workflow complete
+- Local targeting functional
+- Reach optimization working
+- Brand metrics tracking implemented
+- Creative recommendations relevant
+- Multi-platform setup automated
+
+---
+
+## 6. META API INTEGRATION
+
+### Epic: Seamless Meta Platform Integration
+**Goal**: Connect user Meta accounts and automate campaign deployment
+
+#### Story 6.1: Meta Account Connection
+**As a** user
+**I want to** connect my Meta (Facebook/Instagram) account
+**So that** I can launch campaigns directly to the platform
+
+**Acceptance Criteria**:
+- [ ] OAuth flow initiation from dashboard
+- [ ] Secure token storage and encryption
+- [ ] Permission validation (ads_management, ads_read)
+- [ ] Multiple ad account support
+- [ ] Connection status monitoring
+- [ ] Token refresh automation
+- [ ] Disconnect option available
+- [ ] Error handling for failed connections
+
+**Definition of Done**:
+- OAuth integration complete
+- Token management secure
+- Permission handling robust
+- Multi-account support working
+- Status monitoring functional
+- Error recovery implemented
+
+#### Story 6.2: Campaign Launch Automation
+**As a** user
+**I want to** launch my created campaigns directly to Meta
+**So that** I don't need to recreate everything manually
+
+**Acceptance Criteria**:
+- [ ] One-click campaign launch from platform
+- [ ] Asset upload to Meta automatically
+- [ ] Audience targeting translation
+- [ ] Budget and schedule sync
+- [ ] Campaign status synchronization
+- [ ] Launch confirmation and tracking
+- [ ] Error handling for failed launches
+- [ ] Rollback capability for issues
+
+**Definition of Done**:
+- Campaign launch automation working
+- Asset sync functional
+- Targeting translation accurate
+- Status sync reliable
+- Error handling comprehensive
+- Rollback system implemented
+
+---
+
+## 7. AI OPTIMIZATION
+
+### Epic: Intelligent Campaign Optimization
+**Goal**: Automatically improve campaign performance using AI analysis
+
+#### Story 7.1: Performance Monitoring
+**As a** user
+**I want to** see real-time campaign performance
+**So that** I can understand how my campaigns are performing
+
+**Acceptance Criteria**:
+- [ ] Real-time metrics dashboard
+- [ ] Key performance indicators clearly displayed
+- [ ] Performance trends and charts
+- [ ] Comparison with goals and benchmarks
+- [ ] Alert system for significant changes
+- [ ] Mobile-responsive performance view
+- [ ] Export capability for reports
+- [ ] Historical data access
+
+**Definition of Done**:
+- Performance dashboard functional
+- Real-time data sync working
+- Charts and visualizations clear
+- Alert system operational
+- Mobile interface responsive
+- Export functionality working
+
+#### Story 7.2: Automatic Budget Optimization
+**As a** user
+**I want to** have my campaign budgets optimized automatically
+**So that** I get better results without constant monitoring
+
+**Acceptance Criteria**:
+- [ ] Performance threshold monitoring
+- [ ] Automatic budget increase for high-performing campaigns
+- [ ] Budget reallocation between campaigns
+- [ ] User notification for all budget changes
+- [ ] Maximum increase limits (50% per optimization)
+- [ ] Rollback option for unsuccessful optimizations
+- [ ] Optimization history tracking
+- [ ] User-defined constraints respect
+
+**Definition of Done**:
+- Budget optimization algorithm working
+- Threshold monitoring accurate
+- Notification system functional
+- Constraint handling implemented
+- History tracking complete
+- Rollback capability tested
+
+#### Story 7.3: Creative Performance Analysis
+**As a** user
+**I want to** understand which creatives perform best
+**So that** I can use successful patterns in future campaigns
+
+**Acceptance Criteria**:
+- [ ] Creative performance comparison dashboard
+- [ ] A/B testing results analysis
+- [ ] Best-performing creative identification
+- [ ] Creative fatigue detection
+- [ ] Automatic creative rotation
+- [ ] Performance pattern recognition
+- [ ] Recommendations for future creatives
+- [ ] Creative archive and insights
+
+**Definition of Done**:
+- Creative analysis dashboard complete
+- A/B testing framework functional
+- Performance tracking accurate
+- Fatigue detection working
+- Rotation automation implemented
+- Pattern recognition operational
+
+---
+
+## 8. ANALYTICS & REPORTING
+
+### Epic: Comprehensive Performance Analytics
+**Goal**: Provide actionable insights and detailed reporting capabilities
+
+#### Story 8.1: Campaign Analytics Dashboard
+**As a** user
+**I want to** see comprehensive analytics for my campaigns
+**So that** I can make informed decisions about my marketing
+
+**Acceptance Criteria**:
+- [ ] Multi-campaign performance overview
+- [ ] Drill-down capability for detailed metrics
+- [ ] Custom date range selection
+- [ ] Comparative analysis between campaigns
+- [ ] ROI and ROAS calculations
+- [ ] Cost breakdown analysis
+- [ ] Performance forecasting
+- [ ] Industry benchmark comparisons
+
+**Definition of Done**:
+- Analytics dashboard complete
+- Drill-down functionality working
+- Date range filtering operational
+- Calculations accurate
+- Forecasting models functional
+- Benchmarking data integrated
+
+#### Story 8.2: Automated Reporting
+**As a** business owner
+**I want to** receive automated performance reports
+**So that** I stay informed without checking the platform daily
+
+**Acceptance Criteria**:
+- [ ] Weekly performance email reports
+- [ ] Monthly comprehensive analysis
+- [ ] Custom report scheduling
+- [ ] PDF report generation
+- [ ] Key insights and recommendations
+- [ ] Performance alerts for significant changes
+- [ ] Mobile-friendly report format
+- [ ] White-label options for agencies
+
+**Definition of Done**:
+- Automated reporting system working
+- Email delivery reliable
+- PDF generation functional
+- Insights algorithm operational
+- Alert system accurate
+- White-label options implemented
+
+---
+
+## 9. SUBSCRIPTION & BILLING
+
+### Epic: Flexible Subscription Management
+**Goal**: Provide seamless subscription and billing experience
+
+#### Story 9.1: Subscription Management
+**As a** user
+**I want to** manage my subscription easily
+**So that** I can upgrade, downgrade, or cancel as needed
+
+**Acceptance Criteria**:
+- [ ] Current subscription status display
+- [ ] Usage tracking and limits visualization
+- [ ] Upgrade/downgrade options
+- [ ] Billing history access
+- [ ] Payment method management
+- [ ] Cancellation option with retention attempts
+- [ ] Prorated billing for plan changes
+- [ ] Invoice download capability
+
+**Definition of Done**:
+- Subscription interface complete
+- Usage tracking accurate
+- Plan change functionality working
+- Billing integration operational
+- Payment processing secure
+- Invoice generation functional
+
+#### Story 9.2: Payment Processing
+**As a** user
+**I want to** pay for my subscription securely
+**So that** I can access premium features
+
+**Acceptance Criteria**:
+- [ ] Razorpay integration for Indian market
+- [ ] Multiple payment methods (UPI, cards, net banking)
+- [ ] Secure payment processing
+- [ ] Payment confirmation and receipts
+- [ ] Failed payment handling
+- [ ] Automatic retry for failed payments
+- [ ] PCI DSS compliance
+- [ ] Tax calculation for Indian users
+
+**Definition of Done**:
+- Payment integration secure
+- Multiple payment methods working
+- Receipt generation functional
+- Failure handling robust
+- Compliance requirements met
+- Tax calculations accurate
+
+---
+
+## 10. TECHNICAL REQUIREMENTS
+
+### Epic: Platform Performance & Reliability
+**Goal**: Ensure platform meets performance and reliability standards
+
+#### Story 10.1: Performance Optimization
+**As a** user
+**I want to** experience fast loading times
+**So that** I can work efficiently without delays
+
+**Acceptance Criteria**:
+- [ ] Page load times under 2 seconds
+- [ ] API response times under 200ms
+- [ ] Image generation under 30 seconds
+- [ ] Video generation under 60 seconds
+- [ ] Dashboard updates in real-time
+- [ ] Mobile performance optimized
+- [ ] Offline capability for asset viewing
+- [ ] Progressive loading for large datasets
+
+**Definition of Done**:
+- Performance benchmarks met
+- Loading optimization implemented
+- Real-time updates working
+- Mobile optimization complete
+- Offline functionality operational
+- Progressive loading functional
+
+#### Story 10.2: Security & Privacy
+**As a** user
+**I want to** trust that my data is secure
+**So that** I can use the platform without privacy concerns
+
+**Acceptance Criteria**:
+- [ ] Data encryption at rest and in transit
+- [ ] Secure API authentication
+- [ ] GDPR compliance for EU users
+- [ ] Indian data protection compliance
+- [ ] Regular security audits
+- [ ] Secure file storage
+- [ ] Privacy policy transparency
+- [ ] Data export capability for users
+
+**Definition of Done**:
+- Security measures implemented
+- Compliance requirements met
+- Audit procedures established
+- Privacy controls functional
+- Data export working
+- Security documentation complete
+
+---
+
+This comprehensive user stories document provides detailed acceptance criteria for all major platform features, ensuring clear development requirements and testing standards.

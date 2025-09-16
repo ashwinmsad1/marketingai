@@ -1,0 +1,394 @@
+# Technical Architecture
+## AI-Powered Meta Marketing Automation Platform
+
+---
+
+## 1. SYSTEM OVERVIEW
+
+### High-Level Architecture
+```
+Frontend (React)
+    ↓
+API Gateway (FastAPI)
+    ↓
+Business Logic Services
+    ↓
+Database (PostgreSQL) + File Storage + External APIs
+```
+
+### Core Components
+- **Frontend**: React.js web application
+- **Backend**: FastAPI Python services
+- **Database**: PostgreSQL for relational data
+- **File Storage**: AWS S3 for creative assets
+- **Cache**: Redis for session and performance data
+- **Queue System**: Celery for background tasks
+- **External APIs**: Meta Marketing API, Google AI APIs
+
+---
+
+## 2. DATABASE ARCHITECTURE
+
+### Core Tables Structure
+
+#### Users & Authentication
+```sql
+users (
+    id: UUID PRIMARY KEY,
+    email: VARCHAR(255) UNIQUE,
+    password_hash: VARCHAR(255),
+    subscription_tier: ENUM('starter', 'professional', 'business'),
+    created_at: TIMESTAMP,
+    updated_at: TIMESTAMP
+)
+
+meta_accounts (
+    id: UUID PRIMARY KEY,
+    user_id: UUID REFERENCES users(id),
+    meta_user_id: VARCHAR(255),
+    access_token: TEXT ENCRYPTED,
+    refresh_token: TEXT ENCRYPTED,
+    token_expires_at: TIMESTAMP,
+    permissions: JSONB,
+    ad_account_ids: TEXT[]
+)
+```
+
+#### Creative Assets
+```sql
+creative_assets (
+    id: UUID PRIMARY KEY,
+    user_id: UUID REFERENCES users(id),
+    asset_type: ENUM('image', 'video'),
+    file_url: TEXT,
+    file_size: BIGINT,
+    format: VARCHAR(50), -- '1:1', '16:9', '9:16', '4:5'
+    prompt: TEXT,
+    style: VARCHAR(100),
+    tags: TEXT[],
+    created_at: TIMESTAMP
+)
+
+brand_profiles (
+    id: UUID PRIMARY KEY,
+    user_id: UUID REFERENCES users(id),
+    website_url: TEXT,
+    brand_voice: JSONB, -- tone, messaging, colors extracted by AI
+    logo_url: TEXT,
+    color_palette: JSONB,
+    guidelines: JSONB,
+    last_analysis: TIMESTAMP
+)
+```
+
+#### Campaigns & Performance
+```sql
+campaigns (
+    id: UUID PRIMARY KEY,
+    user_id: UUID REFERENCES users(id),
+    meta_campaign_id: VARCHAR(255),
+    name: VARCHAR(255),
+    purpose: ENUM('lead_generation', 'sales', 'brand_awareness', 'app_installs', 'event_promotion', 'store_visits', 'retargeting'),
+    status: ENUM('draft', 'active', 'paused', 'completed'),
+    daily_budget: DECIMAL(10,2),
+    total_budget: DECIMAL(10,2),
+    created_at: TIMESTAMP
+)
+
+campaign_assets (
+    campaign_id: UUID REFERENCES campaigns(id),
+    asset_id: UUID REFERENCES creative_assets(id),
+    PRIMARY KEY (campaign_id, asset_id)
+)
+
+performance_analytics (
+    id: UUID PRIMARY KEY,
+    campaign_id: UUID REFERENCES campaigns(id),
+    date: DATE,
+    impressions: BIGINT,
+    clicks: BIGINT,
+    spend: DECIMAL(10,2),
+    conversions: BIGINT,
+    ctr: DECIMAL(5,4),
+    cpa: DECIMAL(10,2),
+    roas: DECIMAL(5,2)
+)
+```
+
+---
+
+## 3. BACKEND SERVICES ARCHITECTURE
+
+### Service Structure
+```
+backend/
+├── main.py                 # FastAPI app entry point
+├── core/
+│   ├── config.py          # Configuration management
+│   ├── database.py        # Database connection
+│   └── security.py        # Authentication & encryption
+├── models/                # SQLAlchemy models
+│   ├── user.py
+│   ├── campaign.py
+│   ├── creative.py
+│   └── analytics.py
+├── services/              # Business logic
+│   ├── auth_service.py
+│   ├── creative_service.py
+│   ├── campaign_service.py
+│   ├── meta_api_service.py
+│   ├── ai_service.py
+│   └── analytics_service.py
+├── agents/                # AI agents
+│   ├── photo_agent.py
+│   ├── video_agent.py
+│   └── brand_analyzer.py
+├── api/                   # REST endpoints
+│   ├── auth.py
+│   ├── creatives.py
+│   ├── campaigns.py
+│   └── analytics.py
+└── utils/
+    ├── file_storage.py    # S3 operations
+    ├── encryption.py      # Token encryption
+    └── validators.py      # Input validation
+```
+
+### Key Services
+
+#### Creative Service
+```python
+class CreativeService:
+    async def generate_image(user_id, prompt, format, style)
+    async def generate_video(user_id, prompt, format, style)
+    async def store_asset(user_id, file_data, metadata)
+    async def get_user_library(user_id, filters)
+    async def analyze_brand_voice(user_id, website_url)
+```
+
+#### Campaign Service
+```python
+class CampaignService:
+    async def create_campaign(user_id, campaign_data)
+    async def select_assets(campaign_id, asset_ids)
+    async def auto_generate_assets(campaign_id, purpose)
+    async def launch_campaign(campaign_id)
+    async def optimize_campaign(campaign_id)
+```
+
+#### Meta API Service
+```python
+class MetaAPIService:
+    async def authenticate_user(auth_code)
+    async def create_meta_campaign(campaign_data)
+    async def upload_creative(asset_data)
+    async def get_performance_data(campaign_id)
+    async def update_budget(campaign_id, new_budget)
+```
+
+---
+
+## 4. FRONTEND ARCHITECTURE
+
+### React Application Structure
+```
+frontend/
+├── src/
+│   ├── components/        # Reusable UI components
+│   │   ├── common/
+│   │   ├── creative/      # Creative Studio components
+│   │   ├── campaign/      # Campaign management
+│   │   └── analytics/     # Dashboard components
+│   ├── pages/            # Page components
+│   │   ├── Dashboard.tsx
+│   │   ├── CreativeStudio.tsx
+│   │   ├── Campaigns.tsx
+│   │   └── Analytics.tsx
+│   ├── services/         # API communication
+│   │   ├── api.ts
+│   │   ├── auth.ts
+│   │   ├── creative.ts
+│   │   └── campaign.ts
+│   ├── store/           # State management (Redux/Zustand)
+│   │   ├── auth.ts
+│   │   ├── creative.ts
+│   │   └── campaign.ts
+│   ├── hooks/           # Custom React hooks
+│   ├── utils/           # Helper functions
+│   └── types/           # TypeScript interfaces
+```
+
+### Key Frontend Features
+- **Creative Studio**: Drag-drop asset generation interface
+- **Campaign Builder**: Wizard-style campaign creation
+- **Asset Library**: Grid view with search/filter
+- **Analytics Dashboard**: Real-time performance charts
+- **Responsive Design**: Mobile-optimized interface
+
+---
+
+## 5. EXTERNAL INTEGRATIONS
+
+### Meta Marketing API Integration
+```python
+# Token Storage & Refresh
+class MetaTokenManager:
+    async def store_tokens(user_id, access_token, refresh_token)
+    async def refresh_token(user_id)
+    async def validate_permissions(user_id)
+
+# Campaign Management
+class MetaCampaignManager:
+    async def create_campaign(campaign_data)
+    async def create_adset(adset_data)
+    async def create_ad(ad_data, creative_id)
+    async def get_insights(campaign_id, date_range)
+```
+
+### AI Services Integration
+```python
+# Google AI Services
+class AIServiceManager:
+    async def generate_image(prompt, style, format)  # Imagen 4.0
+    async def generate_video(prompt, style, format)  # Veo 3.0
+    async def analyze_website(url)                   # Gemini
+    async def extract_brand_voice(content)          # Gemini
+    async def optimize_campaign(performance_data)   # AI Decision Engine
+    async def recommend_targeting(business_info)    # Business Intelligence
+
+# AI-Powered Decision Making
+class CampaignAI:
+    async def analyze_business_context(business_data)
+    async def recommend_campaign_strategy(purpose, audience)
+    async def optimize_budget_allocation(performance_metrics)
+    async def predict_performance_outcomes(campaign_config)
+```
+
+---
+
+## 6. BACKGROUND PROCESSING
+
+### Celery Task Structure
+```python
+# Background Tasks
+@celery.task
+def sync_campaign_performance(campaign_id):
+    """Fetch latest performance data from Meta API"""
+    
+@celery.task  
+def optimize_campaign_budget(campaign_id):
+    """AI-powered budget optimization"""
+    
+@celery.task
+def refresh_meta_tokens():
+    """Refresh expiring Meta access tokens"""
+    
+@celery.task
+def generate_analytics_report(user_id):
+    """Generate weekly performance reports"""
+```
+
+### Scheduled Tasks
+- **Every 4 hours**: Campaign performance sync
+- **Daily**: Budget optimization analysis
+- **Weekly**: User analytics reports
+- **Monthly**: Token refresh and cleanup
+
+---
+
+## 7. SECURITY ARCHITECTURE
+
+### Data Protection
+```python
+# Token Encryption
+class TokenEncryption:
+    @staticmethod
+    def encrypt_token(token: str) -> str
+    @staticmethod
+    def decrypt_token(encrypted_token: str) -> str
+
+# API Security
+class SecurityMiddleware:
+    async def authenticate_request(request)
+    async def rate_limit_check(user_id, endpoint)
+    async def validate_permissions(user_id, resource)
+```
+
+### Security Measures
+- **Token Encryption**: All Meta API tokens encrypted at rest
+- **Rate Limiting**: API endpoint protection
+- **Input Validation**: All user inputs sanitized
+- **HTTPS Only**: All communications encrypted
+- **CORS Policy**: Restricted frontend access
+
+---
+
+## 8. FILE STORAGE & CDN
+
+### Asset Storage Strategy
+```python
+class FileStorageService:
+    async def upload_creative(file_data, user_id) -> str
+    async def generate_presigned_url(file_key) -> str
+    async def delete_asset(file_key) -> bool
+    async def get_asset_metadata(file_key) -> dict
+```
+
+### Storage Structure
+```
+S3 Bucket: marketing-ai-assets
+├── users/{user_id}/
+│   ├── images/{asset_id}.png
+│   ├── videos/{asset_id}.mp4
+│   └── brand/{logo_id}.png
+└── system/
+    ├── templates/
+    └── samples/
+```
+
+---
+
+## 9. MONITORING & LOGGING
+
+### System Monitoring
+```python
+# Performance Monitoring
+class MonitoringService:
+    def log_api_request(endpoint, response_time, status)
+    def track_user_action(user_id, action, metadata)
+    def monitor_ai_service_usage(service, tokens_used)
+    def alert_on_error(error_type, severity, details)
+```
+
+### Key Metrics to Track
+- **API Response Times**: < 200ms for standard endpoints
+- **AI Service Latency**: Image generation < 30s, Video < 60s
+- **Database Queries**: Query optimization monitoring
+- **Error Rates**: < 1% error rate target
+- **User Engagement**: Creative Studio usage, campaign creation rates
+
+---
+
+## 10. DEPLOYMENT ARCHITECTURE
+
+### Infrastructure Requirements
+```yaml
+# Production Environment
+Web Servers: 3x FastAPI instances (load balanced)
+Database: PostgreSQL 14+ (primary + read replica)
+Cache: Redis cluster (3 nodes)
+File Storage: AWS S3 + CloudFront CDN
+Queue: Celery with Redis broker
+Monitoring: Prometheus + Grafana
+```
+
+### Scalability Considerations
+- **Horizontal Scaling**: Load-balanced FastAPI instances
+- **Database Scaling**: Read replicas for analytics queries
+- **Asset Storage**: CDN for global asset delivery
+- **Background Tasks**: Multiple Celery workers for AI processing
+- **Auto-Scaling**: Cloud-based scaling based on CPU/memory usage
+
+---
+
+This architecture provides a robust, scalable foundation for the AI-powered marketing automation platform while maintaining simplicity and performance.

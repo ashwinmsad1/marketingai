@@ -1,0 +1,744 @@
+# Development Workflow Guide
+## AI Marketing Automation Platform
+
+---
+
+## 1. DEVELOPMENT METHODOLOGY
+
+### Agile Development Approach
+- **Sprint Duration**: 2-week sprints
+- **Planning**: Sprint planning at start of each sprint
+- **Standups**: Daily 15-minute team sync meetings
+- **Reviews**: Sprint review and retrospective at sprint end
+- **Iterations**: Continuous improvement and adaptation
+
+### Team Structure
+```
+Development Team
+├── Tech Lead (1)
+├── Backend Developers (2-3)
+├── Frontend Developers (2)
+├── DevOps Engineer (1)
+├── QA Engineer (1)
+└── Product Manager (1)
+```
+
+### Communication Tools
+- **Project Management**: Jira/Linear for task tracking
+- **Communication**: Slack for team communication
+- **Documentation**: Confluence/Notion for knowledge sharing
+- **Code Review**: GitHub for code collaboration
+
+---
+
+## 2. GIT WORKFLOW & BRANCHING STRATEGY
+
+### 2.1 Branching Model
+
+#### Main Branches
+```
+main (production)
+├── develop (integration)
+├── staging (pre-production testing)
+└── feature branches (development work)
+```
+
+#### Branch Naming Convention
+```bash
+# Feature branches
+feature/user-authentication
+feature/creative-studio-ui
+feature/meta-api-integration
+
+# Bug fix branches
+bugfix/campaign-creation-error
+bugfix/image-generation-timeout
+
+# Hotfix branches (for production issues)
+hotfix/security-patch-auth
+hotfix/payment-processing-fix
+
+# Release branches
+release/v1.0.0
+release/v1.1.0
+```
+
+### 2.2 Workflow Process
+
+#### Feature Development Workflow
+```bash
+# 1. Create feature branch from develop
+git checkout develop
+git pull origin develop
+git checkout -b feature/campaign-optimization
+
+# 2. Work on feature with regular commits
+git add .
+git commit -m "Add budget optimization algorithm"
+
+# 3. Keep feature branch updated
+git checkout develop
+git pull origin develop
+git checkout feature/campaign-optimization
+git rebase develop
+
+# 4. Push feature branch
+git push origin feature/campaign-optimization
+
+# 5. Create Pull Request to develop
+# 6. Code review and approval
+# 7. Merge to develop after approval
+```
+
+#### Release Workflow
+```bash
+# 1. Create release branch from develop
+git checkout develop
+git checkout -b release/v1.1.0
+
+# 2. Version bump and final testing
+# Update version numbers
+# Run comprehensive tests
+# Fix any release-blocking issues
+
+# 3. Merge to main and develop
+git checkout main
+git merge release/v1.1.0
+git tag v1.1.0
+
+git checkout develop  
+git merge release/v1.1.0
+
+# 4. Deploy to production
+# 5. Delete release branch
+git branch -d release/v1.1.0
+```
+
+### 2.3 Commit Message Standards
+
+#### Conventional Commits Format
+```bash
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+#### Commit Types
+```bash
+feat: new feature
+fix: bug fix
+docs: documentation changes
+style: formatting, missing semicolons, etc.
+refactor: code change that neither fixes bug nor adds feature
+perf: performance improvement
+test: adding missing tests
+chore: maintain tasks, dependency updates
+
+# Examples
+feat(auth): add OAuth integration with Meta
+fix(campaign): resolve budget calculation error
+docs(api): update endpoint documentation
+refactor(db): optimize campaign query performance
+test(creative): add unit tests for image generation
+```
+
+### 2.4 Pull Request Process
+
+#### PR Requirements
+- [ ] Feature branch up-to-date with target branch
+- [ ] All tests passing
+- [ ] Code coverage maintained (minimum 90%)
+- [ ] Linting checks passed
+- [ ] Security scan clean
+- [ ] Documentation updated
+- [ ] At least 2 approvals required
+
+#### PR Template
+```markdown
+## Description
+Brief description of changes and motivation
+
+## Type of Change
+- [ ] Bug fix
+- [ ] New feature
+- [ ] Breaking change
+- [ ] Documentation update
+
+## Testing
+- [ ] Unit tests added/updated
+- [ ] Integration tests passed
+- [ ] Manual testing completed
+
+## Checklist
+- [ ] Code follows style guidelines
+- [ ] Self-review completed
+- [ ] Documentation updated
+- [ ] No new warnings introduced
+```
+
+---
+
+## 3. CODE REVIEW PROCESS
+
+### 3.1 Review Guidelines
+
+#### What to Review
+- **Functionality**: Does the code work as intended?
+- **Design**: Is the code well-structured and maintainable?
+- **Performance**: Are there any performance issues?
+- **Security**: Are there any security vulnerabilities?
+- **Style**: Does the code follow team conventions?
+- **Tests**: Are there adequate tests covering the changes?
+
+#### Review Checklist
+```markdown
+## Code Quality
+- [ ] Code is readable and well-commented
+- [ ] Functions/methods have single responsibility
+- [ ] Variable and function names are descriptive
+- [ ] No duplicate code (DRY principle)
+- [ ] Error handling is appropriate
+
+## Security
+- [ ] No hardcoded secrets or credentials
+- [ ] Input validation implemented
+- [ ] SQL injection prevention
+- [ ] XSS protection in place
+- [ ] Authentication/authorization correct
+
+## Performance
+- [ ] No obvious performance bottlenecks
+- [ ] Database queries optimized
+- [ ] Appropriate caching implemented
+- [ ] No memory leaks
+
+## Testing
+- [ ] Unit tests cover new functionality
+- [ ] Integration tests updated if needed
+- [ ] Edge cases considered
+- [ ] Test coverage maintained
+```
+
+### 3.2 Review Process
+
+#### Reviewer Assignment
+- **Automatic Assignment**: Based on code ownership (CODEOWNERS file)
+- **Manual Assignment**: For specific expertise areas
+- **Minimum Reviewers**: 2 approvals required for main changes
+
+#### Review Timeline
+- **Initial Review**: Within 24 hours of PR creation
+- **Follow-up**: Within 4 hours of updates
+- **Approval**: All feedback addressed before merge
+
+#### Feedback Guidelines
+```markdown
+# Constructive Feedback Examples
+
+## Good Feedback
+"Consider using a more descriptive variable name here for better readability"
+"This function could benefit from error handling for the API call"
+"Great implementation! Minor suggestion: we could extract this logic into a utility function"
+
+## Avoid
+"This is wrong"
+"Bad code"
+"Change this"
+```
+
+---
+
+## 4. TESTING STRATEGY
+
+### 4.1 Testing Pyramid
+
+#### Unit Tests (70%)
+```bash
+# Backend unit tests
+pytest backend/tests/unit/
+
+# Frontend unit tests  
+npm test -- tests/unit/
+
+# Coverage requirements
+pytest --cov=backend --cov-report=html
+# Minimum 90% coverage required
+```
+
+#### Integration Tests (20%)
+```bash
+# API integration tests
+pytest backend/tests/integration/
+
+# Database integration tests
+pytest backend/tests/integration/test_db_operations.py
+
+# External service integration tests
+pytest backend/tests/integration/test_meta_api.py
+```
+
+#### End-to-End Tests (10%)
+```bash
+# Critical user journeys
+npx playwright test tests/e2e/
+
+# Campaign creation flow
+npx playwright test tests/e2e/campaign-creation.spec.ts
+
+# Payment flow
+npx playwright test tests/e2e/subscription-flow.spec.ts
+```
+
+### 4.2 Testing Requirements
+
+#### Pre-Commit Testing
+```bash
+# Run before every commit
+pre-commit run --all-files
+
+# Includes:
+# - Linting (flake8, eslint)
+# - Formatting (black, prettier)
+# - Type checking (mypy, typescript)
+# - Security scanning (bandit, eslint-plugin-security)
+```
+
+#### CI/CD Testing Pipeline
+```yaml
+# GitHub Actions Workflow
+name: Test Pipeline
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Unit Tests
+        run: |
+          pytest backend/tests/unit/
+          npm test -- tests/unit/
+      
+      - name: Integration Tests
+        run: pytest backend/tests/integration/
+      
+      - name: E2E Tests
+        run: npx playwright test
+      
+      - name: Security Scan
+        run: |
+          bandit -r backend/
+          npm audit
+      
+      - name: Performance Tests
+        run: pytest backend/tests/performance/
+```
+
+---
+
+## 5. DEPLOYMENT PROCESS
+
+### 5.1 Environment Strategy
+
+#### Development Environment
+- **Purpose**: Local development and testing
+- **Database**: Local PostgreSQL instance
+- **External Services**: Sandbox/test APIs
+- **Deployment**: Manual local setup
+
+#### Staging Environment
+- **Purpose**: Pre-production testing and QA
+- **Database**: Staging database with realistic data
+- **External Services**: Test/sandbox APIs
+- **Deployment**: Automated from develop branch
+
+#### Production Environment
+- **Purpose**: Live user-facing application
+- **Database**: Production database with backups
+- **External Services**: Live APIs with proper credentials
+- **Deployment**: Automated from main branch after approval
+
+### 5.2 Deployment Pipeline
+
+#### Automated Deployment Steps
+```yaml
+# Deployment Pipeline
+Deploy to Staging:
+  1. Code merged to develop branch
+  2. Automated tests run
+  3. Docker images built
+  4. Deploy to staging environment
+  5. Run smoke tests
+  6. Notify team of deployment
+
+Deploy to Production:
+  1. Create release PR (develop → main)
+  2. Final code review and approval
+  3. Merge to main branch
+  4. Tag release version
+  5. Build production Docker images
+  6. Deploy to production (blue-green)
+  7. Run health checks
+  8. Monitor for issues
+  9. Notify stakeholders
+```
+
+#### Rollback Procedures
+```bash
+# Automated rollback triggers
+- Error rate > 5% for 5 minutes
+- Response time > 2 seconds for 10 minutes
+- Health check failures
+
+# Manual rollback process
+1. Identify issue and impact
+2. Execute rollback command
+3. Verify system stability
+4. Communicate status to team
+5. Investigate root cause
+```
+
+### 5.3 Release Management
+
+#### Version Numbering
+```bash
+# Semantic Versioning (MAJOR.MINOR.PATCH)
+v1.0.0  # Initial release
+v1.0.1  # Bug fix release
+v1.1.0  # Feature release
+v2.0.0  # Breaking change release
+```
+
+#### Release Notes Template
+```markdown
+# Release v1.1.0
+
+## 🚀 New Features
+- AI-powered campaign optimization
+- Multi-format video generation
+- Advanced analytics dashboard
+
+## 🐛 Bug Fixes
+- Fixed campaign creation timeout issue
+- Resolved Meta API token refresh problem
+- Corrected budget calculation accuracy
+
+## 🔧 Improvements
+- Improved image generation speed by 25%
+- Enhanced mobile responsive design
+- Updated API documentation
+
+## 🔒 Security
+- Updated dependencies with security patches
+- Enhanced authentication token validation
+
+## 📚 Documentation
+- Updated API documentation
+- Added troubleshooting guides
+- Enhanced onboarding tutorials
+
+## Breaking Changes
+None in this release
+
+## Migration Guide
+No migration required for this release
+```
+
+---
+
+## 6. CODE QUALITY STANDARDS
+
+### 6.1 Automated Quality Checks
+
+#### Pre-Commit Hooks
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/psf/black
+    hooks:
+      - id: black
+        language_version: python3.13
+  
+  - repo: https://github.com/pycqa/flake8
+    hooks:
+      - id: flake8
+  
+  - repo: https://github.com/pre-commit/mirrors-eslint
+    hooks:
+      - id: eslint
+        files: \.(js|ts|tsx)$
+  
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    hooks:
+      - id: prettier
+        files: \.(js|ts|tsx|json|css|md)$
+```
+
+#### Code Quality Metrics
+```bash
+# Python code quality
+flake8 backend/ --max-line-length=88
+black backend/ --check
+mypy backend/
+
+# TypeScript code quality
+eslint frontend/src --ext .ts,.tsx
+prettier frontend/src --check
+tsc --noEmit
+
+# Security scanning
+bandit -r backend/
+npm audit --audit-level moderate
+```
+
+### 6.2 Performance Standards
+
+#### Backend Performance
+- API response time < 200ms (95th percentile)
+- Database query time < 100ms
+- Memory usage < 500MB per instance
+- CPU usage < 70% under normal load
+
+#### Frontend Performance
+- First Contentful Paint < 1.5 seconds
+- Largest Contentful Paint < 2.5 seconds
+- Cumulative Layout Shift < 0.1
+- First Input Delay < 100ms
+
+#### Monitoring & Alerts
+```yaml
+# Performance monitoring
+Response Time:
+  Warning: > 500ms
+  Critical: > 1000ms
+
+Error Rate:
+  Warning: > 1%
+  Critical: > 5%
+
+Memory Usage:
+  Warning: > 80%
+  Critical: > 95%
+```
+
+---
+
+## 7. DOCUMENTATION WORKFLOW
+
+### 7.1 Documentation Types
+
+#### Code Documentation
+- **Inline Comments**: Complex logic explanation
+- **Function Docstrings**: API documentation
+- **README Files**: Module and package documentation
+- **Architecture Docs**: System design documentation
+
+#### API Documentation
+- **OpenAPI Specs**: Auto-generated from FastAPI
+- **Endpoint Examples**: Request/response samples
+- **Authentication Guide**: OAuth and JWT flows
+- **Error Handling**: Error codes and responses
+
+#### User Documentation
+- **User Guides**: Feature usage instructions
+- **Tutorials**: Step-by-step walkthroughs
+- **FAQ**: Common questions and answers
+- **Troubleshooting**: Problem resolution guides
+
+### 7.2 Documentation Standards
+
+#### Writing Guidelines
+- **Clear and Concise**: Easy to understand language
+- **Up-to-Date**: Synchronized with code changes
+- **Examples**: Real-world usage examples
+- **Searchable**: Well-organized and indexed
+
+#### Review Process
+- Documentation reviewed alongside code changes
+- Technical writers review user-facing documentation
+- Regular documentation audits and updates
+- User feedback incorporation
+
+---
+
+## 8. INCIDENT RESPONSE
+
+### 8.1 Incident Classification
+
+#### Severity Levels
+```
+P0 - Critical: Production down, data loss, security breach
+P1 - High: Major feature broken, significant user impact
+P2 - Medium: Minor feature issues, moderate user impact  
+P3 - Low: Cosmetic issues, minimal user impact
+```
+
+#### Response Times
+```
+P0: Immediate response (15 minutes)
+P1: 1 hour response
+P2: 4 hours response
+P3: Next business day
+```
+
+### 8.2 Incident Response Process
+
+#### Immediate Response (P0/P1)
+1. **Detection**: Automated alerts or user reports
+2. **Assessment**: Determine severity and impact
+3. **Communication**: Notify stakeholders immediately
+4. **Mitigation**: Implement immediate fixes or rollback
+5. **Resolution**: Address root cause
+6. **Follow-up**: Post-incident review and improvements
+
+#### Communication Templates
+```markdown
+# Incident Notification
+Subject: [P0] Production Issue - Platform Unavailable
+
+We are experiencing an issue affecting platform availability.
+- Impact: Users cannot access the platform
+- Started: 14:30 IST
+- Status: Investigating
+- ETA: Within 1 hour
+
+Updates will be provided every 15 minutes.
+```
+
+### 8.3 Post-Incident Process
+
+#### Post-Mortem Template
+```markdown
+# Post-Incident Report
+
+## Summary
+Brief description of the incident
+
+## Timeline
+- 14:30 - Issue detected
+- 14:35 - Team notified
+- 14:45 - Root cause identified
+- 15:00 - Fix deployed
+- 15:10 - Service restored
+
+## Root Cause
+Detailed technical explanation
+
+## Impact
+- Duration: 40 minutes
+- Users affected: ~500
+- Revenue impact: Minimal
+
+## Action Items
+1. [ ] Improve monitoring for similar issues
+2. [ ] Update runbook procedures
+3. [ ] Implement preventive measures
+
+## Lessons Learned
+Key takeaways and improvements
+```
+
+---
+
+## 9. TEAM COLLABORATION
+
+### 9.1 Communication Guidelines
+
+#### Daily Standups
+- **Format**: What did you do yesterday? What will you do today? Any blockers?
+- **Duration**: 15 minutes maximum
+- **Focus**: Progress updates and obstacle identification
+- **Participation**: All team members participate
+
+#### Sprint Planning
+- **Duration**: 2-4 hours depending on sprint scope
+- **Participants**: Full development team
+- **Outcome**: Sprint backlog with clear commitments
+- **Artifacts**: Sprint goal, task breakdown, capacity planning
+
+#### Retrospectives
+- **Format**: What went well? What could improve? Action items?
+- **Duration**: 1 hour
+- **Focus**: Process improvement and team dynamics
+- **Follow-up**: Action items tracked and implemented
+
+### 9.2 Knowledge Sharing
+
+#### Documentation Sharing
+- **Technical Docs**: Shared in team wiki/confluence
+- **Architecture Decisions**: Recorded in ADR format
+- **Best Practices**: Documented and shared
+- **Lessons Learned**: Captured in retrospectives
+
+#### Code Reviews as Learning
+- **Knowledge Transfer**: Senior developers mentor juniors
+- **Best Practices**: Shared through review feedback
+- **Domain Knowledge**: Cross-functional understanding
+- **Continuous Learning**: Stay updated with new technologies
+
+---
+
+## 10. MAINTENANCE & MONITORING
+
+### 10.1 Regular Maintenance
+
+#### Weekly Tasks
+- Dependency updates and security patches
+- Performance monitoring review
+- Error log analysis
+- Backup verification
+
+#### Monthly Tasks
+- Security audit and penetration testing
+- Performance optimization review
+- Database maintenance and optimization
+- Documentation updates
+
+#### Quarterly Tasks
+- Architecture review and improvements
+- Technology stack evaluation
+- Team process retrospective
+- Disaster recovery testing
+
+### 10.2 Monitoring & Alerting
+
+#### Key Metrics
+```yaml
+Application Metrics:
+  - Response time (95th percentile)
+  - Error rate
+  - Throughput (requests/minute)
+  - Active user sessions
+
+Infrastructure Metrics:
+  - CPU usage
+  - Memory usage
+  - Disk space
+  - Network I/O
+
+Business Metrics:
+  - User registrations
+  - Campaign creations
+  - AI generations
+  - Revenue tracking
+```
+
+#### Alert Configuration
+```yaml
+Critical Alerts:
+  - Platform downtime
+  - Error rate > 5%
+  - Response time > 2 seconds
+  - Security incidents
+
+Warning Alerts:
+  - Error rate > 1%
+  - Response time > 500ms
+  - High resource usage
+  - Failed deployments
+```
+
+---
+
+This comprehensive development workflow guide ensures consistent, high-quality development practices across the AI Marketing Automation Platform team while maintaining agility and efficiency.

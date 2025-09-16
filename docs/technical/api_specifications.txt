@@ -1,0 +1,718 @@
+# API Specifications
+## AI Marketing Automation Platform
+
+---
+
+## 1. API OVERVIEW
+
+### Base Configuration
+```
+Base URL: https://api.marketingai.com/v1
+Authentication: Bearer Token (JWT)
+Content-Type: application/json
+Rate Limiting: 1000 requests/hour per user
+```
+
+### Response Format
+```json
+{
+  "success": true,
+  "data": {},
+  "message": "Success",
+  "timestamp": "2024-01-15T10:30:00Z"
+}
+
+// Error Response
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid input data",
+    "details": {}
+  },
+  "timestamp": "2024-01-15T10:30:00Z"
+}
+```
+
+---
+
+## 2. AUTHENTICATION ENDPOINTS
+
+### POST /auth/register
+**Register new user account**
+```json
+// Request
+{
+  "email": "user@example.com",
+  "password": "securepass123",
+  "first_name": "John",
+  "last_name": "Doe",
+  "subscription_tier": "starter"
+}
+
+// Response
+{
+  "success": true,
+  "data": {
+    "user_id": "uuid",
+    "email": "user@example.com",
+    "subscription_tier": "starter",
+    "trial_ends_at": "2024-01-29T00:00:00Z"
+  }
+}
+```
+
+### POST /auth/login
+**User authentication**
+```json
+// Request
+{
+  "email": "user@example.com",
+  "password": "securepass123"
+}
+
+// Response
+{
+  "success": true,
+  "data": {
+    "access_token": "jwt_token_here",
+    "refresh_token": "refresh_token_here",
+    "expires_in": 3600,
+    "user": {
+      "id": "uuid",
+      "email": "user@example.com",
+      "subscription_tier": "starter"
+    }
+  }
+}
+```
+
+### POST /auth/meta/connect
+**Connect Meta account via OAuth**
+```json
+// Request
+{
+  "auth_code": "meta_oauth_code",
+  "redirect_uri": "https://app.marketingai.com/auth/callback"
+}
+
+// Response
+{
+  "success": true,
+  "data": {
+    "meta_account_id": "uuid",
+    "meta_user_id": "123456789",
+    "permissions": ["ads_management", "ads_read"],
+    "ad_accounts": [
+      {
+        "id": "act_123456",
+        "name": "Business Account",
+        "currency": "INR"
+      }
+    ]
+  }
+}
+```
+
+---
+
+## 3. CREATIVE STUDIO ENDPOINTS
+
+### POST /creative/generate/image
+**Generate AI image**
+```json
+// Request
+{
+  "prompt": "Professional healthcare clinic advertisement",
+  "style": "modern",
+  "format": "1:1",
+  "apply_brand_voice": true
+}
+
+// Response
+{
+  "success": true,
+  "data": {
+    "asset_id": "uuid",
+    "file_url": "https://cdn.marketingai.com/assets/image.png",
+    "format": "1:1",
+    "dimensions": {"width": 1080, "height": 1080},
+    "generation_time": 25,
+    "prompt_used": "Professional healthcare clinic advertisement with modern style"
+  }
+}
+```
+
+### POST /creative/generate/video
+**Generate AI video**
+```json
+// Request
+{
+  "prompt": "Product demonstration for fitness equipment",
+  "style": "energetic",
+  "format": "9:16",
+  "duration": 15,
+  "apply_brand_voice": true
+}
+
+// Response
+{
+  "success": true,
+  "data": {
+    "asset_id": "uuid",
+    "file_url": "https://cdn.marketingai.com/assets/video.mp4",
+    "format": "9:16",
+    "duration": 15,
+    "generation_time": 45,
+    "thumbnail_url": "https://cdn.marketingai.com/assets/thumbnail.jpg"
+  }
+}
+```
+
+### GET /creative/library
+**Get user's creative library**
+```json
+// Query Parameters: ?type=image&format=1:1&limit=20&offset=0&search=healthcare
+
+// Response
+{
+  "success": true,
+  "data": {
+    "assets": [
+      {
+        "id": "uuid",
+        "type": "image",
+        "file_url": "https://cdn.marketingai.com/assets/image.png",
+        "format": "1:1",
+        "prompt": "Healthcare clinic advertisement",
+        "tags": ["healthcare", "professional"],
+        "is_favorite": false,
+        "usage_count": 3,
+        "created_at": "2024-01-15T10:30:00Z"
+      }
+    ],
+    "total_count": 45,
+    "has_more": true
+  }
+}
+```
+
+### PUT /creative/assets/{asset_id}
+**Update asset metadata**
+```json
+// Request
+{
+  "tags": ["healthcare", "professional", "clinic"],
+  "is_favorite": true
+}
+
+// Response
+{
+  "success": true,
+  "data": {
+    "asset_id": "uuid",
+    "tags": ["healthcare", "professional", "clinic"],
+    "is_favorite": true,
+    "updated_at": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+---
+
+## 4. BRAND VOICE ENDPOINTS
+
+### POST /brand/analyze
+**Analyze website for brand voice**
+```json
+// Request
+{
+  "website_url": "https://healthcare-clinic.com",
+  "social_media_urls": [
+    "https://facebook.com/healthcare-clinic",
+    "https://instagram.com/healthcare-clinic"
+  ]
+}
+
+// Response
+{
+  "success": true,
+  "data": {
+    "brand_profile_id": "uuid",
+    "analysis": {
+      "tone": "professional",
+      "style": "trustworthy",
+      "personality": "caring",
+      "key_messages": ["Expert care", "Patient-first", "Proven results"],
+      "color_palette": {
+        "primary": "#2E86AB",
+        "secondary": "#F8F9FA",
+        "accent": "#28A745"
+      },
+      "typography": "clean, sans-serif"
+    },
+    "confidence_score": 0.92
+  }
+}
+```
+
+### GET /brand/profile
+**Get current brand profile**
+```json
+// Response
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "website_url": "https://healthcare-clinic.com",
+    "brand_voice": {
+      "tone": "professional",
+      "style": "trustworthy",
+      "personality": "caring"
+    },
+    "color_palette": {
+      "primary": "#2E86AB",
+      "secondary": "#F8F9FA",
+      "accent": "#28A745"
+    },
+    "logo_url": "https://cdn.marketingai.com/brand/logo.png",
+    "last_analysis": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+---
+
+## 5. CAMPAIGN MANAGEMENT ENDPOINTS
+
+### POST /campaigns
+**Create new campaign**
+```json
+// Request
+{
+  "name": "Healthcare Lead Generation - January",
+  "purpose": "lead_generation",
+  "daily_budget": 1200.00,
+  "target_audience": {
+    "age_min": 25,
+    "age_max": 55,
+    "locations": ["Mumbai", "Delhi", "Bangalore"],
+    "interests": ["health", "wellness", "medical care"]
+  },
+  "optimization_goals": {
+    "target_cpa": 350.00,
+    "target_roas": null
+  }
+}
+
+// Response
+{
+  "success": true,
+  "data": {
+    "campaign_id": "uuid",
+    "name": "Healthcare Lead Generation - January",
+    "purpose": "lead_generation",
+    "status": "draft",
+    "daily_budget": 1200.00,
+    "estimated_reach": {
+      "min": 15000,
+      "max": 25000
+    },
+    "created_at": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+### POST /campaigns/{campaign_id}/assets
+**Add assets to campaign**
+```json
+// Request
+{
+  "asset_ids": ["uuid1", "uuid2", "uuid3"],
+  "auto_generate": false
+}
+
+// Response
+{
+  "success": true,
+  "data": {
+    "campaign_id": "uuid",
+    "selected_assets": [
+      {
+        "asset_id": "uuid1",
+        "file_url": "https://cdn.marketingai.com/assets/image1.png",
+        "role": "primary"
+      }
+    ],
+    "asset_count": 3
+  }
+}
+```
+
+### POST /campaigns/{campaign_id}/launch
+**Launch campaign**
+```json
+// Request
+{
+  "start_date": "2024-01-16",
+  "end_date": "2024-02-15"
+}
+
+// Response
+{
+  "success": true,
+  "data": {
+    "campaign_id": "uuid",
+    "meta_campaign_id": "123456789",
+    "status": "active",
+    "launched_at": "2024-01-15T10:30:00Z",
+    "estimated_results": {
+      "daily_leads": "15-25",
+      "cost_per_lead": "₹300-500"
+    }
+  }
+}
+```
+
+### GET /campaigns
+**Get user's campaigns**
+```json
+// Query Parameters: ?status=active&purpose=lead_generation&limit=20&offset=0
+
+// Response
+{
+  "success": true,
+  "data": {
+    "campaigns": [
+      {
+        "id": "uuid",
+        "name": "Healthcare Lead Generation - January",
+        "purpose": "lead_generation",
+        "status": "active",
+        "daily_budget": 1200.00,
+        "total_spend": 15600.00,
+        "performance": {
+          "impressions": 125000,
+          "clicks": 2350,
+          "conversions": 47,
+          "ctr": 1.88,
+          "cpa": 331.91,
+          "roas": null
+        },
+        "created_at": "2024-01-15T10:30:00Z"
+      }
+    ],
+    "total_count": 8,
+    "has_more": false
+  }
+}
+```
+
+---
+
+## 6. ANALYTICS ENDPOINTS
+
+### GET /analytics/campaign/{campaign_id}
+**Get campaign performance analytics**
+```json
+// Query Parameters: ?start_date=2024-01-01&end_date=2024-01-31&breakdown=daily
+
+// Response
+{
+  "success": true,
+  "data": {
+    "campaign_id": "uuid",
+    "date_range": {
+      "start": "2024-01-01",
+      "end": "2024-01-31"
+    },
+    "summary": {
+      "total_spend": 35600.00,
+      "total_impressions": 287500,
+      "total_clicks": 5240,
+      "total_conversions": 98,
+      "average_ctr": 1.82,
+      "average_cpa": 363.27,
+      "roas": 4.2
+    },
+    "daily_breakdown": [
+      {
+        "date": "2024-01-01",
+        "spend": 1200.00,
+        "impressions": 9500,
+        "clicks": 178,
+        "conversions": 3,
+        "ctr": 1.87,
+        "cpa": 400.00
+      }
+    ]
+  }
+}
+```
+
+### GET /analytics/dashboard
+**Get user dashboard analytics**
+```json
+// Response
+{
+  "success": true,
+  "data": {
+    "summary": {
+      "active_campaigns": 3,
+      "total_spend_month": 67500.00,
+      "total_conversions_month": 156,
+      "average_roas": 3.8
+    },
+    "campaign_performance": [
+      {
+        "campaign_id": "uuid",
+        "name": "Healthcare Lead Generation",
+        "purpose": "lead_generation",
+        "conversions": 47,
+        "spend": 15600.00,
+        "performance_trend": "up",
+        "ctr": 1.85,
+        "cpa": 331.91
+      }
+    ],
+    "ai_optimizations": [
+      {
+        "campaign_id": "uuid",
+        "optimization_type": "budget_increase",
+        "description": "Increased budget by 40% due to 4.2x ROAS",
+        "impact": "+23% conversions",
+        "optimized_at": "2024-01-15T08:30:00Z"
+      }
+    ],
+    "creative_insights": {
+      "top_performing_format": "1:1",
+      "creative_fatigue_alerts": 2,
+      "ab_test_results": [
+        {
+          "test_id": "uuid",
+          "winner": "variant_b",
+          "confidence": 95.2,
+          "improvement": "+18% CTR"
+        }
+      ]
+    }
+  }
+}
+```
+
+### GET /analytics/performance-forecasting
+**Get AI-powered performance predictions**
+```json
+// Query Parameters: ?campaign_id=uuid&forecast_days=30
+
+// Response
+{
+  "success": true,
+  "data": {
+    "campaign_id": "uuid",
+    "forecast_period": {
+      "start_date": "2024-01-16",
+      "end_date": "2024-02-15"
+    },
+    "predictions": {
+      "expected_spend": 36000.00,
+      "expected_conversions": 98,
+      "predicted_cpa": 367.35,
+      "confidence_interval": {
+        "min_conversions": 85,
+        "max_conversions": 112
+      }
+    },
+    "optimization_recommendations": [
+      "Increase budget by 25% based on current ROAS",
+      "Test new creative variants to combat fatigue",
+      "Expand audience to similar demographics"
+    ]
+  }
+}
+```
+
+---
+
+## 7. AI OPTIMIZATION ENDPOINTS
+
+### POST /ai/optimize/{campaign_id}
+**Trigger AI optimization**
+```json
+// Request
+{
+  "optimization_type": "budget_allocation",
+  "parameters": {
+    "max_increase_percent": 50,
+    "min_roas_threshold": 2.0
+  }
+}
+
+// Response
+{
+  "success": true,
+  "data": {
+    "optimization_id": "uuid",
+    "campaign_id": "uuid",
+    "optimization_type": "budget_allocation",
+    "status": "processing",
+    "estimated_completion": "2024-01-15T10:35:00Z"
+  }
+}
+```
+
+### GET /ai/optimizations
+**Get AI optimization history**
+```json
+// Response
+{
+  "success": true,
+  "data": {
+    "optimizations": [
+      {
+        "id": "uuid",
+        "campaign_id": "uuid",
+        "optimization_type": "budget_increase",
+        "trigger_condition": "roas_above_4x_3_days",
+        "before_values": {"daily_budget": 1000.00},
+        "after_values": {"daily_budget": 1500.00},
+        "success": true,
+        "impact_description": "23% increase in conversions",
+        "optimized_at": "2024-01-15T08:30:00Z"
+      }
+    ]
+  }
+}
+```
+
+---
+
+## 8. SUBSCRIPTION & BILLING ENDPOINTS
+
+### GET /subscription
+**Get current subscription details**
+```json
+// Response
+{
+  "success": true,
+  "data": {
+    "tier": "professional",
+    "status": "active",
+    "billing_cycle": "monthly",
+    "price": 2999.00,
+    "currency": "INR",
+    "current_period_end": "2024-02-15",
+    "usage": {
+      "ai_credits_used": 45,
+      "ai_credits_limit": 200,
+      "campaigns_active": 3,
+      "campaigns_limit": null
+    }
+  }
+}
+```
+
+### POST /subscription/upgrade
+**Upgrade subscription tier**
+```json
+// Request
+{
+  "new_tier": "business",
+  "billing_cycle": "annual"
+}
+
+// Response
+{
+  "success": true,
+  "data": {
+    "subscription_id": "uuid",
+    "tier": "business",
+    "price": 57590.00,
+    "billing_cycle": "annual",
+    "effective_date": "2024-01-15",
+    "payment_url": "https://payments.marketingai.com/checkout/uuid"
+  }
+}
+```
+
+---
+
+## 9. WEBHOOK ENDPOINTS
+
+### POST /webhooks/meta/performance
+**Meta API performance data webhook**
+```json
+// Request from Meta
+{
+  "object": "ad_account",
+  "entry": [
+    {
+      "id": "act_123456",
+      "changes": [
+        {
+          "field": "insights",
+          "value": {
+            "campaign_id": "123456789",
+            "date": "2024-01-15",
+            "impressions": 9500,
+            "clicks": 178,
+            "spend": 1200.00
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+### POST /webhooks/payment/success
+**Payment success webhook from Razorpay**
+```json
+// Request from Razorpay
+{
+  "event": "payment.captured",
+  "payload": {
+    "payment": {
+      "id": "pay_123456",
+      "amount": 299900,
+      "currency": "INR",
+      "status": "captured",
+      "notes": {
+        "user_id": "uuid",
+        "subscription_tier": "professional"
+      }
+    }
+  }
+}
+```
+
+---
+
+## 10. ERROR HANDLING
+
+### Error Codes
+```json
+{
+  "VALIDATION_ERROR": "Invalid input data",
+  "AUTHENTICATION_FAILED": "Invalid credentials",
+  "AUTHORIZATION_FAILED": "Insufficient permissions", 
+  "RESOURCE_NOT_FOUND": "Requested resource not found",
+  "RATE_LIMIT_EXCEEDED": "Too many requests",
+  "AI_SERVICE_UNAVAILABLE": "AI service temporarily unavailable",
+  "META_API_ERROR": "Meta API returned an error",
+  "SUBSCRIPTION_LIMIT_EXCEEDED": "Subscription limit reached",
+  "PAYMENT_REQUIRED": "Payment required to access feature",
+  "INTERNAL_SERVER_ERROR": "Internal server error"
+}
+```
+
+### Rate Limiting Headers
+```
+X-RateLimit-Limit: 1000
+X-RateLimit-Remaining: 999
+X-RateLimit-Reset: 1642248600
+```
+
+---
+
+This API specification provides a complete interface for all platform features with proper authentication, error handling, and webhook integration for real-time updates.

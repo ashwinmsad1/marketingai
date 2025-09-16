@@ -1,0 +1,494 @@
+# Database Schema Design
+## AI Marketing Automation Platform
+
+---
+
+## 1. DATABASE OVERVIEW
+
+### Technology Stack
+- **Database**: PostgreSQL 14+
+- **ORM**: SQLAlchemy with Alembic for migrations
+- **Connection**: AsyncPG for async operations
+- **Backup**: Automated daily backups with point-in-time recovery
+
+### Design Principles
+- **UUID Primary Keys**: All tables use UUID for better scalability
+- **Soft Deletes**: Important records marked as deleted, not physically removed
+- **Audit Trails**: Created/updated timestamps on all core tables
+- **JSONB Storage**: Flexible data structures for AI-generated content
+- **Encrypted Fields**: Sensitive data encrypted at application level
+
+---
+
+## 2. USER MANAGEMENT SCHEMA
+
+### Users Table
+```sql
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
+    phone VARCHAR(20),
+    subscription_tier VARCHAR(20) NOT NULL DEFAULT 'starter' 
+        CHECK (subscription_tier IN ('starter', 'professional', 'business')),
+    subscription_status VARCHAR(20) DEFAULT 'active' 
+        CHECK (subscription_status IN ('active', 'cancelled', 'expired', 'trial')),
+    trial_ends_at TIMESTAMP,
+    last_login TIMESTAMP,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_subscription ON users(subscription_tier, subscription_status);
+```
+
+### Business Profiles
+```sql
+CREATE TABLE business_profiles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    business_name VARCHAR(255),
+    business_type VARCHAR(100), -- 'restaurant', 'healthcare', 'ecommerce', etc.
+    industry VARCHAR(100),
+    website_url TEXT,
+    business_address TEXT,
+    target_audience_description TEXT,
+    monthly_budget_range VARCHAR(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_business_profiles_user ON business_profiles(user_id);
+```
+
+---
+
+## 3. META API INTEGRATION SCHEMA
+
+### Meta Account Connections
+```sql
+CREATE TABLE meta_accounts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    meta_user_id VARCHAR(255) NOT NULL,
+    access_token TEXT NOT NULL, -- Encrypted at application level
+    refresh_token TEXT, -- Encrypted at application level
+    token_expires_at TIMESTAMP,
+    permissions JSONB, -- ['ads_management', 'ads_read', etc.]
+    ad_account_ids TEXT[], -- Array of Meta ad account IDs
+    connection_status VARCHAR(20) DEFAULT 'active' 
+        CHECK (connection_status IN ('active', 'expired', 'revoked', 'error')),
+    last_sync TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    UNIQUE(user_id, meta_user_id)
+);
+
+CREATE INDEX idx_meta_accounts_user ON meta_accounts(user_id);
+CREATE INDEX idx_meta_accounts_status ON meta_accounts(connection_status);
+```
+
+---
+
+## 4. CREATIVE ASSETS SCHEMA
+
+### Creative Assets Storage
+```sql
+CREATE TABLE creative_assets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    asset_type VARCHAR(10) NOT NULL CHECK (asset_type IN ('image', 'video')),
+    file_url TEXT NOT NULL, -- S3 URL
+    file_size BIGINT, -- File size in bytes
+    filename VARCHAR(255),
+    format VARCHAR(10) NOT NULL, -- '1:1', '16:9', '9:16', '4:5'
+    dimensions JSONB, -- {"width": 1080, "height": 1080}
+    
+    -- Generation metadata
+    prompt TEXT NOT NULL,
+    style VARCHAR(100),
+    ai_model VARCHAR(50), -- 'imagen-4.0', 'veo-3.0'
+    generation_time INTEGER, -- Seconds taken to generate
+    
+    -- Organization
+    tags TEXT[],
+    is_favorite BOOLEAN DEFAULT false,
+    usage_count INTEGER DEFAULT 0,
+    
+    -- Status
+    status VARCHAR(20) DEFAULT 'active' 
+        CHECK (status IN ('active', 'deleted', 'processing', 'failed')),
+    
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_creative_assets_user ON creative_assets(user_id);
+CREATE INDEX idx_creative_assets_type ON creative_assets(asset_type);
+CREATE INDEX idx_creative_assets_format ON creative_assets(format);
+CREATE INDEX idx_creative_assets_status ON creative_assets(status);
+CREATE INDEX idx_creative_assets_tags ON creative_assets USING GIN(tags);
+```
+
+### Brand Voice Profiles
+```sql
+CREATE TABLE brand_profiles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    
+    -- Website analysis
+    website_url TEXT,
+    website_analysis JSONB, -- AI-extracted brand voice, tone, messaging
+    
+    -- Visual brand elements
+    logo_url TEXT,
+    color_palette JSONB, -- {"primary": "#2E86AB", "secondary": "#F8F9FA", "accent": "#28A745"}
+    typography JSONB, -- Font preferences extracted from website
+    
+    -- Brand voice
+    brand_voice JSONB, -- {"tone": "professional", "style": "friendly", "personality": "trustworthy"}
+    messaging_patterns JSONB, -- Key phrases, value props, USPs
+    
+    -- Social media analysis
+    social_media_analysis JSONB, -- Analysis of existing social posts
+    
+    -- Generated guidelines
+    ai_generated_guidelines JSONB,
+    
+    last_analysis TIMESTAMP,
+    analysis_version INTEGER DEFAULT 1,
+    
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_brand_profiles_user ON brand_profiles(user_id);
+```
+
+---
+
+## 5. CAMPAIGN MANAGEMENT SCHEMA
+
+### Campaigns
+```sql
+CREATE TABLE campaigns (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    meta_campaign_id VARCHAR(255), -- Meta's campaign ID after creation
+    
+    -- Campaign details
+    name VARCHAR(255) NOT NULL,
+    purpose VARCHAR(50) NOT NULL 
+        CHECK (purpose IN ('lead_generation', 'sales', 'brand_awareness', 'app_installs', 'event_promotion', 'store_visits', 'retargeting')),
+    objective VARCHAR(50), -- Meta campaign objective
+    
+    -- Budget and scheduling
+    daily_budget DECIMAL(10,2),
+    total_budget DECIMAL(10,2),
+    start_date DATE,
+    end_date DATE,
+    
+    -- Targeting
+    target_audience JSONB, -- Age, location, interests, etc.
+    audience_size_estimate JSONB, -- Estimated reach from Meta
+    
+    -- Status and tracking
+    status VARCHAR(20) DEFAULT 'draft' 
+        CHECK (status IN ('draft', 'review', 'active', 'paused', 'completed', 'cancelled')),
+    approval_status VARCHAR(20) DEFAULT 'pending' 
+        CHECK (approval_status IN ('pending', 'approved', 'rejected')),
+    
+    -- AI optimization settings
+    ai_optimization_enabled BOOLEAN DEFAULT true,
+    optimization_goals JSONB, -- Target CPA, ROAS, etc.
+    
+    -- Performance summary (cached for quick access)
+    total_spend DECIMAL(10,2) DEFAULT 0,
+    total_impressions BIGINT DEFAULT 0,
+    total_clicks BIGINT DEFAULT 0,
+    total_conversions BIGINT DEFAULT 0,
+    
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_campaigns_user ON campaigns(user_id);
+CREATE INDEX idx_campaigns_status ON campaigns(status);
+CREATE INDEX idx_campaigns_purpose ON campaigns(purpose);
+CREATE INDEX idx_campaigns_meta_id ON campaigns(meta_campaign_id);
+```
+
+### Campaign Assets Relationship
+```sql
+CREATE TABLE campaign_assets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    campaign_id UUID NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+    asset_id UUID NOT NULL REFERENCES creative_assets(id),
+    
+    -- Asset usage in this campaign
+    asset_role VARCHAR(50), -- 'primary', 'variation', 'test'
+    is_active BOOLEAN DEFAULT true,
+    performance_score DECIMAL(3,2), -- 0.00 to 5.00 rating
+    
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    UNIQUE(campaign_id, asset_id)
+);
+
+CREATE INDEX idx_campaign_assets_campaign ON campaign_assets(campaign_id);
+CREATE INDEX idx_campaign_assets_asset ON campaign_assets(asset_id);
+```
+
+---
+
+## 6. PERFORMANCE ANALYTICS SCHEMA
+
+### Daily Performance Data
+```sql
+CREATE TABLE performance_analytics (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    campaign_id UUID NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+    
+    -- Time dimension
+    date DATE NOT NULL,
+    hour INTEGER, -- For hourly breakdowns (0-23)
+    
+    -- Performance metrics
+    impressions BIGINT DEFAULT 0,
+    clicks BIGINT DEFAULT 0,
+    spend DECIMAL(10,2) DEFAULT 0,
+    conversions BIGINT DEFAULT 0,
+    
+    -- Calculated metrics
+    ctr DECIMAL(5,4), -- Click-through rate
+    cpc DECIMAL(10,2), -- Cost per click
+    cpa DECIMAL(10,2), -- Cost per acquisition
+    roas DECIMAL(5,2), -- Return on ad spend
+    
+    -- Platform breakdown
+    platform VARCHAR(20), -- 'facebook', 'instagram', 'both'
+    placement VARCHAR(50), -- 'feed', 'stories', 'reels'
+    
+    -- Audience breakdown
+    age_range VARCHAR(20),
+    gender VARCHAR(10),
+    location VARCHAR(100),
+    
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    UNIQUE(campaign_id, date, hour, platform, placement)
+);
+
+CREATE INDEX idx_performance_campaign_date ON performance_analytics(campaign_id, date);
+CREATE INDEX idx_performance_date ON performance_analytics(date);
+CREATE INDEX idx_performance_platform ON performance_analytics(platform);
+```
+
+### AI Optimization Logs
+```sql
+CREATE TABLE ai_optimization_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    campaign_id UUID NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+    
+    optimization_type VARCHAR(50), -- 'budget_increase', 'audience_expansion', 'creative_refresh'
+    trigger_condition VARCHAR(100), -- 'roas_above_4x_3_days', 'ctr_decline_15_percent'
+    
+    -- Before optimization
+    before_values JSONB,
+    
+    -- After optimization  
+    after_values JSONB,
+    
+    -- Results
+    success BOOLEAN,
+    impact_description TEXT,
+    performance_change JSONB,
+    
+    optimized_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_ai_optimization_campaign ON ai_optimization_logs(campaign_id);
+CREATE INDEX idx_ai_optimization_type ON ai_optimization_logs(optimization_type);
+```
+
+---
+
+## 7. SUBSCRIPTION & BILLING SCHEMA
+
+### Subscription Management
+```sql
+CREATE TABLE subscriptions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    
+    -- Subscription details
+    tier VARCHAR(20) NOT NULL CHECK (tier IN ('starter', 'professional', 'business')),
+    billing_cycle VARCHAR(20) DEFAULT 'monthly' CHECK (billing_cycle IN ('monthly', 'annual')),
+    price DECIMAL(10,2) NOT NULL,
+    currency VARCHAR(3) DEFAULT 'INR',
+    
+    -- Billing
+    payment_method VARCHAR(50), -- 'razorpay', 'stripe'
+    payment_method_id VARCHAR(255), -- External payment method ID
+    
+    -- Status and dates
+    status VARCHAR(20) DEFAULT 'active' 
+        CHECK (status IN ('active', 'cancelled', 'expired', 'past_due')),
+    current_period_start DATE NOT NULL,
+    current_period_end DATE NOT NULL,
+    cancel_at_period_end BOOLEAN DEFAULT false,
+    
+    -- Usage tracking
+    monthly_ai_credits_used INTEGER DEFAULT 0,
+    monthly_ai_credits_limit INTEGER NOT NULL,
+    
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_subscriptions_user ON subscriptions(user_id);
+CREATE INDEX idx_subscriptions_status ON subscriptions(status);
+```
+
+### Usage Tracking
+```sql
+CREATE TABLE usage_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    
+    -- Usage details
+    feature VARCHAR(50) NOT NULL, -- 'image_generation', 'video_generation', 'campaign_creation'
+    credits_consumed INTEGER DEFAULT 1,
+    
+    -- Context
+    resource_id UUID, -- ID of created asset/campaign
+    metadata JSONB, -- Additional context
+    
+    logged_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_usage_logs_user_date ON usage_logs(user_id, logged_at);
+CREATE INDEX idx_usage_logs_feature ON usage_logs(feature);
+```
+
+---
+
+## 8. SYSTEM TABLES
+
+### Background Jobs
+```sql
+CREATE TABLE background_jobs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    job_type VARCHAR(50) NOT NULL, -- 'sync_performance', 'optimize_campaign', 'generate_report'
+    user_id UUID REFERENCES users(id),
+    campaign_id UUID REFERENCES campaigns(id),
+    
+    -- Job details
+    parameters JSONB,
+    status VARCHAR(20) DEFAULT 'pending' 
+        CHECK (status IN ('pending', 'running', 'completed', 'failed', 'cancelled')),
+    
+    -- Results
+    result JSONB,
+    error_message TEXT,
+    
+    -- Timing
+    scheduled_at TIMESTAMP NOT NULL,
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_background_jobs_status ON background_jobs(status);
+CREATE INDEX idx_background_jobs_scheduled ON background_jobs(scheduled_at);
+```
+
+### System Configuration
+```sql
+CREATE TABLE system_config (
+    key VARCHAR(100) PRIMARY KEY,
+    value JSONB NOT NULL,
+    description TEXT,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Insert default configurations
+INSERT INTO system_config VALUES 
+('ai_service_limits', '{"imagen": 100, "veo": 50}', 'AI service usage limits per user per day'),
+('meta_api_rate_limits', '{"calls_per_hour": 200}', 'Meta API rate limiting configuration'),
+('subscription_features', '{"starter": {"ai_credits": 50}, "professional": {"ai_credits": 200}, "business": {"ai_credits": 400}}', 'Feature limits by subscription tier');
+```
+
+---
+
+## 9. INDEXES & PERFORMANCE OPTIMIZATION
+
+### Composite Indexes
+```sql
+-- Performance analytics queries
+CREATE INDEX idx_performance_campaign_date_platform ON performance_analytics(campaign_id, date, platform);
+
+-- User campaign listing
+CREATE INDEX idx_campaigns_user_status_created ON campaigns(user_id, status, created_at DESC);
+
+-- Asset library queries
+CREATE INDEX idx_assets_user_type_created ON creative_assets(user_id, asset_type, created_at DESC);
+
+-- Usage tracking queries
+CREATE INDEX idx_usage_user_feature_date ON usage_logs(user_id, feature, logged_at);
+```
+
+### Partitioning Strategy
+```sql
+-- Partition performance_analytics by month for better query performance
+CREATE TABLE performance_analytics_y2024m01 PARTITION OF performance_analytics
+    FOR VALUES FROM ('2024-01-01') TO ('2024-02-01');
+-- Add monthly partitions as needed
+```
+
+---
+
+## 10. SECURITY & COMPLIANCE
+
+### Row Level Security (RLS)
+```sql
+-- Enable RLS on user data tables
+ALTER TABLE campaigns ENABLE ROW LEVEL SECURITY;
+ALTER TABLE creative_assets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE performance_analytics ENABLE ROW LEVEL SECURITY;
+
+-- Policies to ensure users only see their own data
+CREATE POLICY user_campaigns_policy ON campaigns
+    FOR ALL USING (user_id = current_setting('app.current_user_id')::UUID);
+
+CREATE POLICY user_assets_policy ON creative_assets
+    FOR ALL USING (user_id = current_setting('app.current_user_id')::UUID);
+```
+
+### Data Retention Policies
+```sql
+-- Automated cleanup of old data
+CREATE OR REPLACE FUNCTION cleanup_old_data()
+RETURNS void AS $$
+BEGIN
+    -- Delete performance data older than 2 years
+    DELETE FROM performance_analytics WHERE date < CURRENT_DATE - INTERVAL '2 years';
+    
+    -- Delete completed background jobs older than 30 days
+    DELETE FROM background_jobs WHERE status = 'completed' AND completed_at < CURRENT_TIMESTAMP - INTERVAL '30 days';
+    
+    -- Delete usage logs older than 1 year
+    DELETE FROM usage_logs WHERE logged_at < CURRENT_TIMESTAMP - INTERVAL '1 year';
+END;
+$$ LANGUAGE plpgsql;
+```
+
+---
+
+This database schema provides a robust foundation for the AI marketing platform with proper normalization, indexing, and security measures while supporting all core features and future scalability needs.

@@ -1,0 +1,1186 @@
+# Code Style Guide
+## AI Marketing Automation Platform
+
+---
+
+## 1. GENERAL PRINCIPLES
+
+### Code Philosophy
+- **Readability First**: Code is written once but read many times
+- **Consistency**: Follow established patterns throughout the codebase
+- **Simplicity**: Prefer simple, clear solutions over clever complexity
+- **Documentation**: Code should be self-documenting with meaningful names
+- **Performance**: Write efficient code but prioritize readability and maintainability
+
+### Naming Conventions
+- **Descriptive Names**: Use clear, descriptive names that explain purpose
+- **Avoid Abbreviations**: Prefer `user_id` over `uid`, `campaign_manager` over `cm`
+- **Context-Aware**: Names should make sense within their context
+- **Consistent Terminology**: Use the same terms throughout the codebase
+
+### File Organization
+- **Logical Grouping**: Group related functionality together
+- **Clear Hierarchy**: Organize files in a logical directory structure
+- **Single Responsibility**: Each file should have a clear, single purpose
+- **Import Organization**: Group and order imports consistently
+
+---
+
+## 2. PYTHON BACKEND STYLE
+
+### 2.1 General Python Standards
+**Base Standard**: PEP 8 with project-specific modifications
+**Formatter**: Black with line length 88 characters
+**Linter**: Flake8 with custom configuration
+**Type Checker**: MyPy for type annotations
+
+### 2.2 Code Formatting
+
+#### Line Length and Formatting
+```python
+# Maximum line length: 88 characters (Black default)
+# Use Black formatter for automatic formatting
+
+# Good: Clear, readable function signature
+def create_campaign_with_optimization(
+    user_id: UUID,
+    campaign_data: CampaignCreateRequest,
+    optimization_settings: OptimizationConfig,
+) -> CampaignResponse:
+    pass
+
+# Bad: Long line without breaks
+def create_campaign_with_optimization(user_id: UUID, campaign_data: CampaignCreateRequest, optimization_settings: OptimizationConfig) -> CampaignResponse:
+    pass
+```
+
+#### Import Organization
+```python
+# Standard library imports
+import asyncio
+import json
+from datetime import datetime, timedelta
+from typing import List, Optional, Dict, Any
+from uuid import UUID
+
+# Third-party imports
+import fastapi
+from fastapi import HTTPException, Depends
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+# Local application imports
+from core.database import get_db_session
+from core.security import get_current_user
+from models.campaign import Campaign
+from schemas.campaign import CampaignCreate, CampaignResponse
+from services.campaign_service import CampaignService
+```
+
+### 2.3 Naming Conventions
+
+#### Variables and Functions
+```python
+# Use snake_case for variables and functions
+user_id = UUID("...")
+campaign_name = "Healthcare Lead Generation"
+total_spend_amount = Decimal("1250.50")
+
+# Function names should be verbs describing the action
+async def create_campaign(user_id: UUID, campaign_data: CampaignCreate) -> Campaign:
+    pass
+
+async def calculate_optimization_score(campaign: Campaign) -> float:
+    pass
+
+async def send_performance_notification(user_id: UUID, message: str) -> None:
+    pass
+```
+
+#### Classes and Constants
+```python
+# Use PascalCase for classes
+class CampaignService:
+    pass
+
+class AIOptimizationEngine:
+    pass
+
+class MetaAPIIntegration:
+    pass
+
+# Use UPPER_SNAKE_CASE for constants
+MAX_CAMPAIGN_BUDGET = Decimal("100000.00")
+AI_GENERATION_TIMEOUT = 60  # seconds
+DEFAULT_OPTIMIZATION_THRESHOLD = 0.85
+SUPPORTED_IMAGE_FORMATS = ["1:1", "16:9", "9:16", "4:5"]
+```
+
+### 2.4 Type Annotations
+
+#### Required Type Annotations
+```python
+from typing import List, Optional, Dict, Any, Union
+from uuid import UUID
+from decimal import Decimal
+
+# All function parameters and return types must be annotated
+async def get_campaign_performance(
+    campaign_id: UUID,
+    start_date: datetime,
+    end_date: Optional[datetime] = None,
+    include_breakdown: bool = False
+) -> Dict[str, Any]:
+    pass
+
+# Class attributes should be annotated
+class CampaignMetrics:
+    campaign_id: UUID
+    impressions: int
+    clicks: int
+    spend: Decimal
+    conversion_rate: Optional[float] = None
+```
+
+#### Complex Type Annotations
+```python
+from typing import TypedDict, Literal, Protocol
+
+# Use TypedDict for structured dictionaries
+class PerformanceData(TypedDict):
+    impressions: int
+    clicks: int
+    spend: float
+    conversions: int
+
+# Use Literal for enumerated values
+CampaignStatus = Literal["draft", "active", "paused", "completed"]
+OptimizationType = Literal["budget", "audience", "creative", "bidding"]
+
+# Use Protocol for interface definitions
+class AIServiceProtocol(Protocol):
+    async def generate_image(self, prompt: str, style: str) -> str:
+        ...
+    
+    async def analyze_performance(self, data: PerformanceData) -> Dict[str, float]:
+        ...
+```
+
+### 2.5 Function and Class Design
+
+#### Function Structure
+```python
+async def optimize_campaign_budget(
+    campaign_id: UUID,
+    current_performance: PerformanceData,
+    optimization_config: OptimizationConfig,
+    *,  # Force keyword arguments
+    max_increase_percent: float = 50.0,
+    min_performance_days: int = 7
+) -> OptimizationResult:
+    """
+    Optimize campaign budget based on performance data.
+    
+    Args:
+        campaign_id: Unique identifier for the campaign
+        current_performance: Recent performance metrics
+        optimization_config: Configuration for optimization logic
+        max_increase_percent: Maximum budget increase allowed (default 50%)
+        min_performance_days: Minimum days of data required (default 7)
+    
+    Returns:
+        OptimizationResult containing new budget and confidence score
+    
+    Raises:
+        InsufficientDataError: When not enough performance data available
+        OptimizationLimitError: When optimization would exceed limits
+    """
+    # Input validation
+    if not campaign_id:
+        raise ValueError("Campaign ID is required")
+    
+    # Business logic
+    performance_score = calculate_performance_score(current_performance)
+    
+    if performance_score < optimization_config.min_score_threshold:
+        return OptimizationResult(
+            campaign_id=campaign_id,
+            action="no_change",
+            reason="Performance below threshold"
+        )
+    
+    # Calculate new budget
+    budget_multiplier = min(
+        1 + (performance_score * optimization_config.aggressiveness),
+        1 + (max_increase_percent / 100)
+    )
+    
+    return OptimizationResult(
+        campaign_id=campaign_id,
+        action="budget_increase",
+        new_budget=current_budget * budget_multiplier,
+        confidence_score=performance_score
+    )
+```
+
+#### Class Structure
+```python
+class CampaignService:
+    """Service class for campaign management operations."""
+    
+    def __init__(
+        self,
+        db_session: AsyncSession,
+        ai_service: AIServiceProtocol,
+        meta_api: MetaAPIService
+    ) -> None:
+        """Initialize campaign service with dependencies."""
+        self.db = db_session
+        self.ai_service = ai_service
+        self.meta_api = meta_api
+    
+    async def create_campaign(
+        self,
+        user_id: UUID,
+        campaign_data: CampaignCreateRequest
+    ) -> CampaignResponse:
+        """Create a new campaign with AI-generated assets."""
+        # Validate user permissions
+        await self._validate_user_permissions(user_id, "create_campaign")
+        
+        # Create campaign record
+        campaign = await self._create_campaign_record(user_id, campaign_data)
+        
+        # Generate assets if requested
+        if campaign_data.auto_generate_assets:
+            await self._generate_campaign_assets(campaign)
+        
+        return CampaignResponse.from_orm(campaign)
+    
+    async def _validate_user_permissions(self, user_id: UUID, action: str) -> None:
+        """Private method for user permission validation."""
+        # Implementation details...
+        pass
+```
+
+### 2.6 Error Handling
+
+#### Custom Exceptions
+```python
+# Define custom exceptions for business logic
+class MarketingAIError(Exception):
+    """Base exception for Marketing AI platform."""
+    pass
+
+class CampaignNotFoundError(MarketingAIError):
+    """Raised when campaign cannot be found."""
+    
+    def __init__(self, campaign_id: UUID) -> None:
+        self.campaign_id = campaign_id
+        super().__init__(f"Campaign {campaign_id} not found")
+
+class AIServiceUnavailableError(MarketingAIError):
+    """Raised when AI service is temporarily unavailable."""
+    
+    def __init__(self, service_name: str, retry_after: Optional[int] = None) -> None:
+        self.service_name = service_name
+        self.retry_after = retry_after
+        message = f"AI service '{service_name}' is unavailable"
+        if retry_after:
+            message += f", retry after {retry_after} seconds"
+        super().__init__(message)
+```
+
+#### Exception Handling Patterns
+```python
+async def generate_campaign_asset(
+    prompt: str,
+    style: str,
+    asset_type: Literal["image", "video"]
+) -> CreativeAsset:
+    """Generate campaign asset with proper error handling."""
+    try:
+        # Primary AI service attempt
+        if asset_type == "image":
+            result = await ai_service.generate_image(prompt, style)
+        else:
+            result = await ai_service.generate_video(prompt, style)
+        
+        return CreativeAsset(
+            url=result.url,
+            format=result.format,
+            generation_time=result.duration
+        )
+    
+    except AIServiceUnavailableError as e:
+        # Log error and try fallback
+        logger.warning(f"Primary AI service unavailable: {e}")
+        
+        try:
+            # Fallback to alternative service
+            result = await fallback_ai_service.generate_asset(prompt, style, asset_type)
+            return CreativeAsset.from_fallback(result)
+        
+        except Exception as fallback_error:
+            logger.error(f"Fallback AI service also failed: {fallback_error}")
+            raise AIServiceUnavailableError("all_services") from e
+    
+    except Exception as e:
+        # Log unexpected errors
+        logger.error(f"Unexpected error in asset generation: {e}")
+        raise MarketingAIError(f"Asset generation failed: {str(e)}") from e
+```
+
+### 2.7 Async/Await Patterns
+
+#### Database Operations
+```python
+async def get_user_campaigns(
+    user_id: UUID,
+    status_filter: Optional[CampaignStatus] = None,
+    limit: int = 20,
+    offset: int = 0
+) -> List[Campaign]:
+    """Get user campaigns with optional filtering and pagination."""
+    query = (
+        select(Campaign)
+        .where(Campaign.user_id == user_id)
+        .order_by(Campaign.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    
+    if status_filter:
+        query = query.where(Campaign.status == status_filter)
+    
+    result = await db_session.execute(query)
+    return result.scalars().all()
+
+async def update_campaign_performance(
+    campaign_id: UUID,
+    performance_data: PerformanceData
+) -> None:
+    """Update campaign performance metrics."""
+    async with db_session.begin():
+        # Get existing campaign
+        campaign = await get_campaign_by_id(campaign_id)
+        if not campaign:
+            raise CampaignNotFoundError(campaign_id)
+        
+        # Update performance metrics
+        campaign.total_impressions += performance_data["impressions"]
+        campaign.total_clicks += performance_data["clicks"]
+        campaign.total_spend += Decimal(str(performance_data["spend"]))
+        campaign.updated_at = datetime.utcnow()
+        
+        # Save changes
+        await db_session.commit()
+```
+
+#### External API Calls
+```python
+async def sync_meta_campaign_performance(campaign_id: UUID) -> PerformanceData:
+    """Sync performance data from Meta API with retries."""
+    max_retries = 3
+    base_delay = 1.0
+    
+    for attempt in range(max_retries):
+        try:
+            # Make API call with timeout
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get(
+                    f"https://graph.facebook.com/v18.0/{campaign_id}/insights",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                    params={
+                        "fields": "impressions,clicks,spend,conversions",
+                        "date_preset": "yesterday"
+                    }
+                )
+                response.raise_for_status()
+                
+                data = response.json()
+                return PerformanceData(
+                    impressions=data["data"][0]["impressions"],
+                    clicks=data["data"][0]["clicks"],
+                    spend=float(data["data"][0]["spend"]),
+                    conversions=data["data"][0]["conversions"]
+                )
+        
+        except httpx.TimeoutException:
+            if attempt == max_retries - 1:
+                raise MetaAPITimeoutError(f"API timeout after {max_retries} attempts")
+            
+            # Exponential backoff
+            delay = base_delay * (2 ** attempt)
+            await asyncio.sleep(delay)
+        
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 429:  # Rate limited
+                retry_after = int(e.response.headers.get("Retry-After", 60))
+                await asyncio.sleep(retry_after)
+            else:
+                raise MetaAPIError(f"API error: {e.response.status_code}")
+```
+
+---
+
+## 3. TYPESCRIPT FRONTEND STYLE
+
+### 3.1 General TypeScript Standards
+**Base Standard**: TypeScript with strict configuration
+**Formatter**: Prettier with ESLint integration
+**Style Guide**: Airbnb TypeScript style guide (modified)
+**Component Library**: React 18+ with TypeScript
+
+### 3.2 Code Formatting
+
+#### Prettier Configuration (.prettierrc)
+```json
+{
+  "semi": true,
+  "trailingComma": "es5",
+  "singleQuote": true,
+  "printWidth": 80,
+  "tabWidth": 2,
+  "useTabs": false,
+  "bracketSpacing": true,
+  "arrowParens": "avoid",
+  "endOfLine": "lf"
+}
+```
+
+#### ESLint Configuration
+```json
+{
+  "extends": [
+    "@next/eslint-config-next",
+    "airbnb-typescript",
+    "prettier"
+  ],
+  "rules": {
+    "react/react-in-jsx-scope": "off",
+    "react/prop-types": "off",
+    "@typescript-eslint/explicit-function-return-type": "warn",
+    "import/prefer-default-export": "off",
+    "react/jsx-props-no-spreading": "off"
+  }
+}
+```
+
+### 3.3 Naming Conventions
+
+#### Files and Directories
+```
+// Use PascalCase for React components
+components/
+  CampaignCard.tsx
+  CreativeStudio.tsx
+  PerformanceDashboard.tsx
+
+// Use camelCase for utilities and services
+utils/
+  formatCurrency.ts
+  validateEmail.ts
+  apiClient.ts
+
+// Use kebab-case for pages (Next.js convention)
+pages/
+  campaign-builder.tsx
+  creative-studio.tsx
+  analytics-dashboard.tsx
+
+// Use camelCase for hooks
+hooks/
+  useCampaignData.ts
+  useAuthContext.ts
+  useLocalStorage.ts
+```
+
+#### Variables and Functions
+```typescript
+// Use camelCase for variables and functions
+const campaignId = 'uuid-string';
+const totalSpendAmount = 1250.50;
+const isOptimizationEnabled = true;
+
+// Function names should be verbs
+const createCampaign = async (data: CampaignCreateRequest): Promise<Campaign> => {
+  // Implementation
+};
+
+const calculatePerformanceScore = (metrics: PerformanceMetrics): number => {
+  // Implementation
+};
+
+// Boolean variables should use is/has/can/should prefixes
+const isLoading = true;
+const hasActiveConnections = false;
+const canCreateCampaign = user.tier !== 'starter';
+const shouldShowOnboarding = !user.hasCompletedSetup;
+```
+
+#### Types and Interfaces
+```typescript
+// Use PascalCase for types and interfaces
+interface CampaignData {
+  id: string;
+  name: string;
+  status: CampaignStatus;
+  budget: number;
+}
+
+type CampaignStatus = 'draft' | 'active' | 'paused' | 'completed';
+
+// Use descriptive names for generic types
+interface ApiResponse<TData> {
+  success: boolean;
+  data: TData;
+  message: string;
+  timestamp: string;
+}
+
+// Use specific names for component props
+interface CampaignCardProps {
+  campaign: CampaignData;
+  onEdit: (id: string) => void;
+  onDelete: (id: string) => void;
+  isLoading?: boolean;
+}
+```
+
+### 3.4 React Component Structure
+
+#### Functional Component Pattern
+```typescript
+import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/router';
+import { Button, Card, LoadingSpinner } from '@/components/ui';
+import { useCampaignData } from '@/hooks/useCampaignData';
+import { formatCurrency } from '@/utils/formatters';
+import type { Campaign, CampaignMetrics } from '@/types/campaign';
+
+interface CampaignDashboardProps {
+  userId: string;
+  initialFilters?: CampaignFilters;
+  onCampaignSelect?: (campaign: Campaign) => void;
+}
+
+export const CampaignDashboard: React.FC<CampaignDashboardProps> = ({
+  userId,
+  initialFilters = {},
+  onCampaignSelect,
+}) => {
+  // State declarations
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
+  const [filters, setFilters] = useState<CampaignFilters>(initialFilters);
+  
+  // Hooks
+  const router = useRouter();
+  const { campaigns, metrics, isLoading, error, refetch } = useCampaignData({
+    userId,
+    filters,
+  });
+  
+  // Event handlers
+  const handleCampaignClick = useCallback((campaign: Campaign): void => {
+    setSelectedCampaignId(campaign.id);
+    onCampaignSelect?.(campaign);
+  }, [onCampaignSelect]);
+  
+  const handleCreateCampaign = useCallback((): void => {
+    router.push('/campaign-builder');
+  }, [router]);
+  
+  // Effects
+  useEffect(() => {
+    if (error) {
+      console.error('Failed to load campaigns:', error);
+      // Handle error appropriately
+    }
+  }, [error]);
+  
+  // Render helpers
+  const renderCampaignCard = (campaign: Campaign): JSX.Element => (
+    <Card
+      key={campaign.id}
+      className={`cursor-pointer transition-all ${
+        selectedCampaignId === campaign.id ? 'ring-2 ring-blue-500' : ''
+      }`}
+      onClick={() => handleCampaignClick(campaign)}
+    >
+      <Card.Header>
+        <h3 className="text-lg font-semibold">{campaign.name}</h3>
+        <span className={`px-2 py-1 rounded text-sm ${
+          campaign.status === 'active' ? 'bg-green-100 text-green-800' : 
+          campaign.status === 'paused' ? 'bg-yellow-100 text-yellow-800' :
+          'bg-gray-100 text-gray-800'
+        }`}>
+          {campaign.status}
+        </span>
+      </Card.Header>
+      
+      <Card.Body>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <p className="text-sm text-gray-600">Total Spend</p>
+            <p className="text-lg font-medium">
+              {formatCurrency(campaign.totalSpend, 'INR')}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-600">Conversions</p>
+            <p className="text-lg font-medium">{campaign.totalConversions}</p>
+          </div>
+        </div>
+      </Card.Body>
+    </Card>
+  );
+  
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-64">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+  
+  // Error state
+  if (error) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-red-600 mb-4">Failed to load campaigns</p>
+        <Button onClick={refetch} variant="outline">
+          Try Again
+        </Button>
+      </div>
+    );
+  }
+  
+  // Main render
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Campaign Dashboard</h1>
+        <Button onClick={handleCreateCampaign}>
+          Create Campaign
+        </Button>
+      </div>
+      
+      {/* Metrics Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <MetricCard
+          title="Active Campaigns"
+          value={metrics.activeCampaigns}
+          icon="📊"
+        />
+        <MetricCard
+          title="Total Spend"
+          value={formatCurrency(metrics.totalSpend, 'INR')}
+          icon="💰"
+        />
+        <MetricCard
+          title="Total Conversions"
+          value={metrics.totalConversions}
+          icon="🎯"
+        />
+        <MetricCard
+          title="Average ROAS"
+          value={`${metrics.averageRoas.toFixed(1)}x`}
+          icon="📈"
+        />
+      </div>
+      
+      {/* Campaign List */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {campaigns.map(renderCampaignCard)}
+      </div>
+      
+      {/* Empty state */}
+      {campaigns.length === 0 && (
+        <div className="text-center py-12">
+          <p className="text-gray-500 mb-4">No campaigns found</p>
+          <Button onClick={handleCreateCampaign}>
+            Create Your First Campaign
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Export default for dynamic imports
+export default CampaignDashboard;
+```
+
+### 3.5 Custom Hooks Pattern
+
+```typescript
+import { useState, useEffect, useCallback } from 'react';
+import { apiClient } from '@/services/apiClient';
+import type { Campaign, CampaignFilters, CampaignMetrics } from '@/types/campaign';
+
+interface UseCampaignDataOptions {
+  userId: string;
+  filters?: CampaignFilters;
+  autoRefresh?: boolean;
+  refreshInterval?: number;
+}
+
+interface UseCampaignDataReturn {
+  campaigns: Campaign[];
+  metrics: CampaignMetrics;
+  isLoading: boolean;
+  error: string | null;
+  refetch: () => Promise<void>;
+  createCampaign: (data: CampaignCreateRequest) => Promise<Campaign>;
+  updateCampaign: (id: string, data: Partial<Campaign>) => Promise<Campaign>;
+  deleteCampaign: (id: string) => Promise<void>;
+}
+
+export const useCampaignData = ({
+  userId,
+  filters = {},
+  autoRefresh = false,
+  refreshInterval = 30000,
+}: UseCampaignDataOptions): UseCampaignDataReturn => {
+  // State
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [metrics, setMetrics] = useState<CampaignMetrics>({
+    activeCampaigns: 0,
+    totalSpend: 0,
+    totalConversions: 0,
+    averageRoas: 0,
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Fetch campaigns data
+  const fetchCampaigns = useCallback(async (): Promise<void> => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const [campaignsResponse, metricsResponse] = await Promise.all([
+        apiClient.get<Campaign[]>('/campaigns', { params: { userId, ...filters } }),
+        apiClient.get<CampaignMetrics>('/analytics/dashboard', { params: { userId } }),
+      ]);
+      
+      setCampaigns(campaignsResponse.data);
+      setMetrics(metricsResponse.data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch campaigns');
+      console.error('Error fetching campaigns:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userId, filters]);
+  
+  // CRUD operations
+  const createCampaign = useCallback(async (data: CampaignCreateRequest): Promise<Campaign> => {
+    const response = await apiClient.post<Campaign>('/campaigns', data);
+    const newCampaign = response.data;
+    
+    setCampaigns(prev => [newCampaign, ...prev]);
+    return newCampaign;
+  }, []);
+  
+  const updateCampaign = useCallback(async (
+    id: string,
+    data: Partial<Campaign>
+  ): Promise<Campaign> => {
+    const response = await apiClient.patch<Campaign>(`/campaigns/${id}`, data);
+    const updatedCampaign = response.data;
+    
+    setCampaigns(prev => 
+      prev.map(campaign => 
+        campaign.id === id ? updatedCampaign : campaign
+      )
+    );
+    
+    return updatedCampaign;
+  }, []);
+  
+  const deleteCampaign = useCallback(async (id: string): Promise<void> => {
+    await apiClient.delete(`/campaigns/${id}`);
+    
+    setCampaigns(prev => prev.filter(campaign => campaign.id !== id));
+  }, []);
+  
+  // Effects
+  useEffect(() => {
+    fetchCampaigns();
+  }, [fetchCampaigns]);
+  
+  useEffect(() => {
+    if (!autoRefresh) return;
+    
+    const interval = setInterval(fetchCampaigns, refreshInterval);
+    return () => clearInterval(interval);
+  }, [autoRefresh, refreshInterval, fetchCampaigns]);
+  
+  return {
+    campaigns,
+    metrics,
+    isLoading,
+    error,
+    refetch: fetchCampaigns,
+    createCampaign,
+    updateCampaign,
+    deleteCampaign,
+  };
+};
+```
+
+### 3.6 Type Definitions
+
+```typescript
+// Base types
+export interface BaseEntity {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Campaign types
+export interface Campaign extends BaseEntity {
+  userId: string;
+  name: string;
+  purpose: CampaignPurpose;
+  status: CampaignStatus;
+  dailyBudget: number;
+  totalBudget: number;
+  targetAudience: TargetAudience;
+  assets: CreativeAsset[];
+  performance: CampaignPerformance;
+}
+
+export type CampaignPurpose = 
+  | 'lead_generation'
+  | 'sales'
+  | 'brand_awareness'
+  | 'app_installs'
+  | 'event_promotion'
+  | 'store_visits'
+  | 'retargeting';
+
+export type CampaignStatus = 'draft' | 'active' | 'paused' | 'completed';
+
+// API response types
+export interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  message: string;
+  timestamp: string;
+}
+
+export interface ApiError {
+  success: false;
+  error: {
+    code: string;
+    message: string;
+    details?: Record<string, any>;
+  };
+  timestamp: string;
+}
+
+// Form types
+export interface CampaignCreateRequest {
+  name: string;
+  purpose: CampaignPurpose;
+  dailyBudget: number;
+  targetAudience: TargetAudience;
+  autoGenerateAssets?: boolean;
+}
+
+// Utility types
+export type Optional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
+export type RequiredFields<T, K extends keyof T> = T & Required<Pick<T, K>>;
+```
+
+---
+
+## 4. SQL STYLE GUIDE
+
+### 4.1 General SQL Standards
+
+#### Formatting Rules
+```sql
+-- Use uppercase for SQL keywords
+SELECT campaign_id, name, status
+FROM campaigns
+WHERE user_id = $1
+  AND status IN ('active', 'paused')
+ORDER BY created_at DESC
+LIMIT 20;
+
+-- Use meaningful table aliases
+SELECT 
+    c.id AS campaign_id,
+    c.name AS campaign_name,
+    p.impressions,
+    p.clicks,
+    p.spend
+FROM campaigns c
+INNER JOIN performance_analytics p ON c.id = p.campaign_id
+WHERE c.user_id = $1
+  AND p.date >= CURRENT_DATE - INTERVAL '30 days';
+```
+
+#### Naming Conventions
+```sql
+-- Use snake_case for all identifiers
+CREATE TABLE campaign_performance_metrics (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    campaign_id UUID NOT NULL REFERENCES campaigns(id),
+    date DATE NOT NULL,
+    impressions BIGINT DEFAULT 0,
+    clicks BIGINT DEFAULT 0,
+    spend DECIMAL(10,2) DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Use descriptive index names
+CREATE INDEX idx_campaign_performance_date 
+    ON campaign_performance_metrics(campaign_id, date);
+
+CREATE INDEX idx_campaigns_user_status 
+    ON campaigns(user_id, status) 
+    WHERE status IN ('active', 'paused');
+```
+
+### 4.2 Migration Standards
+
+```sql
+-- Migration file: 20240115_001_create_campaigns_table.sql
+-- Description: Create campaigns table with proper constraints and indexes
+
+BEGIN;
+
+-- Create campaigns table
+CREATE TABLE campaigns (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    purpose VARCHAR(50) NOT NULL CHECK (
+        purpose IN (
+            'lead_generation', 'sales', 'brand_awareness', 
+            'app_installs', 'event_promotion', 'store_visits', 'retargeting'
+        )
+    ),
+    status VARCHAR(20) DEFAULT 'draft' CHECK (
+        status IN ('draft', 'active', 'paused', 'completed', 'cancelled')
+    ),
+    daily_budget DECIMAL(10,2) CHECK (daily_budget > 0),
+    total_budget DECIMAL(10,2) CHECK (total_budget >= daily_budget),
+    target_audience JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indexes
+CREATE INDEX idx_campaigns_user_id ON campaigns(user_id);
+CREATE INDEX idx_campaigns_status ON campaigns(status);
+CREATE INDEX idx_campaigns_purpose ON campaigns(purpose);
+CREATE INDEX idx_campaigns_created_at ON campaigns(created_at DESC);
+
+-- Create composite indexes for common queries
+CREATE INDEX idx_campaigns_user_status_created 
+    ON campaigns(user_id, status, created_at DESC);
+
+-- Add comments
+COMMENT ON TABLE campaigns IS 'User marketing campaigns';
+COMMENT ON COLUMN campaigns.purpose IS 'Campaign objective type';
+COMMENT ON COLUMN campaigns.target_audience IS 'Audience targeting configuration in JSON format';
+
+COMMIT;
+```
+
+---
+
+## 5. DOCUMENTATION STANDARDS
+
+### 5.1 Code Comments
+
+#### Python Docstrings
+```python
+def calculate_campaign_roi(
+    campaign_performance: PerformanceData,
+    campaign_cost: Decimal,
+    conversion_value: Decimal
+) -> Dict[str, float]:
+    """
+    Calculate return on investment for a marketing campaign.
+    
+    This function computes various ROI metrics including ROAS (Return on Ad Spend),
+    profit margin, and efficiency score based on campaign performance data.
+    
+    Args:
+        campaign_performance: Performance metrics including impressions, clicks, conversions
+        campaign_cost: Total amount spent on the campaign in currency units
+        conversion_value: Average value per conversion in currency units
+    
+    Returns:
+        Dictionary containing:
+            - roas: Return on ad spend (revenue / spend)
+            - profit_margin: Profit margin percentage ((revenue - cost) / revenue * 100)
+            - efficiency_score: Conversions per dollar spent
+            - break_even_point: Spend needed to break even
+    
+    Raises:
+        ValueError: If campaign_cost is zero or negative
+        TypeError: If conversion_value is not a valid number
+    
+    Example:
+        >>> performance = PerformanceData(impressions=10000, clicks=200, conversions=10)
+        >>> roi_data = calculate_campaign_roi(performance, Decimal('500'), Decimal('100'))
+        >>> roi_data['roas']
+        2.0
+    
+    Note:
+        ROAS values above 4.0 are generally considered excellent for most industries.
+        This calculation assumes all conversions have equal value.
+    """
+    if campaign_cost <= 0:
+        raise ValueError("Campaign cost must be positive")
+    
+    total_revenue = campaign_performance.conversions * conversion_value
+    roas = float(total_revenue / campaign_cost)
+    
+    return {
+        'roas': roas,
+        'profit_margin': float((total_revenue - campaign_cost) / total_revenue * 100),
+        'efficiency_score': campaign_performance.conversions / float(campaign_cost),
+        'break_even_point': float(campaign_cost / campaign_performance.conversions) if campaign_performance.conversions > 0 else float('inf')
+    }
+```
+
+#### TypeScript JSDoc
+```typescript
+/**
+ * Custom hook for managing campaign creation workflow with validation and state management.
+ * 
+ * Handles the multi-step campaign creation process including form validation,
+ * asset generation, and Meta API integration. Provides comprehensive state
+ * management for the campaign builder interface.
+ * 
+ * @param initialData - Optional initial campaign data for editing existing campaigns
+ * @param onSuccess - Callback function called when campaign is successfully created
+ * @param onError - Callback function called when campaign creation fails
+ * 
+ * @returns Object containing:
+ *   - currentStep: Current step in the creation workflow (1-4)
+ *   - formData: Current form data state
+ *   - isValid: Whether current step form data is valid
+ *   - isSubmitting: Whether creation is in progress
+ *   - errors: Validation errors for current step
+ *   - nextStep: Function to advance to next step
+ *   - prevStep: Function to go back to previous step
+ *   - updateFormData: Function to update form data
+ *   - submitCampaign: Function to submit final campaign
+ * 
+ * @example
+ * ```tsx
+ * const {
+ *   currentStep,
+ *   formData,
+ *   isValid,
+ *   nextStep,
+ *   updateFormData,
+ *   submitCampaign
+ * } = useCampaignCreation({
+ *   onSuccess: (campaign) => router.push(`/campaigns/${campaign.id}`),
+ *   onError: (error) => toast.error(error.message)
+ * });
+ * ```
+ * 
+ * @since 1.0.0
+ */
+export const useCampaignCreation = ({
+  initialData,
+  onSuccess,
+  onError,
+}: UseCampaignCreationOptions): UseCampaignCreationReturn => {
+  // Implementation...
+};
+```
+
+### 5.2 README Standards
+
+Each module/package should have a comprehensive README:
+
+```markdown
+# Campaign Service Module
+
+## Overview
+The Campaign Service module handles all campaign-related business logic including creation, management, optimization, and Meta API integration.
+
+## Features
+- ✅ Campaign CRUD operations
+- ✅ AI-powered campaign optimization
+- ✅ Meta API integration
+- ✅ Performance tracking
+- ✅ Budget management
+
+## Quick Start
+
+### Installation
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Set up environment variables
+cp .env.example .env
+```
+
+### Basic Usage
+```python
+from services.campaign_service import CampaignService
+
+# Initialize service
+campaign_service = CampaignService(db_session, ai_service, meta_api)
+
+# Create campaign
+campaign = await campaign_service.create_campaign(
+    user_id="uuid",
+    campaign_data=CampaignCreateRequest(...)
+)
+```
+
+## API Reference
+
+### CampaignService.create_campaign()
+Creates a new marketing campaign with optional AI asset generation.
+
+**Parameters:**
+- `user_id` (UUID): User identifier
+- `campaign_data` (CampaignCreateRequest): Campaign configuration
+
+**Returns:**
+- `CampaignResponse`: Created campaign data
+
+**Raises:**
+- `UserNotFoundError`: If user doesn't exist
+- `InsufficientCreditsError`: If user has insufficient AI credits
+
+## Testing
+```bash
+# Run unit tests
+pytest tests/services/test_campaign_service.py
+
+# Run integration tests
+pytest tests/integration/test_campaign_workflow.py
+```
+
+## Contributing
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open Pull Request
+```
+
+---
+
+This comprehensive code style guide ensures consistency, maintainability, and quality across the entire AI Marketing Automation Platform codebase.

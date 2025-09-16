@@ -1,0 +1,538 @@
+# Terms of Service
+## AI Marketing Automation Platform
+
+**Effective Date**: January 15, 2024
+**Last Updated**: January 15, 2024
+
+---
+
+## 1. ACCEPTANCE OF TERMS
+
+### Agreement to Terms
+By accessing or using the AI Marketing Automation Platform ("Platform," "Service," "we," "our," or "us"), you ("User," "you," or "your") agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, please do not use our Platform.
+
+### Platform Description
+Our Platform provides AI-powered marketing automation services including:
+- Creative asset generation using artificial intelligence
+- Marketing campaign creation and optimization
+- Meta (Facebook/Instagram) advertising automation
+- Performance analytics and insights
+- Brand voice analysis and application
+
+### Legal Capacity
+You represent that:
+- You are at least 18 years old
+- You have the legal capacity to enter into these Terms
+- You are authorized to represent your business if using for commercial purposes
+- All information provided is accurate and complete
+
+---
+
+## 2. ACCOUNT REGISTRATION & RESPONSIBILITIES
+
+### 2.1 Account Creation
+
+#### Registration Requirements
+- Valid email address and secure password
+- Accurate business information
+- Subscription tier selection
+- Acceptance of Privacy Policy and these Terms
+
+#### Account Verification
+- Email verification required for account activation
+- Additional verification may be required for certain features
+- Business verification may be required for enterprise features
+
+### 2.2 Account Security
+
+#### User Responsibilities
+- Maintain confidentiality of login credentials
+- Notify us immediately of any unauthorized access
+- Use strong passwords and enable two-factor authentication when available
+- Monitor account activity regularly
+
+#### Platform Security
+- Industry-standard security measures
+- Encrypted data transmission and storage
+- Regular security audits and updates
+- Incident response procedures
+
+### 2.3 Account Usage
+
+#### Permitted Use
+- Business marketing and advertising purposes
+- Creating content for your own business or clients
+- Educational and training purposes
+- Service evaluation and testing
+
+#### Prohibited Use
+- Illegal activities or content creation
+- Harassment, abuse, or harmful content
+- Spam or unsolicited communications
+- Intellectual property infringement
+- Unauthorized access or system interference
+
+---
+
+## 3. SUBSCRIPTION PLANS & BILLING
+
+### 3.1 Subscription Tiers
+
+#### Starter Plan (₹999/month)
+- 50 AI credits per month (42 images + 8 videos)
+- Basic Creative Studio access
+- Up to 3 active campaigns
+- Standard customer support
+- Basic analytics dashboard
+
+#### Professional Plan (₹2,999/month)
+- 200 AI credits per month (160 images + 40 videos)
+- Full Creative Studio with advanced features
+- Unlimited active campaigns
+- AI-powered optimization
+- Priority customer support
+- Advanced analytics and reporting
+
+#### Business Plan (₹5,999/month)
+- 500 AI credits per month (400 images + 100 videos)
+- All Professional features
+- Team collaboration (up to 5 users)
+- White-label options
+- API access
+- Dedicated account manager
+
+### 3.2 Billing Terms
+
+#### Payment Processing
+- Payments processed through Razorpay
+- Monthly or annual billing cycles available
+- All prices in Indian Rupees (₹)
+- Automatic renewal unless cancelled
+
+#### Payment Methods
+- Credit/Debit cards
+- UPI payments
+- Net banking
+- Digital wallets (where supported)
+
+#### Billing Disputes
+- Contact support within 30 days for billing inquiries
+- Refunds processed per our refund policy
+- Disputed charges investigated promptly
+
+### 3.3 Plan Changes & Cancellation
+
+#### Upgrades & Downgrades
+- Immediate access to upgraded features
+- Prorated billing for plan changes
+- Downgrade restrictions may apply
+- Credit adjustments for unused features
+
+#### Cancellation
+- Cancel anytime through account settings
+- Service continues until end of billing period
+- No refunds for partial months (except legal requirements)
+- Data retention per Privacy Policy
+
+---
+
+## 4. PLATFORM FEATURES & LIMITATIONS
+
+### 4.1 AI Creative Services
+
+#### Supported Content Types
+- **Images**: Various formats (1:1, 16:9, 9:16, 4:5)
+- **Videos**: Short-form content (15s, 30s, 60s)
+- **Styles**: Modern, traditional, festive, professional, minimalist
+- **Languages**: English prompts with Hindi market optimization
+
+#### Generation Limitations
+- Content must comply with AI service provider terms
+- No guarantee of specific aesthetic outcomes
+- Generation times may vary based on complexity
+- Rate limits apply based on subscription tier
+
+#### Content Ownership
+- You retain rights to your original prompts and concepts
+- Generated content licensed to you for commercial use
+- Platform retains right to use aggregated, anonymized data
+- No exclusive rights to generated content
+
+### 4.2 Campaign Management
+
+#### Supported Platforms
+- Facebook advertising
+- Instagram advertising
+- Additional platforms may be added
+
+#### Campaign Types
+- Lead generation campaigns
+- Sales and e-commerce campaigns
+- Brand awareness campaigns
+- App installation campaigns
+- Event promotion campaigns
+- Store visit campaigns
+- Retargeting campaigns
+
+#### Performance Optimization
+- AI-powered budget optimization
+- Audience targeting improvements
+- Creative performance analysis
+- Automated bid adjustments
+- A/B testing capabilities
+
+### 4.3 Meta API Integration
+
+#### Connection Requirements
+- Valid Meta (Facebook) business account
+- Appropriate advertising permissions
+- Compliance with Meta's terms and policies
+- Active ad account with payment method
+
+#### Data Synchronization
+- Real-time campaign performance data
+- Bidirectional status updates
+- Asset upload and management
+- Audience and targeting sync
+
+#### Platform Responsibilities
+- We facilitate connection but don't guarantee Meta approval
+- Meta's terms and policies apply to advertising activities
+- We're not responsible for Meta platform changes or outages
+- Users responsible for Meta compliance
+
+---
+
+## 5. INTELLECTUAL PROPERTY RIGHTS
+
+### 5.1 Platform Intellectual Property
+
+#### Our Rights
+- Platform technology, software, and algorithms
+- User interface designs and functionality
+- Proprietary AI models and optimization systems
+- Trademarks, logos, and brand elements
+
+#### License to You
+- Limited, non-exclusive license to use Platform
+- License terminates upon account closure
+- No right to reverse engineer or copy Platform
+- No transfer of ownership of Platform technology
+
+### 5.2 User Content & Data
+
+#### Your Content
+- You retain ownership of original content and data
+- Brand materials, logos, and business information
+- Campaign concepts and marketing strategies
+- Business data and performance information
+
+#### Content License to Us
+- License to process and analyze your content
+- Right to use for AI training (anonymized)
+- Right to display in marketing materials (with permission)
+- Right to backup and maintain for service provision
+
+### 5.3 AI-Generated Content
+
+#### Ownership Rights
+- You receive commercial license to AI-generated content
+- Rights subject to underlying AI service provider terms
+- No exclusive ownership of generated content
+- Right to use for intended business purposes
+
+#### Usage Restrictions
+- Content may not be resold as standalone digital products
+- Attribution requirements may apply for certain uses
+- Compliance with applicable copyright laws
+- No guarantee of uniqueness or exclusivity
+
+---
+
+## 6. DATA PRIVACY & SECURITY
+
+### 6.1 Data Collection & Use
+Our data practices are governed by our Privacy Policy, which is incorporated into these Terms by reference.
+
+### 6.2 Data Security
+- Industry-standard encryption and security measures
+- Regular security audits and updates
+- Incident response procedures
+- User notification of security breaches
+
+### 6.3 International Transfers
+- Data may be processed globally for service provision
+- Appropriate safeguards for international transfers
+- Compliance with applicable data protection laws
+- User consent for transfers where required
+
+---
+
+## 7. ACCEPTABLE USE POLICY
+
+### 7.1 Permitted Activities
+
+#### Business Use
+- Marketing and advertising for legitimate businesses
+- Content creation for personal or commercial use
+- Educational and training purposes
+- Service evaluation and testing
+
+#### Content Guidelines
+- Professional, family-friendly content
+- Compliance with applicable laws and regulations
+- Respect for intellectual property rights
+- Adherence to platform community standards
+
+### 7.2 Prohibited Activities
+
+#### Illegal Content
+- Illegal products or services
+- Copyright or trademark infringement
+- Privacy violations or unauthorized data collection
+- Deceptive or fraudulent practices
+
+#### Harmful Content
+- Hate speech or discriminatory content
+- Violence or threats of violence
+- Adult content or sexual services
+- Dangerous or harmful products
+
+#### Platform Abuse
+- Unauthorized access or system interference
+- Spam or unsolicited communications
+- Artificial traffic generation or click fraud
+- Reverse engineering or copying Platform technology
+
+### 7.3 Content Monitoring
+
+#### Automated Systems
+- AI-powered content moderation
+- Automated policy violation detection
+- Suspicious activity monitoring
+- Performance and quality analysis
+
+#### Human Review
+- Manual review of flagged content
+- User report investigation
+- Policy interpretation and enforcement
+- Appeal process for content decisions
+
+---
+
+## 8. THIRD-PARTY SERVICES & INTEGRATIONS
+
+### 8.1 External Service Providers
+
+#### AI Service Providers
+- Google AI services for content generation
+- Performance and availability subject to provider terms
+- We're not responsible for third-party service issues
+- Alternative providers may be substituted
+
+#### Meta Platform Integration
+- Subject to Meta's terms of service and policies
+- We facilitate but don't guarantee platform access
+- Users responsible for Meta compliance
+- Platform changes may affect integration functionality
+
+#### Payment Processors
+- Razorpay for payment processing in India
+- Subject to processor's terms and conditions
+- We're not responsible for payment processing issues
+- Alternative processors may be used
+
+### 8.2 Third-Party Links & Content
+- Platform may contain links to external websites
+- We're not responsible for third-party content or policies
+- Users access third-party services at their own risk
+- Third-party terms apply to external services
+
+---
+
+## 9. SERVICE AVAILABILITY & SUPPORT
+
+### 9.1 Service Levels
+
+#### Availability Target
+- 99.9% uptime for Platform services
+- Scheduled maintenance with advance notice
+- Emergency maintenance may occur without notice
+- Service credits for extended outages
+
+#### Performance Standards
+- Page load times under 2 seconds
+- API response times under 200ms
+- AI generation within specified timeframes
+- Mobile-optimized responsive design
+
+### 9.2 Customer Support
+
+#### Support Channels
+- Email support for all users
+- Priority support for Professional and Business tiers
+- Knowledge base and documentation
+- Community forums for user interaction
+
+#### Response Times
+- Starter: 48-72 hours
+- Professional: 24-48 hours
+- Business: 4-24 hours
+- Critical issues prioritized across all tiers
+
+### 9.3 Service Modifications
+
+#### Platform Updates
+- Regular feature updates and improvements
+- Security patches and bug fixes
+- User interface enhancements
+- New AI capabilities and optimizations
+
+#### Advance Notice
+- 30 days notice for significant changes
+- Immediate updates for security or legal compliance
+- Beta testing programs for major features
+- User feedback incorporation when possible
+
+---
+
+## 10. LIMITATION OF LIABILITY & DISCLAIMERS
+
+### 10.1 Service Disclaimers
+
+#### "As Is" Service
+- Platform provided on "as is" and "as available" basis
+- No warranty of uninterrupted or error-free operation
+- AI-generated content quality may vary
+- Performance results not guaranteed
+
+#### External Dependencies
+- Third-party service availability beyond our control
+- Meta platform policy changes may affect functionality
+- AI service provider limitations apply
+- Internet connectivity requirements
+
+### 10.2 Limitation of Liability
+
+#### Excluded Damages
+To the maximum extent permitted by law, we exclude liability for:
+- Indirect, incidental, or consequential damages
+- Loss of profits, revenue, or business opportunities
+- Data loss or corruption (beyond our backup obligations)
+- Service interruptions or downtime
+
+#### Maximum Liability
+Our total liability for any claims related to these Terms or Platform use shall not exceed the amount paid by you in the 12 months preceding the claim.
+
+### 10.3 Indemnification
+
+#### User Indemnification
+You agree to indemnify and hold us harmless from claims arising from:
+- Your use of the Platform
+- Your content or campaigns
+- Violation of these Terms
+- Infringement of third-party rights
+
+---
+
+## 11. DISPUTE RESOLUTION
+
+### 11.1 Governing Law
+These Terms are governed by the laws of India, without regard to conflict of law principles.
+
+### 11.2 Jurisdiction
+Any disputes arising from these Terms or Platform use shall be subject to the exclusive jurisdiction of courts in [City], India.
+
+### 11.3 Alternative Dispute Resolution
+
+#### Negotiation
+Parties agree to attempt good faith negotiation before formal legal proceedings.
+
+#### Arbitration
+If negotiation fails, disputes may be resolved through binding arbitration under Indian Arbitration and Conciliation Act, 2015.
+
+#### Class Action Waiver
+You agree to resolve disputes individually and waive participation in class action lawsuits.
+
+---
+
+## 12. TERM & TERMINATION
+
+### 12.1 Term Duration
+These Terms remain in effect while you use the Platform or maintain an account.
+
+### 12.2 Termination by User
+- Cancel subscription anytime through account settings
+- Account closure takes effect at end of billing period
+- Data deletion per Privacy Policy timeline
+- Export your data before account closure
+
+### 12.3 Termination by Platform
+
+#### Grounds for Termination
+- Material breach of these Terms
+- Violation of Acceptable Use Policy
+- Illegal activities or harmful content
+- Non-payment of fees (after grace period)
+
+#### Termination Process
+- Warning notices for correctable violations
+- Immediate termination for serious violations
+- Data retention per Privacy Policy
+- Refund policy applies to prepaid amounts
+
+### 12.4 Effect of Termination
+- License to use Platform terminates
+- Outstanding fees become immediately due
+- Data deletion per Privacy Policy
+- Survival of certain Terms provisions
+
+---
+
+## 13. MISCELLANEOUS PROVISIONS
+
+### 13.1 Entire Agreement
+These Terms, together with our Privacy Policy, constitute the entire agreement between you and us regarding Platform use.
+
+### 13.2 Modifications
+- We may update these Terms with 30 days notice
+- Continued use constitutes acceptance of changes
+- Material changes require explicit consent
+- Previous versions available upon request
+
+### 13.3 Severability
+If any provision of these Terms is found unenforceable, the remaining provisions continue in full force and effect.
+
+### 13.4 Assignment
+- You may not assign these Terms without our consent
+- We may assign these Terms in connection with business transfers
+- Terms bind successors and permitted assigns
+
+### 13.5 Force Majeure
+We're not liable for delays or failures due to circumstances beyond our reasonable control.
+
+### 13.6 No Waiver
+Our failure to enforce any provision doesn't waive our right to enforce it later.
+
+---
+
+## 14. CONTACT INFORMATION
+
+### Customer Support
+**Email**: support@marketingai.com
+**Response Time**: Per subscription tier
+**Languages**: English, Hindi
+
+### Legal Notices
+**Email**: legal@marketingai.com
+**Address**: [Business Address]
+[City, State, PIN Code], India
+
+### Business Information
+**Company Name**: AI Marketing Automation Platform
+**Registration**: [Registration Number]
+**GST**: [GST Number]
+
+---
+
+By using our Platform, you acknowledge that you have read, understood, and agree to be bound by these Terms of Service. We encourage you to review these Terms regularly and contact us with any questions or concerns.

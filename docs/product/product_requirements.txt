@@ -1,0 +1,360 @@
+# Product Requirements Document (PRD)
+## AI Marketing Automation Platform
+
+---
+
+## 1. PRODUCT OVERVIEW
+
+### Vision Statement
+Transform the Indian small business marketing landscape by democratizing AI-powered creative generation and Meta advertising automation, making professional marketing accessible to businesses of all sizes.
+
+### Mission
+Replace expensive creative teams (₹15K-75K/month) with intelligent AI automation (₹999-₹5,999/month) while delivering superior results through data-driven optimization and culturally-aware creative generation.
+
+### Target Market
+**Primary**: Indian small to medium businesses (SMBs) spending ₹10K-100K monthly on digital marketing
+**Secondary**: Marketing agencies serving Indian SMBs
+**Tertiary**: International businesses targeting Indian markets
+
+### Value Proposition
+- **90% Cost Reduction**: From ₹50K/month creative teams to ₹3K/month AI automation
+- **10x Faster**: Campaign creation in 30 minutes vs 3+ days
+- **Culturally Intelligent**: AI trained on Indian market nuances and seasonal patterns
+- **Autonomous Optimization**: Self-improving campaigns with minimal human intervention
+
+---
+
+## 2. CORE FEATURES & REQUIREMENTS
+
+### 2.1 Creative Studio (Standalone)
+**Priority**: P0 (Must Have)
+
+**User Story**: "As a business owner, I want to generate professional marketing creatives without needing Meta account connection, so I can create content for any platform."
+
+**Core Features**:
+- **Independent Functionality**: Works completely without Meta account connection
+- **Simple Generation Interface**: Prompt → Create → Save to library
+- **Personal Creative Library**: All generated assets stored for user access
+- **Campaign Integration**: Choose from library OR auto-generate during campaign creation
+
+**Image Generation (Google Imagen 4.0)**:
+- **Formats**: 1:1 (social posts), 16:9 (banners), 9:16 (stories), 4:5 (mobile)
+- **Styles**: Professional, modern, traditional, festive, minimalist
+- **Indian Elements**: Festivals, regional preferences, cultural awareness
+- **Brand Integration**: Apply analyzed brand voice and colors
+
+**Video Generation (Google Veo 3.0)**:
+- **Durations**: 15s, 30s, 60s
+- **Formats**: Square, landscape, portrait, stories
+- **Motion Styles**: Dynamic, subtle, static overlay
+- **Audio**: Background music, voiceover support options
+
+**Asset Library Management**:
+- **Organization**: Tags, campaigns, format, date-based sorting
+- **User Actions**: Favorite marking, usage tracking, bulk operations
+- **Search & Filter**: Advanced search across all user assets
+- **Export Options**: Multiple format downloads
+
+**Acceptance Criteria**:
+- Generate image in under 30 seconds
+- Generate video in under 60 seconds
+- Support minimum 10 concurrent generations per user
+- 99% uptime for Creative Studio features
+- Export assets in multiple formats (PNG, JPG, MP4, GIF)
+
+### 2.2 Brand Voice Analysis
+**Priority**: P0 (Must Have)
+
+**User Story**: "As a business owner, I want the AI to understand my brand voice from my website, so all generated content maintains consistency with my existing brand."
+
+**Requirements**:
+- **Website Scraping & Analysis**:
+  - Extract brand voice, tone, messaging patterns
+  - Identify color palette and typography preferences
+  - Analyze value propositions and key messaging
+  - Extract logo and visual brand elements
+
+- **Social Media Intelligence**:
+  - Analyze existing Facebook/Instagram posts
+  - Identify engagement patterns and successful content types
+  - Extract hashtag strategies and audience preferences
+
+- **Brand Guidelines Generation**:
+  - Auto-generate comprehensive brand guidelines
+  - Provide content suggestions based on analysis
+  - Create brand-specific prompt templates
+
+**Acceptance Criteria**:
+- Complete website analysis in under 5 minutes
+- Extract minimum 15 brand attributes with 90%+ accuracy
+- Generate usable brand guidelines automatically
+- Support analysis of websites in English and Hindi
+
+### 2.3 Multi-Purpose Campaign System
+**Priority**: P0 (Must Have)
+
+**User Story**: "As a business owner, I want to create different types of campaigns based on my business goals, so I can drive specific outcomes like leads, sales, or brand awareness."
+
+**Campaign Types**:
+1. **Lead Generation**: Forms, contact capture, consultation bookings
+2. **Sales & E-commerce**: Product sales, online store traffic
+3. **Brand Awareness**: Reach, impressions, brand recognition
+4. **App Downloads**: Mobile app installs and engagement
+5. **Event Promotion**: Event attendance, registrations
+6. **Store Visits**: Physical location visits, foot traffic
+7. **Retargeting**: Customer retention, repeat purchases
+
+**Requirements per Campaign Type**:
+- Purpose-specific asset generation templates
+- Optimized targeting recommendations
+- Industry-specific best practices integration
+- Budget allocation suggestions based on goals
+- Success metrics definition and tracking
+
+**Acceptance Criteria**:
+- Support all 7 campaign types with unique workflows
+- Provide industry-specific templates for 10+ sectors
+- Auto-suggest budget based on campaign purpose and audience size
+- Generate campaign in under 30 minutes from start to launch
+
+### 2.4 Meta API Integration
+**Priority**: P1 (Should Have)
+
+**User Story**: "As a business owner, I want to connect my Meta account and automatically launch campaigns, so I don't need to manually recreate everything in Meta Ads Manager."
+
+**Requirements**:
+- **OAuth Authentication**: Secure Meta account connection
+- **Campaign Creation**: Direct campaign launch to Meta platform
+- **Real-time Sync**: Bidirectional data synchronization
+- **Performance Tracking**: Automated metrics collection
+- **Budget Management**: Real-time budget monitoring and alerts
+
+**Acceptance Criteria**:
+- Complete OAuth flow in under 2 minutes
+- Successfully create campaigns with 95%+ success rate
+- Sync performance data every 4 hours maximum
+- Support multiple ad accounts per user
+- Handle Meta API rate limits gracefully
+
+### 2.5 AI-Powered Optimization
+**Priority**: P1 (Should Have)
+
+**User Story**: "As a business owner, I want my campaigns to automatically improve themselves, so I achieve better results without constant monitoring."
+
+**Optimization Features**:
+- **Budget Optimization**: Automatic budget reallocation based on performance
+- **Audience Expansion**: Lookalike and interest expansion when profitable
+- **Creative Rotation**: A/B testing and winning creative promotion
+- **Bid Strategy**: Automated bid adjustments for target metrics
+- **Schedule Optimization**: Best time/day analysis and adjustment
+
+**Requirements**:
+- Minimum 7-day data before optimization triggers
+- Maximum 50% budget increase per optimization
+- Notification system for all optimization actions
+- Rollback capability for failed optimizations
+- Performance tracking for optimization impact
+
+**Acceptance Criteria**:
+- Achieve 15%+ performance improvement through optimization
+- Execute optimizations within 24 hours of trigger conditions
+- Maintain detailed logs of all optimization actions
+- Support user-defined optimization constraints
+
+---
+
+## 3. USER EXPERIENCE REQUIREMENTS
+
+### 3.1 Onboarding Flow
+**Duration**: Maximum 10 minutes for complete setup
+
+**Steps**:
+1. **Account Creation** (2 minutes)
+   - Email/password registration
+   - Subscription tier selection
+   - Payment setup (for paid tiers)
+
+2. **Business Profile Setup** (3 minutes)
+   - Business type and industry selection
+   - Website URL and social media links
+   - Target audience preferences
+   - Monthly marketing budget range
+
+3. **Brand Voice Analysis** (5 minutes)
+   - Automated website scraping and analysis
+   - Brand guidelines generation
+   - User review and customization of extracted data
+
+**Success Metrics**:
+- 80%+ onboarding completion rate
+- Under 10% drop-off at any single step
+- 90%+ user satisfaction with brand analysis accuracy
+
+### 3.2 Dashboard Experience
+**Primary Actions**:
+- Quick campaign creation (1-click templates)
+- Performance overview with key metrics
+- Recent activity and AI optimization alerts
+- Creative Studio access and asset management
+
+**Layout Requirements**:
+- Mobile-responsive design for Indian smartphone users
+- Hindi language support for key interfaces
+- Dark mode support for extended usage
+- Accessibility compliance (WCAG 2.1 AA)
+
+**Performance Requirements**:
+- Page load times under 2 seconds
+- Real-time metric updates
+- Offline capabilities for creative review
+
+### 3.3 Creative Studio Interface
+**Workflow**:
+1. **Prompt Input**: Natural language creative brief
+2. **Style Selection**: Brand-aware style options
+3. **Format Selection**: Multiple aspect ratios
+4. **Generation**: Real-time progress tracking
+5. **Review & Edit**: Basic editing capabilities
+6. **Export/Save**: Multiple format options
+
+**Requirements**:
+- Drag-and-drop asset organization
+- Bulk generation capabilities (up to 10 assets simultaneously)
+- Real-time collaboration for team accounts
+- Version history and asset comparison
+
+---
+
+## 4. TECHNICAL REQUIREMENTS
+
+### 4.1 Performance Standards
+- **API Response Time**: < 200ms for standard operations
+- **Creative Generation**: Images < 30s, Videos < 60s
+- **Uptime**: 99.9% availability
+- **Concurrent Users**: Support 1000+ simultaneous users
+- **Data Processing**: Handle 10GB+ asset uploads per day
+
+### 4.2 Scalability Requirements
+- **User Growth**: Support 10K users in Year 1, 100K in Year 2
+- **Asset Storage**: Unlimited user asset storage
+- **Campaign Volume**: 1000+ concurrent active campaigns
+- **API Throughput**: 10K+ requests per minute peak capacity
+
+### 4.3 Security Standards
+- **Data Encryption**: AES-256 for all sensitive data
+- **API Security**: OAuth 2.0 for Meta integration
+- **Payment Security**: PCI DSS compliant payment processing
+- **User Privacy**: GDPR and Indian data protection compliance
+
+### 4.4 Integration Requirements
+- **Meta Marketing API**: Complete campaign management integration
+- **Google AI APIs**: Imagen 4.0, Veo 3.0, Gemini integration
+- **Payment Gateway**: Razorpay integration for Indian market
+- **Analytics**: Google Analytics 4 and custom analytics tracking
+
+---
+
+## 5. SUBSCRIPTION TIERS & PRICING
+
+### Cost-Replacement Value Proposition
+| Tier | Monthly Price | What It Replaces | Typical Cost | Monthly Savings |
+|------|---------------|------------------|--------------|-----------------|
+| **Starter** | **₹999** | Junior Designer + Basic Management | ₹15,000 | ₹14,001 (93%) |
+| **Professional** | **₹2,999** | Designer + Video Editor + Manager | ₹35,000 | ₹32,001 (91%) |
+| **Business** | **₹5,999** | Creative Team + Marketing Manager | ₹75,000 | ₹69,001 (92%) |
+
+### Annual Pricing (20% discount)
+- **Starter:** ₹9,590/year (₹799/month effective)
+- **Professional:** ₹28,790/year (₹2,399/month effective)  
+- **Business:** ₹57,590/year (₹4,799/month effective)
+
+### 5.1 Starter Tier (₹999/month)
+**Target**: Individual entrepreneurs, small local businesses
+
+**Features**:
+- **50 AI credits/month** (42 images + 8 videos)
+- **Standalone Creative Studio** (works without Meta connection)
+- **Basic brand voice analysis** (website analysis)
+- **3 active campaigns maximum**
+- **Standard customer support** (48-72 hours)
+- **Basic analytics dashboard**
+
+### 5.2 Professional Tier (₹2,999/month)
+**Target**: Growing SMBs, marketing-savvy business owners
+
+**Features**:
+- **200 AI credits/month** (160 images + 40 videos)
+- **Everything in Starter** plus:
+- **AI-powered campaign optimization**
+- **Unlimited active campaigns**
+- **Advanced analytics and forecasting**
+- **Priority customer support** (24-48 hours)
+- **A/B testing capabilities**
+- **Performance optimization**
+
+### 5.3 Business Tier (₹5,999/month)
+**Target**: Larger SMBs, marketing agencies
+
+**Features**:
+- **500 AI credits/month** (400 images + 100 videos)
+- **Everything in Professional** plus:
+- **Team collaboration** (up to 5 users)
+- **White-label dashboard options**
+- **API access for integrations**
+- **Dedicated account manager**
+- **Custom brand template creation**
+- **Priority AI processing**
+
+---
+
+## 6. SUCCESS METRICS & KPIs
+
+### 6.1 Product Metrics
+- **User Acquisition**: 1000 new users/month by Month 6
+- **User Retention**: 70% monthly retention rate
+- **Feature Adoption**: 80% Creative Studio usage, 60% campaign creation
+- **Customer Satisfaction**: NPS score > 50
+
+### 6.2 Business Metrics
+- **Revenue Growth**: ₹10L ARR by Month 12
+- **Customer LTV**: 18+ months average customer lifetime
+- **Churn Rate**: < 5% monthly churn
+- **Upgrade Rate**: 25% users upgrade from Starter to Professional
+
+### 6.3 Technical Metrics
+- **System Performance**: 99.9% uptime, < 200ms API response
+- **AI Quality**: 90%+ user satisfaction with generated content
+- **Campaign Success**: 20%+ improvement over manual campaigns
+- **Support Efficiency**: < 4 hour average response time
+
+---
+
+## 7. RELEASE ROADMAP
+
+### Phase 1: MVP (Months 1-3)
+- Creative Studio standalone functionality
+- Basic brand voice analysis
+- User onboarding and subscription management
+- Core campaign creation (without Meta integration)
+
+### Phase 2: Meta Integration (Months 4-5)
+- Meta API OAuth integration
+- Campaign launch automation
+- Basic performance tracking
+- Simple optimization features
+
+### Phase 3: AI Optimization (Months 6-8)
+- Advanced AI optimization algorithms
+- Multi-purpose campaign workflows
+- Enhanced analytics dashboard
+- A/B testing framework
+
+### Phase 4: Enterprise Features (Months 9-12)
+- Team collaboration features
+- White-label options
+- API access for integrations
+- Advanced compliance features
+
+---
+
+This PRD serves as the definitive product specification for development, ensuring all features align with business objectives and user needs while maintaining technical feasibility.

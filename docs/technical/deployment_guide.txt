@@ -1,0 +1,431 @@
+# Deployment Guide
+## AI Marketing Automation Platform
+
+---
+
+## 1. DEPLOYMENT OVERVIEW
+
+### Deployment Strategy
+**Target Environment**: Production deployment on cloud infrastructure with high availability and scalability for Indian market users.
+
+**Deployment Approach**:
+- **Blue-Green Deployment**: Zero-downtime deployments with instant rollback capability
+- **Infrastructure as Code**: Automated provisioning and configuration management
+- **Multi-Environment**: Development, staging, and production environments
+- **Auto-Scaling**: Dynamic scaling based on user load and AI processing demands
+
+**Infrastructure Requirements**:
+- **Compute**: Auto-scaling web servers for FastAPI application
+- **Database**: Managed PostgreSQL with read replicas for analytics
+- **Storage**: S3-compatible object storage for creative assets
+- **Cache**: Redis cluster for session management and job queues
+- **CDN**: Global content delivery network for asset serving
+- **Monitoring**: Comprehensive observability stack
+
+---
+
+## 2. ENVIRONMENT SETUP
+
+### Development Environment
+**Local Development Setup**:
+- Python 3.13+ with virtual environment
+- PostgreSQL 14+ with local database
+- Redis server for caching and job queues
+- Node.js 18+ for frontend development
+- Docker Compose for service orchestration
+
+**Environment Variables Configuration**:
+```
+# Application Settings
+APP_NAME=AI Marketing Platform
+ENVIRONMENT=development
+DEBUG=true
+SECRET_KEY=development-secret-key
+
+# Database Configuration
+DATABASE_URL=postgresql://username:password@localhost:5432/marketing_ai_dev
+REDIS_URL=redis://localhost:6379/0
+
+# AI Service Configuration
+ANTHROPIC_API_KEY=your-anthropic-key
+GOOGLE_AI_API_KEY=your-google-ai-key
+
+# Meta API Configuration
+META_APP_ID=your-meta-app-id
+META_APP_SECRET=your-meta-app-secret
+
+# File Storage
+AWS_ACCESS_KEY_ID=your-aws-key
+AWS_SECRET_ACCESS_KEY=your-aws-secret
+S3_BUCKET_NAME=marketing-ai-assets-dev
+
+# Payment Processing
+RAZORPAY_KEY_ID=your-razorpay-key
+RAZORPAY_KEY_SECRET=your-razorpay-secret
+```
+
+### Staging Environment
+**Pre-Production Testing**:
+- Mirror of production infrastructure at smaller scale
+- Automated testing pipeline integration
+- Performance testing and load simulation
+- Security testing and vulnerability scanning
+- User acceptance testing environment
+
+**Staging Configuration**:
+- Reduced compute resources for cost optimization
+- Separate database with production-like data (anonymized)
+- Integration with test payment gateway
+- Limited AI API usage for cost control
+
+### Production Environment
+**High-Availability Setup**:
+- Multi-zone deployment for fault tolerance
+- Load balancers with health checks
+- Auto-scaling groups for dynamic capacity
+- Managed database services with automated backups
+- Global CDN with Indian edge locations
+
+---
+
+## 3. INFRASTRUCTURE ARCHITECTURE
+
+### Cloud Infrastructure Design
+**Primary Cloud Provider**: AWS (Amazon Web Services) for comprehensive service ecosystem and Indian data center presence.
+
+**Infrastructure Components**:
+- **Application Layer**: ECS Fargate containers for FastAPI application
+- **Database Layer**: RDS PostgreSQL Multi-AZ with read replicas
+- **Cache Layer**: ElastiCache Redis cluster
+- **Storage Layer**: S3 buckets with CloudFront CDN
+- **Networking**: VPC with public and private subnets
+- **Security**: WAF, Security Groups, and IAM roles
+
+**Auto-Scaling Configuration**:
+- **CPU Threshold**: Scale up at 70% CPU utilization
+- **Memory Threshold**: Scale up at 80% memory utilization
+- **Custom Metrics**: Scale based on AI job queue length
+- **Predictive Scaling**: Festival season traffic anticipation
+- **Cost Optimization**: Scale down during low-usage periods
+
+### Load Balancing Strategy
+**Application Load Balancer**:
+- Health check endpoints for container health monitoring
+- SSL termination with automatic certificate management
+- Geographic routing for optimal performance
+- Rate limiting and DDoS protection integration
+
+**Database Load Balancing**:
+- Write operations to primary database
+- Read operations distributed across read replicas
+- Analytics queries directed to dedicated read replica
+- Connection pooling for efficient resource utilization
+
+---
+
+## 4. CONTAINERIZATION
+
+### Docker Configuration
+**Backend Container**:
+- Multi-stage build for optimized image size
+- Python 3.13 Alpine base image for security
+- Non-root user for security best practices
+- Health check endpoints for container orchestration
+- Environment-specific configuration injection
+
+**Frontend Container**:
+- Node.js 18 Alpine base image
+- Production build optimization
+- Static asset serving with nginx
+- Environment variable injection for API endpoints
+
+**Database Migration Container**:
+- Alembic-based database migration runner
+- Automated migration execution during deployment
+- Rollback capability for failed migrations
+
+### Container Orchestration
+**ECS Fargate Configuration**:
+- Service discovery for inter-service communication
+- Task definitions with resource limits
+- Rolling updates with health checks
+- Log aggregation to CloudWatch
+- Secret management with AWS Secrets Manager
+
+**Task Scaling Policies**:
+- Target tracking scaling for consistent performance
+- Step scaling for rapid traffic spikes
+- Scheduled scaling for predictable patterns
+- Cool-down periods to prevent thrashing
+
+---
+
+## 5. DATABASE DEPLOYMENT
+
+### PostgreSQL Configuration
+**Primary Database Setup**:
+- RDS PostgreSQL 14+ with Multi-AZ deployment
+- Automated backups with 7-day retention
+- Point-in-time recovery capability
+- Encryption at rest with AWS KMS
+- VPC security groups for access control
+
+**Read Replica Strategy**:
+- Dedicated read replica for analytics queries
+- Cross-region replica for disaster recovery
+- Read replica promotion for failover scenarios
+- Connection string management for read/write splitting
+
+**Database Performance Optimization**:
+- Connection pooling with pgbouncer
+- Query performance monitoring with pg_stat_statements
+- Index optimization for common query patterns
+- Partition management for large tables
+
+### Migration Management
+**Database Migration Process**:
+- Automated migration execution during deployment
+- Migration testing in staging environment
+- Rollback procedures for failed migrations
+- Data validation after migration completion
+
+**Migration Best Practices**:
+- Backward-compatible schema changes
+- Gradual rollout for large data migrations
+- Performance impact assessment
+- Monitoring during migration execution
+
+---
+
+## 6. FILE STORAGE & CDN
+
+### S3 Storage Configuration
+**Asset Storage Strategy**:
+- Separate buckets for different asset types
+- Lifecycle policies for cost optimization
+- Cross-region replication for disaster recovery
+- Server-side encryption with KMS
+- Access logging for audit trails
+
+**Bucket Organization**:
+- User creative assets with user-specific prefixes
+- Brand assets with appropriate access controls
+- Temporary files with automatic cleanup
+- Backup storage with long-term retention
+
+### CDN Configuration
+**CloudFront Distribution**:
+- Global edge locations with Indian presence
+- Custom domain with SSL certificate
+- Cache optimization for different content types
+- Origin access identity for S3 security
+- Real-time monitoring and analytics
+
+**Cache Strategy**:
+- Long TTL for static creative assets
+- Short TTL for user-generated content
+- Dynamic content bypass for API calls
+- Cache invalidation for content updates
+
+---
+
+## 7. SECURITY DEPLOYMENT
+
+### SSL/TLS Configuration
+**Certificate Management**:
+- AWS Certificate Manager for automatic SSL certificates
+- HTTPS enforcement across all endpoints
+- TLS 1.3 for optimal security and performance
+- HSTS headers for browser security
+
+**API Security**:
+- API Gateway with authentication integration
+- Rate limiting per user and endpoint
+- Request validation and sanitization
+- CORS configuration for frontend access
+
+### Network Security
+**VPC Security**:
+- Private subnets for database and internal services
+- Public subnets for load balancers only
+- NAT gateways for outbound internet access
+- VPC Flow Logs for network monitoring
+
+**Firewall Configuration**:
+- Security groups with least privilege access
+- Network ACLs for additional layer protection
+- WAF rules for application-layer protection
+- DDoS protection with AWS Shield
+
+### Secrets Management
+**AWS Secrets Manager Integration**:
+- Encrypted storage of API keys and passwords
+- Automatic rotation for database credentials
+- IAM-based access control for secrets
+- Application integration with SDK
+
+---
+
+## 8. MONITORING & OBSERVABILITY
+
+### Application Monitoring
+**CloudWatch Integration**:
+- Application metrics and custom dashboards
+- Log aggregation from all containers
+- Alarm configuration for critical metrics
+- Automated notification system
+
+**Performance Monitoring**:
+- Response time tracking across all endpoints
+- Database query performance monitoring
+- AI service integration latency tracking
+- User experience metrics collection
+
+### Business Metrics
+**Analytics Dashboard**:
+- Campaign performance metrics
+- User engagement tracking
+- Revenue and subscription metrics
+- AI service usage and costs
+
+**Alerting Strategy**:
+- Critical alerts for system failures
+- Warning alerts for performance degradation
+- Business alerts for revenue impacts
+- Escalation procedures for different severity levels
+
+---
+
+## 9. BACKUP & DISASTER RECOVERY
+
+### Backup Strategy
+**Database Backups**:
+- Automated daily backups with 30-day retention
+- Point-in-time recovery capability
+- Cross-region backup replication
+- Regular backup restore testing
+
+**File Storage Backups**:
+- Cross-region S3 replication
+- Versioning for critical assets
+- Lifecycle policies for cost optimization
+- Disaster recovery testing procedures
+
+### Disaster Recovery Plan
+**Recovery Time Objectives**:
+- **RTO**: 4 hours for complete system recovery
+- **RPO**: 1 hour maximum data loss
+- **Availability Target**: 99.9% uptime
+
+**Failover Procedures**:
+- Automated health checks and failover triggers
+- DNS-based traffic routing for region failover
+- Database promotion procedures
+- Communication plan for stakeholder notification
+
+---
+
+## 10. DEPLOYMENT AUTOMATION
+
+### CI/CD Pipeline
+**GitHub Actions Integration**:
+- Automated testing on code commits
+- Security scanning and vulnerability assessment
+- Container image building and scanning
+- Automated deployment to staging environment
+- Manual approval gates for production deployment
+
+**Deployment Stages**:
+1. **Code Commit**: Trigger automated pipeline
+2. **Testing**: Run comprehensive test suite
+3. **Security Scan**: Vulnerability and compliance checks
+4. **Build**: Create container images
+5. **Staging Deploy**: Automated deployment to staging
+6. **Production Deploy**: Manual approval and deployment
+7. **Health Check**: Post-deployment validation
+8. **Rollback**: Automated rollback on failure
+
+### Blue-Green Deployment
+**Zero-Downtime Strategy**:
+- Parallel environment maintenance
+- Traffic switching with load balancer
+- Health validation before traffic switch
+- Automatic rollback on health check failure
+- Database migration coordination
+
+### Rollback Procedures
+**Automated Rollback Triggers**:
+- Health check failures after deployment
+- Critical error rate threshold exceeded
+- Performance degradation detection
+- Manual rollback initiation
+
+**Rollback Process**:
+- Immediate traffic routing to previous version
+- Database migration rollback if needed
+- Log preservation for incident analysis
+- Stakeholder notification procedures
+
+---
+
+## 11. COST OPTIMIZATION
+
+### Resource Optimization
+**Cost Management Strategy**:
+- Right-sizing instances based on actual usage
+- Reserved instances for predictable workloads
+- Spot instances for non-critical batch processing
+- Auto-scaling to minimize idle resources
+
+**Storage Cost Optimization**:
+- S3 Intelligent Tiering for automatic cost optimization
+- Lifecycle policies for old asset cleanup
+- CloudFront caching to reduce data transfer costs
+- Database storage optimization and cleanup
+
+### Monitoring and Budgets
+**Cost Monitoring**:
+- AWS Cost Explorer for detailed cost analysis
+- Budget alerts for cost threshold monitoring
+- Resource tagging for cost allocation
+- Regular cost optimization reviews
+
+**AI Service Cost Control**:
+- Usage quotas per subscription tier
+- Cost monitoring for AI API calls
+- Caching strategies to reduce API usage
+- Alternative model selection for cost optimization
+
+---
+
+## 12. MAINTENANCE & UPDATES
+
+### Regular Maintenance
+**Scheduled Maintenance Windows**:
+- Weekly security updates during low-traffic periods
+- Monthly infrastructure updates and patches
+- Quarterly major version updates
+- Annual disaster recovery testing
+
+**Database Maintenance**:
+- Regular vacuum and analyze operations
+- Index maintenance and optimization
+- Statistics update for query planning
+- Connection pool monitoring and tuning
+
+### Update Procedures
+**Security Updates**:
+- Automated security patch application
+- Immediate patching for critical vulnerabilities
+- Security scanning after updates
+- Rollback procedures for problematic updates
+
+**Feature Updates**:
+- Staged rollout for new features
+- Feature flags for gradual exposure
+- A/B testing for user experience validation
+- Performance monitoring during rollout
+
+---
+
+This deployment guide provides a comprehensive framework for securely and efficiently deploying the AI Marketing Automation Platform with high availability, scalability, and maintainability suitable for the Indian market and international users.

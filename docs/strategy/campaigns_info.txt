@@ -1,0 +1,356 @@
+# Campaign Types for AI Marketing Automation Platform
+
+## Executive Summary
+This document outlines the different types of campaigns that users will create on the AI Ad Creation & Meta Marketing Automation Platform, based on Indian market analysis and social media marketing expertise.
+
+---
+
+## 1. PRIMARY CAMPAIGN TYPES BY USAGE
+
+### 1.1 Lead Generation Campaigns (45% of all campaigns)
+**Meta Objective**: `LEAD_GENERATION`
+**Primary Industries**: Services, SaaS, Healthcare, Education, Consulting
+**Budget Range**: �3,000-�1,00,000/month
+**Performance Expectations**:
+- CTR: 1.5-3.5%
+- CPC: �8-25
+- Lead Cost: �150-�600
+- Lead Quality Score: 60-80%
+
+**Campaign Variations**:
+- Contact form submissions for services
+- Free consultation bookings
+- Product demo requests
+- WhatsApp lead capture
+- Educational webinar registrations
+- Free trial promotions
+
+### 1.2 E-commerce Sales Campaigns (30% of all campaigns)
+**Meta Objective**: `CONVERSIONS`
+**Primary Industries**: Retail, Fashion, Electronics, FMCG
+**Budget Range**: �5,000-�50,000/month
+**Performance Expectations**:
+- CTR: 1.0-2.5%
+- CPC: �10-30
+- Conversion Rate: 1.5-4%
+- ROAS: 3:1 to 6:1
+
+**Campaign Variations**:
+- Product catalog promotions
+- Festive season sales
+- Flash sales and limited-time offers
+- Cross-sell/upsell campaigns
+- Abandoned cart recovery
+- New product launches
+
+### 1.3 Local Business Campaigns (15% of all campaigns)
+**Meta Objective**: `STORE_VISITS` or `LEAD_GENERATION`
+**Primary Industries**: Restaurants, Salons, Repair Services, Medical Clinics
+**Budget Range**: �3,000-�15,000/month
+**Performance Expectations**:
+- CTR: 2.0-4.0%
+- CPC: �5-15
+- Call/Visit Rate: 10-25%
+- Customer Acquisition Cost: �200-�800
+
+**Campaign Variations**:
+- Store visit promotions
+- Local event promotion
+- Hyperlocal service offerings
+- Emergency service ads
+- Customer testimonial campaigns
+- Service area targeting
+
+### 1.4 Brand Awareness Campaigns (7% of all campaigns)
+**Meta Objective**: `BRAND_AWARENESS`
+**Primary Industries**: New businesses, Product launches, Corporate
+**Budget Range**: �8,000-�80,000/month
+**Performance Expectations**:
+- CPM: �15-45
+- Reach: 10,000-500,000
+- Brand Recall: 15-30%
+- Engagement Rate: 2-6%
+
+**Campaign Variations**:
+- New business/product launches
+- Local area awareness drives
+- Trust-building for new brands
+- Educational content promotion
+- Corporate reputation building
+
+### 1.5 App Install Campaigns (3% of all campaigns)
+**Meta Objective**: `APP_INSTALLS`
+**Primary Industries**: Gaming, Utilities, E-commerce apps, Fintech
+**Budget Range**: �5,000-�40,000/month
+**Performance Expectations**:
+- CTR: 0.8-2.0%
+- CPC: �3-12
+- Install Rate: 8-20%
+- Cost Per Install: �15-�60
+
+**Campaign Variations**:
+- Mobile app downloads
+- In-app purchase promotions
+- App feature education
+- Retargeting campaigns
+- App update promotions
+
+---
+
+## 2. INDUSTRY-SPECIFIC CAMPAIGN BREAKDOWN
+
+### 2.1 E-commerce (25% of market)
+**Most Common Campaign Types**:
+1. Festival Collection Launches (Diwali, Eid, Christmas)
+2. Flash Sale Campaigns (24-48 hour urgency)
+3. New Arrival Showcases
+4. Category-specific promotions
+5. Retargeting campaigns for cart abandoners
+
+**Budget Distribution**:
+- Product Promotions: �300-�1,500/day
+- Flash Sales: �1,000-�5,000/day
+- Festival Campaigns: �2,000-�15,000/day
+
+### 2.2 SaaS/Tech (15% of market)
+**Most Common Campaign Types**:
+1. Free trial promotions
+2. Webinar lead generation
+3. Case study promotions
+4. Feature update announcements
+5. Enterprise solution showcases
+
+**Typical Performance**:
+- Lead Cost: �200-�800
+- Trial-to-paid: 15-25%
+- Enterprise Lead Cost: �800-�2,500
+
+### 2.3 Local Services (20% of market)
+**Most Common Campaign Types**:
+1. Service area targeting
+2. Before/after showcases
+3. Customer testimonial campaigns
+4. Seasonal service promotions
+5. Emergency service ads
+
+**Geographic Targeting**:
+- Hyperlocal: 2-5km radius
+- City-wide: Metropolitan areas
+- Multi-city: Tier 1 and Tier 2 cities
+
+### 2.4 Education (12% of market)
+**Most Common Campaign Types**:
+1. Course enrollment campaigns
+2. Free demo class promotions
+3. Success story showcases
+4. Exam result campaigns
+5. Career guidance content
+
+**Seasonal Peaks**:
+- Admission season: March-June
+- Exam preparation: October-February
+- Skill development: Year-round
+
+### 2.5 Healthcare (10% of market)
+**Most Common Campaign Types**:
+1. Health checkup packages
+2. Specialist consultation booking
+3. Health awareness campaigns
+4. Treatment success stories
+5. Preventive care promotions
+
+**Compliance Considerations**:
+- Health claims restrictions
+- Medical disclaimer requirements
+- Privacy and data protection
+
+### 2.6 Real Estate (8% of market)
+**Most Common Campaign Types**:
+1. Project launches
+2. Site visit campaigns
+3. Virtual property tours
+4. Investment opportunity promotions
+5. Resale property listings
+
+**Lead Quality Metrics**:
+- Site Visit Cost: �300-�1,200
+- Conversion Rate: 2-8%
+- High-value leads: �1,000-�5,000
+
+---
+
+## 3. SEASONAL AND CULTURAL CAMPAIGNS
+
+### 3.1 Major Festival Periods
+
+**Diwali Season (October-November)**
+- Gift collection campaigns
+- Gold/jewelry promotions
+- Home decor sales
+- Electronics offers
+- Traditional wear collections
+
+**Eid Celebrations (Dates vary)**
+- Fashion collections
+- Gift hampers
+- Food delivery specials
+- Charitable giving campaigns
+- Family gathering promotions
+
+**Wedding Season (October-March)**
+- Bridal collections
+- Wedding planning services
+- Photography services
+- Venue bookings
+- Beauty service promotions
+
+**Summer Sale Period (March-June)**
+- AC and cooling solutions
+- Summer clothing
+- Travel packages
+- Summer courses
+- Health and wellness products
+
+**Monsoon Marketing (June-September)**
+- Waterproof products
+- Indoor entertainment
+- Health precautions
+- Comfort food delivery
+- Umbrella and rainwear
+
+### 3.2 Business Calendar Events
+- New Year promotions
+- Valentine's Day campaigns
+- Mother's Day/Father's Day
+- Independence Day sales
+- Back-to-school campaigns
+
+---
+
+## 4. CAMPAIGN TYPES BY BUSINESS SIZE
+
+### 4.1 Small Local Businesses (�3K-�15K budget)
+**Primary Focus**: Local awareness and lead generation
+**Campaign Characteristics**:
+- Hyperlocal radius targeting (2-5km)
+- Phone call campaigns
+- WhatsApp lead generation
+- Community engagement focus
+- Single city/area targeting
+
+**Typical Objectives**: Lead Generation, Store Traffic, Local Awareness
+
+### 4.2 Medium Businesses (�15K-�50K budget)
+**Primary Focus**: Sales and customer acquisition
+**Campaign Characteristics**:
+- Multi-city targeting
+- Product catalog integration
+- Retargeting sequences
+- Video testimonial campaigns
+- Competitive analysis
+
+**Typical Objectives**: Conversions, Lead Generation, Traffic
+
+### 4.3 Large Enterprises (�50K+ budget)
+**Primary Focus**: Brand building and sales optimization
+**Campaign Characteristics**:
+- National-level campaigns
+- Multi-language targeting
+- Advanced funnel campaigns
+- Influencer collaborations
+- Complex attribution tracking
+
+**Typical Objectives**: Brand Awareness, Conversions, Video Views
+
+---
+
+## 5. BUDGET RANGES AND PERFORMANCE EXPECTATIONS
+
+### 5.1 Lead Generation Campaigns
+**Budget Ranges**:
+- Small Business: �100-�500/day
+- Medium Business: �500-�2,000/day
+- Enterprise: �2,000-�10,000/day
+
+**Performance Benchmarks**:
+- Service Industries: �150-�500 per lead
+- B2B SaaS: �300-�1,200 per lead
+- Healthcare: �200-�600 per lead
+- Education: �100-�400 per lead
+
+### 5.2 E-commerce Conversion Campaigns
+**Budget Ranges**:
+- Small Store: �300-�1,000/day
+- Medium Retailer: �1,000-�5,000/day
+- Large E-commerce: �5,000-�25,000/day
+
+**Performance Benchmarks**:
+- Fashion/Apparel: 2-4% conversion rate
+- Electronics: 1.5-3% conversion rate
+- FMCG: 3-6% conversion rate
+- Luxury Items: 0.8-2% conversion rate
+
+### 5.3 Local Business Campaigns
+**Budget Ranges**:
+- Single Location: �200-�800/day
+- Multi-location: �800-�2,500/day
+- Franchise: �2,500-�8,000/day
+
+**Performance Benchmarks**:
+- Restaurants: 8-15% visit rate
+- Service Providers: 5-12% contact rate
+- Retail Stores: 10-20% visit rate
+- Healthcare: 12-25% appointment rate
+
+---
+
+## 6. PLATFORM-SPECIFIC CONSIDERATIONS
+
+### 6.1 Facebook Campaign Characteristics
+- Higher engagement for B2B content
+- Better for detailed product information
+- Effective for lead generation forms
+- Strong performance for local businesses
+- Older demographic (25-45 years)
+
+### 6.2 Instagram Campaign Characteristics
+- Higher engagement for visual products
+- Better for lifestyle brands
+- Effective for influencer collaborations
+- Strong performance for fashion/beauty
+- Younger demographic (18-35 years)
+
+### 6.3 Cross-Platform Campaign Strategy
+- 70% Facebook, 30% Instagram (typical split)
+- Creative adaptation for each platform
+- Platform-specific optimization
+- Unified reporting and analytics
+
+---
+
+## 7. AUTOMATION OPPORTUNITIES
+
+### 7.1 High-Automation Potential
+- Budget optimization based on performance
+- Audience expansion through lookalikes
+- Creative rotation to prevent fatigue
+- Bid optimization for cost efficiency
+- Seasonal campaign activation
+
+### 7.2 Medium-Automation Potential
+- A/B testing of ad creatives
+- Landing page optimization
+- Demographic targeting refinement
+- Placement optimization
+- Schedule optimization
+
+### 7.3 Human-Supervised Areas
+- Creative strategy development
+- Brand voice consistency
+- Crisis communication management
+- Major budget decisions
+- Strategic campaign pivots
+
+---
+
+This comprehensive analysis provides the foundation for understanding user campaign types and building appropriate automation features for the AI Marketing Platform.

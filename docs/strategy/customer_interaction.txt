@@ -1,0 +1,384 @@
+# Customer Journey & Interaction Flow
+## AI Marketing Automation Platform - Multi-Purpose Autonomous Campaign Creation
+
+---
+
+## 1. CUSTOMER JOURNEY OVERVIEW
+
+### Journey Duration: 5 minutes onboarding → Creative Studio access → Campaign creation → Ongoing management
+### Interaction Level: Minimal setup → Standalone creative generation → Multi-purpose campaigns → Set-and-forget operation
+### Success Metric: 90% autonomous operation with independent creative studio and better campaign results
+
+---
+
+## 2. PHASE 1: CUSTOMER ONBOARDING (5 minutes)
+
+### 2.1 Initial Landing & Sign-Up
+**Duration**: 2 minutes
+
+**User Actions**:
+- User visits website/gets referral
+- Sees value proposition: "Replace ₹50K/month team with ₹2,999 AI"
+- Clicks "Start Free Trial"
+- Email + Password signup
+- Phone number verification (SMS OTP)
+- Subscription tier selection
+
+**Platform Response**:
+- Instant account creation
+- Welcome email with next steps
+- Free trial activation (7-14 days)
+
+### 2.2 Business Profile Setup Wizard
+**Duration**: 3 minutes
+**User Interface**: Smart questionnaire with AI suggestions
+
+**Question 1**: "What type of business do you run?"
+- Options: E-commerce, Local Services, SaaS, Education, Healthcare, Other
+- AI Response: Pre-loads industry-specific templates and targeting
+
+**Question 2**: "What do you sell/offer?"
+- Input: Text field with AI auto-complete
+- AI Response: Analyzes for product categories and customer segments
+
+**Question 3**: "Who are your ideal customers?"
+- Options: Age ranges, locations, interests (AI-suggested based on business type)
+- AI Response: Creates initial audience personas
+
+**Question 4**: "What's your primary business goal?"
+- Options: Get more leads, Increase sales, Build brand awareness, Drive app downloads
+- AI Response: Maps to Meta campaign objectives and sets default campaign preferences
+
+**Question 5**: "What's your monthly marketing budget?"
+- Slider: ₹5,000 - ₹2,00,000
+- AI Response: Calculates optimal daily budgets and campaign recommendations
+
+**AI Processing (Background)**:
+- Industry analysis and competitor research
+- Audience persona generation
+- Multi-purpose campaign strategy formulation
+- Creative concept development for different purposes
+
+### 2.3 Brand Asset Collection
+**Duration**: 30 seconds
+
+**User Actions**:
+- Upload logo (drag & drop)
+- Brand colors (AI extracts from logo or manual selection)
+- Brand voice selection: Professional, Friendly, Bold, Trustworthy
+- Website URL (for landing page integration)
+
+**AI Processing**:
+- Logo analysis for brand elements
+- Color palette extraction
+- Website scraping for brand voice analysis
+- Competitive brand analysis
+
+---
+
+## 3. PHASE 2: CREATIVE STUDIO ACCESS (Optional - Standalone)
+
+### 3.1 Creative Studio Introduction
+**User Experience**:
+- "Create stunning ads and videos with AI" introduction
+- Access Creative Studio from main navigation
+- No account connection required - works independently
+- Quick tutorial on photo and video generation
+
+**Creative Studio Features**:
+- Generate AI photos and videos instantly
+- Save all creatives to personal library
+- Browse and organize previous generations
+- Use assets later in campaign creation
+
+### 3.2 First Creative Generation (Optional)
+**User Interface**:
+- Simple prompt input: "Describe your ideal ad"
+- Format selection: Square, Portrait, Story, Landscape
+- Generate Photo or Generate Video buttons
+- Preview and save to personal library
+
+**Background Processing**:
+- AI image/video generation using Imagen/Veo
+- Automatic library storage with tags
+- User preference learning
+- Asset organization by date and type
+
+---
+
+## 4. PHASE 3: META ACCOUNT CONNECTION (When Ready for Campaigns)
+
+### 4.1 OAuth Integration
+**User Experience**:
+- "Connect your Meta account to launch campaigns"
+- Connect Facebook Account button
+- Redirected to Meta OAuth (standard Facebook login)
+- Permission approval for ads_management, ads_read, etc.
+- Return to platform with "Connection successful!"
+
+**Platform Processing**:
+- Store encrypted access tokens
+- Fetch user's ad accounts
+- Validate permissions
+- Test API connectivity
+- Create user-Meta account mapping
+
+### 4.2 Ad Account Selection
+**User Interface**:
+- Display available ad accounts
+- "Select accounts to manage" (checkboxes)
+- Show account status, currency, spending limits
+- Proceed button
+
+**Background Processing**:
+- Account validation and health checks
+- Historical performance analysis (if available)
+- Budget limit verification
+- Setup campaign tracking infrastructure
+
+---
+
+## 5. PHASE 4: MULTI-PURPOSE CAMPAIGN CREATION (1-2 minutes)
+
+### 4.1 Campaign Purpose Selection
+**User Experience**: Enhanced campaign creation wizard for specific purposes
+
+**Step 1: Campaign Purpose Selection**
+"What's the goal for this specific campaign?"
+- 🎯 Generate Leads (Get contact info, bookings, consultations)
+- 💰 Drive Sales (Product purchases, service bookings)
+- 📱 Get App Downloads (Mobile app installs)
+- 🎪 Promote Events (Webinars, sales, launches)
+- 🏪 Increase Store Visits (Local foot traffic)
+- 👁️ Build Brand Awareness (Reach new audiences)
+- 🔄 Re-engage Customers (Retargeting, loyalty)
+
+**Step 2: Specific Action Definition**
+Based on selected purpose, AI asks targeted questions:
+- Lead Generation: "What action should people take?" (Fill form, Call, Book appointment, Request quote)
+- Sales: "What are you selling?" (Products, services, packages)
+- Events: "What type of event?" (Webinar, sale, product launch, physical event)
+- Store Visits: "What should people do at your store?" (Visit, consult, purchase)
+- Brand Awareness: "What should people know about your brand?" (Values, products, services)
+
+**Step 3: Target Audience for This Campaign**
+"Who should see this specific campaign?"
+- New customers (Cold audience)
+- Past website visitors (Warm audience)  
+- Existing customers (Retargeting)
+- Lookalike audience (Similar to customers)
+- Custom audience (Upload customer list)
+
+### 5.2 Creative Asset Selection
+**User Experience**:
+- "Choose creatives for your campaign"
+- **Option 1**: Browse Creative Library → Select existing photos/videos
+- **Option 2**: Generate New Assets → Create purpose-specific creatives
+- **Option 3**: Use Both → Mix library assets with new generations
+- Preview selected assets before campaign launch
+
+**Asset Integration Options**:
+- **Use Existing Library Assets**: Browse personal creative library, filter by format/purpose, select multiple assets
+- **Auto-Generate New Assets**: AI creates campaign-specific creatives based on purpose and audience
+- **Manual + Auto Combination**: Select some library assets, let AI fill gaps with new generations
+- **Creative Variations**: Generate multiple versions of selected concepts for A/B testing
+
+### 5.3 AI Campaign Generation
+**User Experience**:
+- "AI is creating your [PURPOSE] campaign..."
+- Progress indicator with purpose-specific steps:
+  - ✓ Analyzing campaign purpose and business context
+  - ✓ Generating purpose-optimized target audiences  
+  - ✓ Processing selected/generated ad creatives
+  - ✓ Setting up campaign structure for optimal results
+  - ✓ Ready to launch!
+
+**AI Processing Pipeline**:
+1. **Purpose-Driven Strategy**: Maps specific campaign purpose to Meta objectives and optimization goals
+2. **Audience Generation**: Creates purpose-specific audiences (cold for awareness, warm for sales, etc.)
+3. **Creative Integration**: Uses selected library assets or generates new creatives tailored to campaign purpose
+4. **Campaign Structure**: Builds hierarchy optimized for the specific purpose and target audience
+5. **Budget Allocation**: Calculates budgets based on purpose-specific performance expectations
+
+### 5.4 Purpose-Specific Campaign Preview & Approval
+**User Interface Examples**:
+
+**Lead Generation Campaign**:
+- Campaign Name: "TechCorp - January Lead Generation"
+- Purpose: Generate consultation bookings
+- Budget: ₹1,200/day (₹36,000/month)
+- Targeting: "Business owners in Mumbai, Delhi (30-50 years)"
+- Creatives: Form-focused ads with "Book Free Consultation" CTA
+- Expected Results: "15-25 leads per day, ₹300-500 per lead"
+
+**Sales Campaign**:
+- Campaign Name: "Fashion Store - Diwali Sale"
+- Purpose: Drive product purchases
+- Budget: ₹2,000/day (₹60,000/month)
+- Targeting: "Fashion enthusiasts, previous buyers (25-45 years)"
+- Creatives: Product showcases with "Shop Now 50% Off" CTA
+- Expected Results: "₹80,000-₹120,000 revenue, 4-6x ROAS"
+
+**User Decision Points**:
+- **Launch Now** (90% of users) → Campaign goes live immediately
+- **Schedule Later** → User sets launch date/time
+- **Modify Settings** → Purpose-specific adjustments (budget, targeting, creative preferences)
+
+---
+
+## 6. PHASE 5: MULTI-PURPOSE AUTONOMOUS OPERATION (Ongoing)
+
+### 6.1 Purpose-Specific Management
+**User Experience**: Minimal interaction required across multiple campaign purposes
+
+**Real-Time Optimization (Every 4 hours)**:
+- Purpose-specific performance monitoring against benchmarks
+- Budget reallocation based on purpose and performance
+- Audience expansion optimized for each campaign purpose
+- Creative refresh tailored to purpose-specific engagement patterns
+- Bid optimization for purpose-specific conversion goals
+- Purpose-appropriate underperforming ad management
+
+**Daily Automated Actions**:
+- Purpose-specific creative fatigue detection and refresh
+- Budget utilization analysis across different campaign purposes
+- Cross-purpose performance comparison and insights
+- Seasonal trend integration by campaign purpose
+- Purpose-specific performance anomaly detection
+
+### 6.2 Multi-Purpose User Touchpoints (Minimal)
+**Weekly Digest Email**:
+- Subject: "Your campaigns generated 47 leads + ₹85K revenue this week 🎯"
+- **Lead Generation Performance**: 47 leads (↑ 23% vs last week), ₹342 cost per lead
+- **Sales Campaign Performance**: ₹85,000 revenue (↑ 15% vs last week), 4.2x ROAS
+- **Brand Awareness Performance**: 125,000 reach (↑ 10% vs last week), 3.2% engagement
+- **AI Recommendations**: "Increase budget on Sales Campaign #2 (+₹500/day)", "Refresh creatives on Lead Gen Campaign #1"
+- **Action Required**: Accept All/Review Details/Keep Current Settings
+- **Next Week Forecast**: "Expected 55-65 leads + ₹95K-₹110K revenue"
+
+**Monthly Strategy Review**:
+- Subject: "Your January multi-purpose campaign performance + February recommendations"
+- **Purpose-wise Summary**: Goals vs Actual performance for each campaign purpose
+- **Cross-Purpose Insights**: "Lead gen campaigns drive 30% of your sales campaign audience"
+- **Purpose-Specific Recommendations**: Optimal focus areas for each campaign type
+- **Budget Suggestions**: Allocation recommendations across different purposes
+
+---
+
+## 7. PHASE 6: MULTI-PURPOSE SCALING & OPTIMIZATION (Month 2+)
+
+### 7.1 Cross-Purpose Performance-Based Automation
+**Purpose-Specific Automated Scaling Rules**:
+- **Lead Generation**: If leads exceed daily target by 30%, increase budget by 20%
+- **Sales Campaigns**: If ROAS exceeds target by 40%, expand audience by 25%
+- **Brand Awareness**: If cost per reach drops below target by 30%, increase budget
+- **Event Promotion**: If event capacity reaches 70%, pause campaign or switch to waitlist
+- **App Downloads**: If cost per install drops below ₹20, scale budget aggressively
+
+### 7.2 Purpose-Specific User Interaction Points
+**High-Performance Alerts** (SMS/Email):
+- **Multi-Purpose Success**: "🚀 Amazing! Your lead gen campaign is 40% better than expected AND your sales campaign hit 5.2x ROAS. AI recommends increasing total budget from ₹3,000 to ₹4,200/day."
+- **Purpose-Specific Recommendations**: "Your event promotion campaign filled 80% capacity. Switch to waitlist mode? [Yes] [Keep Running]"
+
+**Issue Resolution** (Email/Dashboard notification):
+- **Cross-Purpose Analysis**: "⚠️ Sales Campaign #2 performance declined, but Lead Gen Campaign #1 is generating high-quality prospects. AI has redirected 20% budget to lead generation."
+
+---
+
+## 8. MULTI-PURPOSE DASHBOARD EXPERIENCE
+
+### 8.1 Campaign Overview by Purpose
+**Dashboard Layout**:
+- **Active Campaigns by Purpose**: Lead Gen (2 campaigns), Sales (1 campaign), Brand Awareness (1 campaign)
+- **Purpose-Specific KPIs**: Leads generated, Revenue driven, Reach achieved, App installs
+- **Cross-Purpose Insights**: "Your lead gen audience converts 35% better in sales campaigns"
+- **Budget Distribution**: Visual breakdown showing spend allocation across purposes
+
+### 8.2 Purpose-Specific Analytics
+**Lead Generation Analytics**:
+- Leads Generated: 47 this week
+- Cost per Lead: ₹342 (↓ 15%)
+- Lead Quality Score: 8.2/10
+- Conversion to Customer: 23%
+
+**Sales Campaign Analytics**:
+- Revenue Generated: ₹1,24,000
+- ROAS: 4.2x (↑ 0.3x)
+- Average Order Value: ₹2,600
+- Purchase Conversion Rate: 3.1%
+
+---
+
+## 9. TIER-BASED PURPOSE LIMITATIONS
+
+### 9.1 Purpose Access by Subscription Tier
+**Starter Tier (₹999/month)**:
+- 2 different campaign purposes per month
+- 50 AI credits/month (42 images + 8 videos)
+- ₹25K ad spend monitoring
+- Basic purpose optimization
+- 7-day performance analytics
+
+**Professional Tier (₹2,999/month)**:
+- 5 different campaign purposes per month
+- 200 AI credits/month (160 images + 40 videos)
+- ₹1L ad spend monitoring
+- Advanced purpose-specific A/B testing (up to 5 tests/month)
+- Instagram Reels automation
+- 30-day performance analytics
+- Cross-purpose audience insights
+
+**Business Tier (₹5,999/month)**:
+- Unlimited campaign purposes
+- 500 AI credits/month (400 images + 100 videos)
+- Unlimited ad spend monitoring
+- Cross-purpose optimization and insights
+- Advanced purpose-specific automation rules
+- Real-time performance alerts
+- Creative fatigue detection
+- 90-day performance analytics
+
+---
+
+## 10. CUSTOMER SUCCESS METRICS
+
+### 10.1 Multi-Purpose Onboarding Success
+- **Setup Completion Rate**: 95%+ complete full onboarding
+- **Time to First Campaign**: Under 5 minutes average
+- **Multi-Purpose Adoption**: 70%+ create second campaign with different purpose within 30 days
+- **Creative Studio Usage**: 80%+ users generate at least 5 assets before first campaign
+
+### 10.2 Purpose-Specific Operation Success
+- **Zero-Touch Campaigns**: 90%+ run without user intervention across all purposes
+- **Cross-Purpose Performance**: 25%+ better results when running multiple campaign purposes
+- **Purpose Satisfaction**: 4.5/5+ rating for "purpose-specific optimization"
+- **Creative Library Utilization**: 60%+ reuse library assets in multiple campaigns
+
+### 10.3 Multi-Purpose Engagement Metrics
+- **Purpose Diversity**: Average 2.8 different campaign purposes per user
+- **Cross-Purpose Insights Adoption**: 85%+ users act on cross-purpose recommendations
+- **Purpose-Specific Upgrades**: 40%+ upgrade tier to access more campaign purposes
+- **Creative Studio Retention**: 90%+ users continue generating assets monthly
+
+---
+
+## 11. SUCCESS DEFINITION
+
+### 11.1 Multi-Purpose Customer Success Criteria
+- **Onboarding**: 5-minute setup to first campaign launch with clear purpose selection
+- **Creative Independence**: Users can generate ads/videos without Meta connection
+- **Purpose Flexibility**: Easy creation of campaigns with different purposes as business needs evolve
+- **Performance**: Better results than manual management across all campaign purposes  
+- **Effort**: 95%+ autonomous operation requiring minimal user input across multiple purposes
+- **Cross-Purpose Value**: Clear insights showing how different campaign purposes work together
+
+### 11.2 Platform Success Metrics
+- **Purpose Adoption Rate**: 70%+ users create multiple campaign purposes
+- **Creative Studio Engagement**: 85%+ users actively use standalone creative generation
+- **Cross-Purpose Revenue**: 30%+ revenue increase when users adopt multiple purposes
+- **Purpose-Specific Retention**: 90%+ retention for users with 3+ campaign purposes
+- **Revenue per Purpose**: ₹2,000+ monthly revenue per active campaign purpose
+
+---
+
+This enhanced customer journey enables users to independently create ads/videos through the Creative Studio, then seamlessly integrate them into multi-purpose campaigns with autonomous AI optimization for maximum business impact.

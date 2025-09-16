@@ -1,0 +1,327 @@
+# Technical Design Decisions
+## AI Marketing Automation Platform
+
+---
+
+## 1. TECHNOLOGY STACK DECISIONS
+
+### Backend Framework: FastAPI
+**Decision**: FastAPI with Python 3.13+
+**Rationale**:
+- **High Performance**: Async/await support for concurrent AI API calls
+- **Auto Documentation**: OpenAPI/Swagger generation for API specs
+- **Type Safety**: Pydantic models for data validation
+- **Developer Experience**: Excellent debugging and development tools
+- **AI Integration**: Seamless integration with Python AI libraries
+
+**Alternatives Considered**:
+- **Django REST**: Too heavyweight for API-first architecture
+- **Flask**: Less modern async support, more boilerplate
+- **Node.js/Express**: Good performance but Python better for AI integrations
+
+### Database: PostgreSQL
+**Decision**: PostgreSQL 14+ with JSONB support
+**Rationale**:
+- **JSONB Support**: Perfect for AI-generated content and flexible schemas
+- **ACID Compliance**: Critical for payment and campaign data consistency
+- **Performance**: Excellent query optimization and indexing
+- **Scalability**: Proven at scale with read replicas
+- **Extensions**: Full-text search, UUID support, advanced indexing
+
+**Alternatives Considered**:
+- **MongoDB**: Good for flexible schemas but lacks ACID guarantees
+- **MySQL**: Less advanced JSONB support and analytics capabilities
+- **SQLite**: Not suitable for multi-user production environment
+
+### Frontend: React.js
+**Decision**: React 18+ with TypeScript
+**Rationale**:
+- **Component Ecosystem**: Rich ecosystem for dashboard/analytics components
+- **State Management**: Excellent tools (Redux/Zustand) for complex UI state
+- **Developer Experience**: Hot reloading, debugging, large community
+- **Performance**: Virtual DOM for efficient UI updates
+- **TypeScript**: Type safety for better development experience
+
+**Alternatives Considered**:
+- **Vue.js**: Smaller ecosystem, less suitable for complex dashboards
+- **Angular**: Too heavyweight for our needs, steeper learning curve
+- **Svelte**: Great performance but smaller ecosystem
+
+---
+
+## 2. ARCHITECTURE DECISIONS
+
+### Microservices vs Monolithic
+**Decision**: Modular Monolith with Service Separation
+**Rationale**:
+- **Development Speed**: Faster development and deployment for MVP
+- **Operational Simplicity**: Single deployment, easier monitoring
+- **Service Boundaries**: Clear separation of concerns within monolith
+- **Future Migration**: Easy to extract services when needed
+
+**Architecture Pattern**:
+```
+Single FastAPI Application
+├── Authentication Service Layer
+├── Creative Generation Service Layer
+├── Campaign Management Service Layer
+├── AI Optimization Service Layer
+└── Analytics Service Layer
+```
+
+### API Design: RESTful with Async Processing
+**Decision**: REST API with background job processing
+**Rationale**:
+- **Simplicity**: RESTful design is well-understood and documented
+- **AI Processing**: Long-running AI tasks need background processing
+- **Real-time Updates**: WebSocket support for progress updates
+- **Caching**: Redis for session and performance data
+
+**Background Processing Pattern**:
+```
+API Request → Immediate Response → Background Job → WebSocket Update
+```
+
+---
+
+## 3. AI INTEGRATION DECISIONS
+
+### AI Service Architecture
+**Decision**: Direct API Integration (not self-hosted)
+**Rationale**:
+- **Cost Efficiency**: Pay-per-use vs infrastructure costs
+- **Latest Models**: Always access to newest AI models
+- **Maintenance**: No model training or infrastructure management
+- **Scalability**: Automatic scaling based on demand
+
+**AI Service Stack**:
+- **Image Generation**: Google Imagen 4.0 via Gen AI API
+- **Video Generation**: Google Veo 3.0 via Gen AI API
+- **Text Analysis**: Google Gemini for brand voice analysis
+- **Future Flexibility**: Abstraction layer for multi-provider support
+
+### AI Processing Strategy
+**Decision**: Async Processing with Progress Tracking
+**Rationale**:
+- **User Experience**: Non-blocking UI with progress indicators
+- **Error Handling**: Robust retry mechanisms for AI API failures
+- **Cost Control**: Rate limiting and usage tracking per user tier
+
+**Processing Flow**:
+```
+User Request → Validate Input → Queue Job → AI API Call → Store Result → Notify User
+```
+
+---
+
+## 4. DATA ARCHITECTURE DECISIONS
+
+### Data Storage Strategy
+**Decision**: Hybrid Storage (Database + File Storage)
+**Rationale**:
+- **Metadata in Database**: Campaign data, user profiles, analytics
+- **Assets in S3**: Creative files with CDN distribution
+- **Performance**: Database for queries, S3 for file serving
+- **Cost Efficiency**: S3 cheaper for large file storage
+
+**Storage Pattern**:
+```
+PostgreSQL: Metadata, relationships, analytics
+AWS S3: Creative assets, brand files, backups
+Redis: Session data, cache, job queues
+```
+
+### Database Design Philosophy
+**Decision**: Normalized with Strategic Denormalization
+**Rationale**:
+- **Data Integrity**: Normalized core tables for consistency
+- **Performance**: Denormalized analytics tables for fast queries
+- **Flexibility**: JSONB fields for evolving AI-generated content
+- **Audit Trail**: Complete history of all critical operations
+
+---
+
+## 5. SECURITY ARCHITECTURE DECISIONS
+
+### Authentication Strategy
+**Decision**: JWT + Refresh Token Pattern
+**Rationale**:
+- **Stateless**: No server-side session storage needed
+- **Scalability**: Easy to scale across multiple instances
+- **Mobile Support**: Works well with mobile applications
+- **Security**: Short-lived access tokens with refresh mechanism
+
+**Token Strategy**:
+```
+Access Token: 1 hour expiration
+Refresh Token: 30 days with rotation
+2FA: TOTP for business tier users
+```
+
+### Data Encryption Approach
+**Decision**: Application-Level Encryption for Sensitive Data
+**Rationale**:
+- **Control**: Full control over encryption keys and methods
+- **Compliance**: Meet GDPR and Indian data protection requirements
+- **Performance**: Encrypt only sensitive fields, not entire database
+- **Key Management**: Separate key storage from encrypted data
+
+**Encryption Layers**:
+```
+Meta API Tokens: RSA + AES hybrid encryption
+Payment Data: Never stored (external processor only)
+User Passwords: bcrypt with 12 rounds
+File Storage: Server-side encryption (S3)
+```
+
+---
+
+## 6. INTEGRATION DECISIONS
+
+### Meta API Integration
+**Decision**: Direct Integration with Token Management
+**Rationale**:
+- **Real-time Data**: Direct access to latest campaign performance
+- **Cost Efficiency**: No third-party integration fees
+- **Control**: Full control over API usage and rate limiting
+- **Features**: Access to all Meta API capabilities
+
+**Integration Pattern**:
+```
+User OAuth → Store Encrypted Tokens → Background Refresh → API Calls
+```
+
+### Payment Processing
+**Decision**: Razorpay for Indian Market
+**Rationale**:
+- **Local Compliance**: Built for Indian regulations and tax requirements
+- **Payment Methods**: Supports UPI, cards, net banking, wallets
+- **Developer Experience**: Excellent APIs and documentation
+- **Cost**: Competitive pricing for Indian market
+
+**Payment Flow**:
+```
+Subscription Selection → Razorpay Checkout → Webhook Verification → Account Activation
+```
+
+---
+
+## 7. PERFORMANCE DECISIONS
+
+### Caching Strategy
+**Decision**: Multi-Level Caching
+**Rationale**:
+- **Database Queries**: Redis for expensive analytics queries
+- **API Responses**: Cache campaign data and user profiles
+- **File Serving**: CloudFront CDN for creative assets
+- **Session Data**: Redis for user sessions and temporary data
+
+**Caching Layers**:
+```
+CDN: Static assets and creative files
+Redis: Database queries, sessions, job queues
+Application: In-memory caching for frequently accessed data
+```
+
+### Database Performance
+**Decision**: Read Replicas + Partitioning
+**Rationale**:
+- **Analytics Queries**: Read replicas for heavy reporting queries
+- **Historical Data**: Partition performance_analytics by month
+- **Indexing**: Composite indexes for common query patterns
+- **Query Optimization**: Analyze and optimize slow queries
+
+---
+
+## 8. SCALABILITY DECISIONS
+
+### Horizontal Scaling Strategy
+**Decision**: Stateless Application with External State
+**Rationale**:
+- **Load Balancing**: Multiple FastAPI instances behind load balancer
+- **Shared State**: Redis for sessions, PostgreSQL for data
+- **File Storage**: S3 for shared asset storage across instances
+- **Background Jobs**: Distributed job processing with Celery
+
+**Scaling Architecture**:
+```
+Load Balancer → Multiple FastAPI Instances → Shared Redis/PostgreSQL → S3
+```
+
+### Auto-Scaling Triggers
+**Decision**: CPU/Memory Based with Custom Metrics
+**Rationale**:
+- **Standard Metrics**: CPU usage > 70%, Memory usage > 80%
+- **Custom Metrics**: AI API queue length, active user sessions
+- **Peak Handling**: Festival season traffic spikes (Diwali, etc.)
+- **Cost Optimization**: Scale down during low-usage periods
+
+---
+
+## 9. MONITORING & OBSERVABILITY DECISIONS
+
+### Monitoring Stack
+**Decision**: Prometheus + Grafana + Structured Logging
+**Rationale**:
+- **Metrics**: Prometheus for time-series metrics and alerting
+- **Dashboards**: Grafana for visualization and monitoring
+- **Logs**: Structured JSON logging for better searchability
+- **Tracing**: Request tracing for performance optimization
+
+**Monitoring Strategy**:
+```
+Application Metrics: Response times, error rates, user actions
+AI Service Metrics: Generation times, success rates, cost tracking
+Business Metrics: Conversions, revenue, user engagement
+Infrastructure: CPU, memory, database performance
+```
+
+### Error Handling Philosophy
+**Decision**: Fail-Fast with Graceful Degradation
+**Rationale**:
+- **User Experience**: Never show technical errors to users
+- **Debugging**: Detailed logging for developer troubleshooting
+- **Availability**: Graceful degradation when AI services are down
+- **Recovery**: Automatic retry with exponential backoff
+
+---
+
+## 10. DEVELOPMENT WORKFLOW DECISIONS
+
+### Code Organization
+**Decision**: Domain-Driven Design with Clear Boundaries
+**Rationale**:
+- **Maintainability**: Clear separation of business logic
+- **Testing**: Easy to unit test individual components
+- **Team Collaboration**: Multiple developers can work independently
+- **Future Migration**: Easy to extract services if needed
+
+**Directory Structure**:
+```
+backend/
+├── models/ (Data models)
+├── services/ (Business logic)
+├── api/ (REST endpoints)
+├── agents/ (AI agents)
+├── utils/ (Shared utilities)
+└── tests/ (Test suites)
+```
+
+### Testing Strategy
+**Decision**: Pyramid Testing with AI Service Mocking
+**Rationale**:
+- **Unit Tests**: Fast feedback for business logic
+- **Integration Tests**: Database and API endpoint testing
+- **End-to-End Tests**: Critical user journeys
+- **AI Mocking**: Avoid AI API costs in testing
+
+**Testing Pyramid**:
+```
+E2E Tests: Critical user flows (few)
+Integration Tests: API endpoints, database operations (moderate)
+Unit Tests: Business logic, utilities (many)
+```
+
+---
+
+These design decisions provide a solid technical foundation while maintaining flexibility for future growth and changes. Each decision balances immediate needs with long-term scalability and maintainability.

@@ -1,0 +1,855 @@
+# QA Testing Plan
+## AI Marketing Automation Platform
+
+---
+
+## 1. TESTING OVERVIEW
+
+### Testing Philosophy
+- **Quality First**: No feature ships without comprehensive testing
+- **User-Centric**: Test from the user's perspective and real-world scenarios
+- **Risk-Based**: Focus testing effort on high-risk, high-impact areas
+- **Continuous**: Testing integrated into every stage of development
+- **Data-Driven**: Use metrics to guide testing decisions and improvements
+
+### Testing Pyramid Strategy
+```
+                    E2E Tests (Few)
+                 ┌─────────────────┐
+                 │   User Flows    │
+                 │   Integration   │
+                 └─────────────────┘
+              
+            Integration Tests (Moderate)
+         ┌─────────────────────────────┐
+         │    API Endpoints           │
+         │    Database Operations     │
+         │    External Services       │
+         └─────────────────────────────┘
+         
+       Unit Tests (Many)
+   ┌─────────────────────────────────────┐
+   │      Business Logic                │
+   │      Utilities & Helpers           │
+   │      Individual Components         │
+   └─────────────────────────────────────┘
+```
+
+### Testing Scope
+- **Functional Testing**: Feature functionality and business logic
+- **API Testing**: REST endpoints and data validation
+- **UI Testing**: User interface components and workflows
+- **Performance Testing**: Load, stress, and scalability
+- **Security Testing**: Authentication, authorization, data protection
+- **Integration Testing**: External APIs (Meta, AI services, payment)
+- **Mobile Testing**: Responsive design and mobile-specific features
+- **Accessibility Testing**: WCAG compliance and inclusive design
+
+---
+
+## 2. FUNCTIONAL TESTING
+
+### 2.1 Creative Studio Testing
+
+#### Test Scenarios: Image Generation
+**Test Case ID**: CS-IMG-001
+**Priority**: P0 (Critical)
+**Description**: Verify AI image generation with various prompts and styles
+
+**Test Steps**:
+1. Navigate to Creative Studio
+2. Enter business-relevant prompt: "Professional healthcare clinic advertisement"
+3. Select style: "Modern"
+4. Select format: "1:1"
+5. Click "Generate Image"
+6. Verify generation completes within 30 seconds
+7. Verify image quality meets standards (minimum 1080px resolution)
+8. Verify image matches prompt and style requirements
+9. Save image to library
+10. Verify image appears in asset library with correct metadata
+
+**Expected Results**:
+- Image generated successfully within time limit
+- Image quality and resolution meet standards
+- Image content relevant to prompt and style
+- Asset saved with proper tags and metadata
+- No errors or timeouts during generation
+
+**Test Data**:
+- Prompts: Healthcare, Restaurant, Fashion, Technology, Education
+- Styles: Modern, Traditional, Festive, Professional, Minimalist
+- Formats: 1:1, 16:9, 9:16, 4:5
+
+#### Test Scenarios: Video Generation
+**Test Case ID**: CS-VID-001
+**Priority**: P0 (Critical)
+**Description**: Verify AI video generation functionality
+
+**Test Steps**:
+1. Navigate to Creative Studio video section
+2. Enter prompt: "Product demonstration for fitness equipment"
+3. Select duration: 15 seconds
+4. Select format: 9:16 (Stories format)
+5. Click "Generate Video"
+6. Monitor generation progress
+7. Verify video completes within 60 seconds
+8. Review video quality and content relevance
+9. Verify thumbnail auto-generation
+10. Save video to library
+
+**Expected Results**:
+- Video generated within 60-second limit
+- Video quality minimum 720p HD
+- Content matches prompt requirements
+- Thumbnail generated automatically
+- Video saved successfully to library
+
+#### Test Scenarios: Brand Voice Integration
+**Test Case ID**: CS-BV-001
+**Priority**: P1 (High)
+**Description**: Verify brand voice application in creative generation
+
+**Pre-conditions**: User has completed brand voice analysis
+
+**Test Steps**:
+1. Complete website analysis for brand voice
+2. Generate image with "Apply Brand Voice" enabled
+3. Generate similar image without brand voice
+4. Compare outputs for brand consistency
+5. Verify brand colors and tone reflected in generated content
+
+**Expected Results**:
+- Brand voice applied creatives show consistent style
+- Brand colors incorporated when applicable
+- Tone matches analyzed brand personality
+- Clear difference between brand-applied and generic content
+
+### 2.2 Campaign Management Testing
+
+#### Test Scenarios: Multi-Purpose Campaign Creation
+**Test Case ID**: CM-CREATE-001
+**Priority**: P0 (Critical)
+**Description**: Create campaigns for different business purposes
+
+**Test Cases by Purpose**:
+1. **Lead Generation Campaign**
+   - Target audience: Local healthcare seekers
+   - Budget: ₹1,200/day
+   - Success metric: Cost per lead < ₹500
+   - Expected completion: Under 30 minutes
+
+2. **E-commerce Sales Campaign**
+   - Target audience: Fashion shoppers, 18-35
+   - Budget: ₹2,000/day
+   - Success metric: ROAS > 3.0
+   - Product catalog integration required
+
+3. **Brand Awareness Campaign**
+   - Target audience: Local area, all demographics
+   - Budget: ₹800/day
+   - Success metric: Reach > 10,000 people/day
+   - Focus on impressions and brand recall
+
+**Test Steps (Generic)**:
+1. Click "Create Campaign"
+2. Select campaign purpose
+3. Enter campaign details (name, budget, duration)
+4. Define target audience
+5. Select or generate creative assets
+6. Review campaign summary
+7. Launch campaign or save as draft
+
+**Expected Results**:
+- Campaign created successfully for all purposes
+- Appropriate targeting options available per purpose
+- Asset recommendations relevant to campaign type
+- Budget validation and recommendations working
+- Estimated performance metrics displayed
+
+#### Test Scenarios: Campaign Optimization
+**Test Case ID**: CM-OPT-001
+**Priority**: P1 (High)
+**Description**: Verify AI-powered campaign optimization
+
+**Pre-conditions**: Campaign active for minimum 7 days with performance data
+
+**Test Steps**:
+1. Navigate to active campaign with optimization enabled
+2. Verify optimization triggers are monitored
+3. Simulate high-performance scenario (ROAS > 4.0 for 3 days)
+4. Verify automatic budget increase triggered
+5. Check optimization notification sent to user
+6. Verify optimization logged in campaign history
+7. Test rollback functionality if optimization fails
+
+**Expected Results**:
+- Optimization triggers detected accurately
+- Budget adjustments made within defined limits (max 50% increase)
+- User notifications sent for all optimization actions
+- Optimization history maintained with details
+- Rollback functionality works when needed
+
+### 2.3 Meta API Integration Testing
+
+#### Test Scenarios: Account Connection
+**Test Case ID**: META-CONN-001
+**Priority**: P0 (Critical)
+**Description**: Connect Meta account via OAuth
+
+**Test Steps**:
+1. Navigate to "Connect Meta Account"
+2. Click "Connect with Meta"
+3. Complete OAuth flow on Meta platform
+4. Grant required permissions (ads_management, ads_read)
+5. Return to platform
+6. Verify connection status
+7. Check ad accounts accessibility
+8. Verify token storage and encryption
+
+**Expected Results**:
+- OAuth flow completes successfully
+- Required permissions granted and verified
+- Connection status shows "Active"
+- User's ad accounts listed correctly
+- Tokens stored securely and encrypted
+
+#### Test Scenarios: Campaign Launch
+**Test Case ID**: META-LAUNCH-001
+**Priority**: P0 (Critical)
+**Description**: Launch campaign directly to Meta platform
+
+**Pre-conditions**: Meta account connected, campaign created with assets
+
+**Test Steps**:
+1. Complete campaign creation with assets
+2. Click "Launch to Meta"
+3. Verify asset upload to Meta
+4. Verify targeting translation to Meta format
+5. Verify budget and schedule synchronization
+6. Monitor campaign status sync
+7. Check Meta Ads Manager for campaign appearance
+
+**Expected Results**:
+- Assets uploaded successfully to Meta
+- Campaign appears in Meta Ads Manager
+- Targeting settings translated correctly
+- Budget and schedule synchronized accurately
+- Campaign status syncs bidirectionally
+
+---
+
+## 3. API TESTING
+
+### 3.1 Authentication API Testing
+
+#### Test Scenarios: User Registration
+**Endpoint**: POST /auth/register
+**Test Case ID**: API-AUTH-001
+
+**Valid Registration Tests**:
+```json
+// Test Case 1: Valid registration
+{
+  "email": "test@example.com",
+  "password": "SecurePass123!",
+  "first_name": "John",
+  "last_name": "Doe",
+  "subscription_tier": "starter"
+}
+Expected: 201 Created, user created successfully
+
+// Test Case 2: Email validation
+{
+  "email": "invalid-email",
+  "password": "SecurePass123!",
+  "first_name": "John",
+  "last_name": "Doe"
+}
+Expected: 400 Bad Request, email validation error
+```
+
+**Invalid Registration Tests**:
+- Duplicate email registration
+- Weak password (< 8 characters)
+- Missing required fields
+- Invalid subscription tier
+- SQL injection attempts in fields
+
+#### Test Scenarios: JWT Authentication
+**Endpoint**: POST /auth/login
+**Test Case ID**: API-AUTH-002
+
+**Test Cases**:
+1. Valid credentials → 200 OK with access/refresh tokens
+2. Invalid password → 401 Unauthorized
+3. Non-existent email → 401 Unauthorized
+4. Expired token usage → 401 Unauthorized with token refresh prompt
+5. Token refresh functionality → 200 OK with new tokens
+
+### 3.2 Creative Studio API Testing
+
+#### Test Scenarios: Image Generation
+**Endpoint**: POST /creative/generate/image
+**Test Case ID**: API-CREATIVE-001
+
+**Test Cases**:
+```json
+// Valid image generation
+{
+  "prompt": "Professional healthcare clinic advertisement",
+  "style": "modern",
+  "format": "1:1",
+  "apply_brand_voice": true
+}
+Expected: 200 OK with asset_id and file_url
+
+// Invalid format
+{
+  "prompt": "Test prompt",
+  "style": "modern",
+  "format": "invalid_format"
+}
+Expected: 400 Bad Request with validation error
+
+// Prompt too long (>500 characters)
+Expected: 400 Bad Request with length validation error
+```
+
+**Performance Tests**:
+- Generation time < 30 seconds for images
+- Generation time < 60 seconds for videos
+- Concurrent generation requests (up to 10 per user)
+- Rate limiting enforcement (per subscription tier)
+
+### 3.3 Campaign API Testing
+
+#### Test Scenarios: Campaign CRUD Operations
+**Test Case ID**: API-CAMPAIGN-001
+
+**Create Campaign Tests**:
+```json
+// Valid lead generation campaign
+{
+  "name": "Healthcare Lead Gen - January",
+  "purpose": "lead_generation",
+  "daily_budget": 1200.00,
+  "target_audience": {
+    "age_min": 25,
+    "age_max": 55,
+    "locations": ["Mumbai", "Delhi"],
+    "interests": ["health", "wellness"]
+  }
+}
+Expected: 201 Created with campaign object
+
+// Invalid budget (negative)
+{
+  "name": "Test Campaign",
+  "purpose": "lead_generation",
+  "daily_budget": -100.00
+}
+Expected: 400 Bad Request with budget validation error
+```
+
+**Read/Update/Delete Tests**:
+- Get user campaigns with pagination
+- Filter campaigns by status/purpose
+- Update campaign settings
+- Delete campaigns (soft delete)
+- Permission checks (users can only access own campaigns)
+
+---
+
+## 4. UI/UX TESTING
+
+### 4.1 Responsive Design Testing
+
+#### Device Testing Matrix
+**Desktop Browsers**:
+- Chrome 120+ (Windows, macOS, Linux)
+- Firefox 119+ (Windows, macOS, Linux)
+- Safari 17+ (macOS)
+- Edge 120+ (Windows)
+
+**Mobile Devices**:
+- iPhone 12/13/14 (Safari, Chrome)
+- Samsung Galaxy S21/S22 (Chrome, Samsung Browser)
+- OnePlus devices (popular in Indian market)
+- Budget Android devices (Android 10+)
+
+**Tablet Testing**:
+- iPad Pro/Air (Safari)
+- Android tablets (Chrome)
+
+#### Test Scenarios: Mobile Experience
+**Test Case ID**: UI-MOBILE-001
+
+**Test Steps**:
+1. Access platform on mobile device
+2. Test touch targets (minimum 44px)
+3. Verify text readability without zoom
+4. Test form inputs and interactions
+5. Verify Creative Studio mobile workflow
+6. Test campaign creation on mobile
+7. Check performance dashboard on small screens
+
+**Expected Results**:
+- All touch targets accessible and appropriately sized
+- Text readable without horizontal scrolling
+- Forms usable with virtual keyboard
+- Creative Studio functional on mobile
+- Campaign creation possible on mobile devices
+- Dashboard charts readable and interactive
+
+### 4.2 Accessibility Testing
+
+#### WCAG 2.1 AA Compliance
+**Test Case ID**: UI-A11Y-001
+
+**Test Areas**:
+1. **Keyboard Navigation**
+   - Tab order logical and comprehensive
+   - All interactive elements keyboard accessible
+   - Focus indicators visible and clear
+   - Skip links available for navigation
+
+2. **Screen Reader Testing**
+   - NVDA (Windows) compatibility
+   - VoiceOver (macOS/iOS) compatibility
+   - Proper heading structure (H1-H6)
+   - Alternative text for images and icons
+   - Form labels properly associated
+
+3. **Color and Contrast**
+   - Minimum 4.5:1 contrast ratio for normal text
+   - Minimum 3:1 contrast ratio for large text
+   - Color not the only means of conveying information
+   - High contrast mode support
+
+4. **Motion and Animation**
+   - Respect prefers-reduced-motion settings
+   - No auto-playing videos with sound
+   - Animations pausable by user
+
+#### Test Scenarios: Indian Language Support
+**Test Case ID**: UI-I18N-001
+
+**Test Cases**:
+- Hindi interface translation accuracy
+- Text expansion handling (Hindi text often longer)
+- Right-to-left language support preparation
+- Currency formatting (₹ symbol, Indian numbering)
+- Date format preferences (DD/MM/YYYY)
+
+---
+
+## 5. PERFORMANCE TESTING
+
+### 5.1 Load Testing
+
+#### Test Scenarios: Concurrent Users
+**Test Case ID**: PERF-LOAD-001
+
+**Load Testing Matrix**:
+```
+Scenario 1: Normal Load
+- 100 concurrent users
+- 50% Creative Studio usage
+- 30% Campaign management
+- 20% Analytics viewing
+Duration: 30 minutes
+
+Scenario 2: Peak Load
+- 500 concurrent users
+- 60% Creative Studio usage
+- 25% Campaign management
+- 15% Analytics viewing
+Duration: 15 minutes
+
+Scenario 3: Stress Test
+- 1000 concurrent users
+- Gradually increase to 2000
+- Monitor breaking point
+- Test recovery time
+```
+
+**Performance Targets**:
+- Page load time: < 2 seconds
+- API response time: < 200ms (95th percentile)
+- Image generation: < 30 seconds
+- Video generation: < 60 seconds
+- Database query time: < 100ms
+
+#### Test Scenarios: AI Service Load
+**Test Case ID**: PERF-AI-001
+
+**Test Cases**:
+1. **Concurrent Image Generation**
+   - 50 simultaneous image generation requests
+   - Monitor queue processing time
+   - Verify no timeouts or failures
+   - Check resource utilization
+
+2. **Mixed AI Workload**
+   - 30 image generations
+   - 10 video generations
+   - 20 brand voice analyses
+   - Monitor overall system performance
+
+### 5.2 Scalability Testing
+
+#### Test Scenarios: Database Performance
+**Test Case ID**: PERF-DB-001
+
+**Test Cases**:
+1. **Large Dataset Queries**
+   - 100K+ campaigns in database
+   - 1M+ performance records
+   - Complex analytics queries
+   - Pagination performance
+
+2. **Concurrent Database Operations**
+   - 200 simultaneous read operations
+   - 50 simultaneous write operations
+   - Transaction deadlock testing
+   - Connection pool exhaustion testing
+
+#### Test Scenarios: File Storage Performance
+**Test Case ID**: PERF-STORAGE-001
+
+**Test Cases**:
+- Large file uploads (video files up to 100MB)
+- Concurrent file uploads (50 simultaneous)
+- CDN performance from Indian locations
+- File retrieval speed testing
+
+---
+
+## 6. SECURITY TESTING
+
+### 6.1 Authentication Security
+
+#### Test Scenarios: JWT Security
+**Test Case ID**: SEC-JWT-001
+
+**Test Cases**:
+1. **Token Validation**
+   - Expired token rejection
+   - Invalid signature detection
+   - Token tampering attempts
+   - Refresh token security
+
+2. **Session Management**
+   - Concurrent session limits
+   - Session invalidation on logout
+   - Token blacklisting functionality
+   - Refresh token rotation
+
+#### Test Scenarios: Password Security
+**Test Case ID**: SEC-PWD-001
+
+**Test Cases**:
+- Password strength validation
+- Brute force protection (account lockout)
+- Password reset security
+- Password history enforcement
+
+### 6.2 API Security Testing
+
+#### Test Scenarios: Input Validation
+**Test Case ID**: SEC-INPUT-001
+
+**Injection Attack Tests**:
+1. **SQL Injection**
+   - Test all API endpoints with SQL injection payloads
+   - Verify parameterized queries prevent attacks
+   - Test both GET and POST parameters
+
+2. **XSS Prevention**
+   - Script injection in form fields
+   - HTML tag injection attempts
+   - URL parameter XSS testing
+
+3. **Command Injection**
+   - System command injection attempts
+   - File path traversal testing
+   - Upload file validation
+
+#### Test Scenarios: Rate Limiting
+**Test Case ID**: SEC-RATE-001
+
+**Test Cases**:
+- API rate limit enforcement (1000 requests/hour)
+- Rate limit bypass attempts
+- DDoS protection testing
+- Per-endpoint rate limiting
+
+### 6.3 Data Protection Testing
+
+#### Test Scenarios: Encryption Verification
+**Test Case ID**: SEC-ENCRYPT-001
+
+**Test Cases**:
+- Meta API token encryption at rest
+- Database field encryption verification
+- HTTPS enforcement testing
+- File upload encryption verification
+
+#### Test Scenarios: Privacy Compliance
+**Test Case ID**: SEC-PRIVACY-001
+
+**GDPR Compliance Tests**:
+- Data export functionality
+- Data deletion (right to be forgotten)
+- Consent management
+- Data processing audit logs
+
+**Indian Data Protection Tests**:
+- Data localization verification
+- Consent requirements compliance
+- Data breach notification system
+
+---
+
+## 7. INTEGRATION TESTING
+
+### 7.1 Meta API Integration
+
+#### Test Scenarios: OAuth Flow
+**Test Case ID**: INT-META-001
+
+**Test Cases**:
+1. **Standard OAuth Flow**
+   - Authorization request
+   - User consent process
+   - Authorization code exchange
+   - Token storage and encryption
+
+2. **Error Scenarios**
+   - User denies permissions
+   - Invalid authorization code
+   - Expired authorization code
+   - Network timeout during OAuth
+
+#### Test Scenarios: Campaign Synchronization
+**Test Case ID**: INT-META-002
+
+**Test Cases**:
+- Campaign creation synchronization
+- Asset upload verification
+- Performance data sync accuracy
+- Bidirectional status updates
+
+### 7.2 AI Services Integration
+
+#### Test Scenarios: Google AI Services
+**Test Case ID**: INT-AI-001
+
+**Test Cases**:
+1. **Image Generation (Imagen)**
+   - Various prompt types and styles
+   - Different image formats
+   - Error handling for failed generations
+   - Rate limit compliance
+
+2. **Video Generation (Veo)**
+   - Different duration requests
+   - Video quality verification
+   - Timeout handling
+   - Fallback mechanisms
+
+3. **Text Analysis (Gemini)**
+   - Website content analysis
+   - Brand voice extraction
+   - Social media analysis
+   - Response parsing accuracy
+
+### 7.3 Payment Integration
+
+#### Test Scenarios: Razorpay Integration
+**Test Case ID**: INT-PAY-001
+
+**Test Cases**:
+1. **Payment Processing**
+   - Successful payment flow
+   - Failed payment handling
+   - Payment method validation
+   - Webhook processing
+
+2. **Subscription Management**
+   - Subscription creation
+   - Upgrade/downgrade processing
+   - Cancellation handling
+   - Prorated billing verification
+
+---
+
+## 8. AUTOMATION STRATEGY
+
+### 8.1 Test Automation Framework
+
+#### Backend Test Automation
+**Framework**: Pytest + FastAPI TestClient
+**Coverage Target**: 90%+ code coverage
+
+**Test Categories**:
+```python
+# Unit Tests
+pytest tests/unit/
+
+# Integration Tests  
+pytest tests/integration/
+
+# API Tests
+pytest tests/api/
+
+# Performance Tests
+pytest tests/performance/
+```
+
+#### Frontend Test Automation
+**Framework**: Jest + React Testing Library + Playwright
+
+**Test Categories**:
+```javascript
+// Unit Tests
+npm test -- tests/unit/
+
+// Component Tests
+npm test -- tests/components/
+
+// E2E Tests
+npx playwright test
+
+// Visual Regression Tests
+npm run test:visual
+```
+
+### 8.2 CI/CD Integration
+
+#### Automated Test Pipeline
+```yaml
+# GitHub Actions Workflow
+Testing Pipeline:
+  1. Code Quality Checks (Linting, Formatting)
+  2. Unit Tests (Backend + Frontend)
+  3. Integration Tests
+  4. API Contract Tests
+  5. Security Scans
+  6. Performance Tests (on staging)
+  7. E2E Tests (critical paths)
+  8. Accessibility Tests
+  9. Visual Regression Tests
+```
+
+#### Test Environments
+1. **Development**: Basic smoke tests
+2. **Staging**: Full test suite execution
+3. **Production**: Health checks and monitoring
+
+---
+
+## 9. TEST DATA MANAGEMENT
+
+### 9.1 Test Data Strategy
+
+#### Synthetic Test Data
+```json
+// User Test Data
+{
+  "test_users": [
+    {
+      "email": "healthcare_owner@test.com",
+      "business_type": "healthcare",
+      "subscription": "professional"
+    },
+    {
+      "email": "restaurant_owner@test.com", 
+      "business_type": "restaurant",
+      "subscription": "starter"
+    }
+  ]
+}
+
+// Campaign Test Data
+{
+  "test_campaigns": [
+    {
+      "name": "Healthcare Lead Gen Test",
+      "purpose": "lead_generation",
+      "daily_budget": 1000,
+      "status": "active"
+    }
+  ]
+}
+```
+
+#### Production Data Anonymization
+- User PII anonymization for testing
+- Campaign data sanitization
+- Performance metrics with realistic ranges
+- Brand voice data pseudonymization
+
+### 9.2 Test Environment Data
+
+#### Database Seeding
+```sql
+-- Test user accounts
+INSERT INTO users (email, subscription_tier) VALUES
+('test_starter@example.com', 'starter'),
+('test_professional@example.com', 'professional'),
+('test_business@example.com', 'business');
+
+-- Sample campaigns for testing
+INSERT INTO campaigns (user_id, name, purpose, status) VALUES
+(test_user_id, 'Test Lead Gen Campaign', 'lead_generation', 'active'),
+(test_user_id, 'Test Brand Awareness', 'brand_awareness', 'draft');
+```
+
+---
+
+## 10. QUALITY METRICS & REPORTING
+
+### 10.1 Quality Metrics
+
+#### Test Metrics
+- **Test Coverage**: Minimum 90% code coverage
+- **Test Execution Time**: < 30 minutes for full suite
+- **Test Pass Rate**: > 95% for stable builds
+- **Defect Escape Rate**: < 5% to production
+
+#### Performance Metrics
+- **Page Load Time**: < 2 seconds (95th percentile)
+- **API Response Time**: < 200ms (95th percentile)
+- **AI Generation Time**: Images < 30s, Videos < 60s
+- **Error Rate**: < 1% for API endpoints
+
+#### User Experience Metrics
+- **Accessibility Score**: WCAG 2.1 AA compliance
+- **Mobile Performance**: Lighthouse score > 90
+- **Cross-browser Compatibility**: 99%+ feature parity
+- **User Task Completion**: > 90% success rate
+
+### 10.2 Quality Gates
+
+#### Release Criteria
+Before any release to production:
+- [ ] All critical and high priority tests pass
+- [ ] Performance benchmarks met
+- [ ] Security scan clean (no high/critical vulnerabilities)
+- [ ] Accessibility compliance verified
+- [ ] Cross-browser testing complete
+- [ ] Load testing passed for expected traffic
+- [ ] Integration tests with external services pass
+- [ ] User acceptance testing approved
+
+#### Rollback Triggers
+Automatic rollback if:
+- Error rate > 5% for 5 minutes
+- Page load time > 5 seconds
+- API response time > 1 second
+- Critical feature failure detected
+
+---
+
+This comprehensive QA testing plan ensures high-quality delivery of the AI Marketing Automation Platform with robust testing coverage across all functional, performance, security, and user experience aspects.
